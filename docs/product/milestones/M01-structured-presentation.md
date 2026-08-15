@@ -81,7 +81,7 @@ Unity UIが`IGame.View()`の表示文字列を解析せず、型付きの状態�
 - `dotnet build TrumpGameLab.sln -m:1`：成功（警告0、エラー0）
 - `dotnet test tests/TrumpLab.Tests`：239件成功、失敗0、skip 0
 - BashとPowerShellのmigration verification：両方成功
-- Unity Editor：既知の配置とUnity Hub登録に存在しないため、Unity Standardは未実行
+- Unity 6000.3.22f1のEdit Mode Standard：237件成功、失敗0
 - `Core.cs`、Registry、Catalogue、CLI source：M01開始時の`dd21030`から変更なし
 - CLI候補台帳：92件、pending 0件
 - `crazy_eights`の30局固定seed CLI simulation：同一入力の2回実行で出力一致
