@@ -2,8 +2,8 @@
 
 ## 状態
 
-- マイルストーン：`In Progress`
-- 次のタスク：`M01-T06`
+- マイルストーン：`Done`
+- 次のタスク：なし（`M02-T01`へ遷移）
 - 参照ゲーム：`crazy_eights`
 
 ## 目的
@@ -49,7 +49,7 @@ Unity UIが`IGame.View()`の表示文字列を解析せず、型付きの状態�
 | M01-T03 | Done | Crazy Eightsへ構造化状態と操作記述を実装する | T02 | viewer別状態と全合法手を文字列解析なしで取得できる |
 | M01-T04 | Done | .NET契約テストを追加する | T03 | 非公開手札、山札順、指定suit、draw/play境界、Action一対一対応を固定する |
 | M01-T05 | Done | Unity Edit Modeの同等テストと利用例を追加する | T04 | Unity Standard対象で同じ契約を検証し、READMEに利用例がある |
-| M01-T06 | Ready | 必須検証と互換性確認を行いM01を完了する | T05 | 下記の完了条件をすべて満たし、ロードマップを更新する |
+| M01-T06 | Done | 必須検証と互換性確認を行いM01を完了する | T05 | 下記の完了条件をすべて満たし、ロードマップを更新する |
 
 タスク完了時はその行を`Done`にし、依存を満たした次の1件だけを`Ready`へ変更する。
 
@@ -73,6 +73,19 @@ Unity UIが`IGame.View()`の表示文字列を解析せず、型付きの状態�
 - 非公開情報境界を既存の公開APIだけで保証できない場合
 
 これらに該当した場合は実装を広げず、選択肢と影響をADR案として整理してユーザーへ確認する。
+
+## 完了記録
+
+2026-08-16に以下を確認し、M01を完了した。
+
+- `dotnet build TrumpGameLab.sln -m:1`：成功（警告0、エラー0）
+- `dotnet test tests/TrumpLab.Tests`：239件成功、失敗0、skip 0
+- BashとPowerShellのmigration verification：両方成功
+- Unity Editor：既知の配置とUnity Hub登録に存在しないため、Unity Standardは未実行
+- `Core.cs`、Registry、Catalogue、CLI source：M01開始時の`dd21030`から変更なし
+- CLI候補台帳：92件、pending 0件
+- `crazy_eights`の30局固定seed CLI simulation：同一入力の2回実行で出力一致
+- 構造化表示契約：.NETとUnity Edit Modeで共有する5件のNUnit契約テストを追加
 
 ## 次への遷移
 
