@@ -107,12 +107,37 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0.6f, 0.48f), new Vector2(0.8f, 0.62f));
             Text hand = CreateText(root.transform, "HumanHand", "Your hand: AC 3D 4H 7S 8C 10D KH", font, 30,
                 new Vector2(0.12f, 0.22f), new Vector2(0.88f, 0.36f));
-            RectTransform actions = CreatePanel(root.transform, "ActionRoot",
+            RectTransform actionViewport = CreatePanel(root.transform, "ActionViewport",
                 new Vector2(0.18f, 0.04f), new Vector2(0.82f, 0.18f));
-            Text actionSummary = CreateText(actions, "ActionSummary", "Legal action buttons appear here", font, 24,
-                Vector2.zero, Vector2.one);
+            Image viewportImage = actionViewport.gameObject.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            var mask = actionViewport.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+            var scroll = actionViewport.gameObject.AddComponent<ScrollRect>();
+            RectTransform actions = CreatePanel(actionViewport, "ActionRoot", Vector2.zero, Vector2.one);
+            actions.anchorMin = new Vector2(0f, 1f);
+            actions.anchorMax = new Vector2(1f, 1f);
+            actions.pivot = new Vector2(0.5f, 1f);
+            actions.sizeDelta = Vector2.zero;
+            GridLayoutGroup actionGrid = actions.gameObject.AddComponent<GridLayoutGroup>();
+            actionGrid.cellSize = new Vector2(225f, 52f);
+            actionGrid.spacing = new Vector2(10f, 8f);
+            actionGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            actionGrid.constraintCount = 5;
+            var fitter = actions.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scroll.content = actions;
+            scroll.viewport = actionViewport;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 32f;
+            Text actionSummary = CreateText(root.transform, "ActionSummary", "Legal action buttons appear here", font, 22,
+                new Vector2(0.18f, 0.18f), new Vector2(0.82f, 0.22f));
+            Button actionTemplate = CreateButton(actions, "ActionButtonTemplate", "Action", font, Vector2.zero);
+            actionTemplate.gameObject.SetActive(false);
             root.GetComponent<MatchScreen>().Configure(
-                status, opponent, stock, discard, hand, actionSummary, actions);
+                status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
         }
 
@@ -291,6 +316,11 @@ namespace TrumpLab.Product.Editor
                 !match.StockLabel.text.StartsWith("Stock: ", StringComparison.Ordinal) ||
                 !match.DiscardLabel.text.StartsWith("Discard: ", StringComparison.Ordinal))
                 throw new InvalidOperationException("Match screen did not render structured sample state.");
+            if (match.RenderedActionIds.Count == 0 ||
+                match.RenderedActionIds.Distinct(StringComparer.Ordinal).Count() !=
+                    match.RenderedActionIds.Count)
+                throw new InvalidOperationException("Match screen did not preserve unique legal action IDs.");
+            ValidatePlayableSession();
             if (roots.Sum(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount) != 0)
                 throw new InvalidOperationException("Bootstrap scene has a missing root script.");
             if (EditorBuildSettings.scenes.Length != 1 ||
@@ -308,7 +338,43 @@ namespace TrumpLab.Product.Editor
                 options: new Dictionary<string, string> { ["wild_rank"] = "8" });
             if (!(game is IGamePresentationProvider provider))
                 throw new InvalidOperationException("Crazy Eights does not provide structured presentation.");
-            match.Render(CrazyEightsMatchPresenter.Create(provider.Present(viewer: 0)));
+            match.Render(CrazyEightsMatchPresenter.Create(
+                provider.Present(viewer: 0), inputEnabled: true));
+        }
+
+        private static void ValidatePlayableSession()
+        {
+            var session = new GameSessionController(seed: 1);
+            session.Begin();
+            int humanActions = 0;
+            int cpuActions = 0;
+            for (int step = 0; step < 1000 && session.State != MatchSessionState.Finished; step++)
+            {
+                if (session.State == MatchSessionState.AwaitingHuman)
+                {
+                    string actionId = session.Snapshot.Actions[0].Id;
+                    if (!session.TryApplyHumanAction(actionId))
+                        throw new InvalidOperationException("A current human legal action was rejected.");
+                    humanActions++;
+                    if (session.TryApplyHumanAction(actionId))
+                        throw new InvalidOperationException("A stale or double human input was accepted.");
+                }
+                else if (session.State == MatchSessionState.WaitingForCpu)
+                {
+                    if (!session.TryApplyCpuAction())
+                        throw new InvalidOperationException("A CPU legal action was rejected.");
+                    cpuActions++;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "Playable session entered an unexpected state: " + session.State);
+                }
+            }
+            if (session.State != MatchSessionState.Finished || !session.Game.IsTerminal ||
+                humanActions == 0 || cpuActions == 0)
+                throw new InvalidOperationException(
+                    "Crazy Eights did not complete with both human and CPU actions.");
         }
     }
 }

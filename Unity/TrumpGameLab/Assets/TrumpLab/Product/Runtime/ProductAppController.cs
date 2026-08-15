@@ -1,7 +1,7 @@
 #nullable enable
 
 using System;
-using System.Collections.Generic;
+using System.Collections;
 using TrumpLab;
 using UnityEngine;
 
@@ -15,11 +15,13 @@ namespace TrumpLab.Product
         [SerializeField] private MatchScreen? matchScreen;
         [SerializeField] private ResultScreen? resultScreen;
 
-        private IGame? activeGame;
+        private GameSessionController? activeSession;
+        private Coroutine? cpuTurnCoroutine;
 
         public ScreenRouter Router => router ?? throw new InvalidOperationException(
             "Screen router is not configured.");
-        public IGame? ActiveGame => activeGame;
+        public IGame? ActiveGame => activeSession?.Game;
+        public GameSessionController? ActiveSession => activeSession;
 
         public void Configure(ScreenRouter configuredRouter, TitleScreen title,
             GameSettingsScreen settings, MatchScreen match, ResultScreen result)
@@ -41,6 +43,7 @@ namespace TrumpLab.Product
             titleScreen.QuitRequested += HandleQuitRequested;
             settingsScreen.StartRequested += HandleStartRequested;
             settingsScreen.BackRequested += HandleTitleRequested;
+            matchScreen.ActionRequested += HandleActionRequested;
             resultScreen.RematchRequested += HandleStartRequested;
             resultScreen.TitleRequested += HandleTitleRequested;
             router.Show(ScreenId.Title);
@@ -58,11 +61,13 @@ namespace TrumpLab.Product
                 settingsScreen.StartRequested -= HandleStartRequested;
                 settingsScreen.BackRequested -= HandleTitleRequested;
             }
+            if (matchScreen != null) matchScreen.ActionRequested -= HandleActionRequested;
             if (resultScreen != null)
             {
                 resultScreen.RematchRequested -= HandleStartRequested;
                 resultScreen.TitleRequested -= HandleTitleRequested;
             }
+            EndSession();
         }
 
         public void ShowResultPreview(string summary)
@@ -77,21 +82,90 @@ namespace TrumpLab.Product
         private void HandleStartRequested()
         {
             if (matchScreen == null) throw new InvalidOperationException("Match screen is not configured.");
-            activeGame = BuiltInGames.Registry.Create(
-                "crazy_eights",
-                players: 2,
-                seed: 1,
-                options: new Dictionary<string, string> { ["wild_rank"] = "8" });
-            if (!(activeGame is IGamePresentationProvider provider))
-                throw new InvalidOperationException("Crazy Eights does not provide structured presentation.");
-            matchScreen.Render(CrazyEightsMatchPresenter.Create(provider.Present(viewer: 0)));
+            EndSession();
+            var session = new GameSessionController(seed: 1, wildRank: 8, difficulty: 1);
+            activeSession = session;
+            session.SnapshotChanged += HandleSnapshotChanged;
+            session.Finished += HandleSessionFinished;
+            session.Faulted += HandleSessionFaulted;
+            session.Begin();
+            if (activeSession != session || session.State == MatchSessionState.Faulted) return;
             Router.Show(ScreenId.Match);
+            ScheduleCpuTurn();
         }
 
         private void HandleTitleRequested()
         {
-            activeGame = null;
+            EndSession();
             Router.Show(ScreenId.Title);
+        }
+
+        private void HandleActionRequested(string actionId)
+        {
+            GameSessionController? session = activeSession;
+            if (session == null || !session.TryApplyHumanAction(actionId)) return;
+            ScheduleCpuTurn();
+        }
+
+        private void HandleSnapshotChanged(GamePresentation presentation)
+        {
+            if (matchScreen == null || activeSession == null) return;
+            matchScreen.Render(CrazyEightsMatchPresenter.Create(
+                presentation,
+                activeSession.State == MatchSessionState.AwaitingHuman));
+        }
+
+        private void HandleSessionFinished(GameResultPresentation result)
+        {
+            StopCpuTurn();
+            if (resultScreen == null) return;
+            string winners = result.Winners.Count == 0
+                ? "No winner"
+                : "Winner: " + string.Join(", ", System.Linq.Enumerable.Select(
+                    result.Winners, winner => "Player " + (winner + 1)));
+            resultScreen.SummaryLabel.text = winners + "\nTurns: " + result.Turns;
+            Router.Show(ScreenId.Result);
+        }
+
+        private void HandleSessionFaulted(string message)
+        {
+            StopCpuTurn();
+            Debug.LogError("Crazy Eights session stopped safely: " + message);
+            Router.Show(ScreenId.Title);
+        }
+
+        private void ScheduleCpuTurn()
+        {
+            if (activeSession?.State != MatchSessionState.WaitingForCpu ||
+                cpuTurnCoroutine != null) return;
+            cpuTurnCoroutine = StartCoroutine(RunCpuTurn(activeSession));
+        }
+
+        private IEnumerator RunCpuTurn(GameSessionController session)
+        {
+            yield return new WaitForSecondsRealtime(0.35f);
+            cpuTurnCoroutine = null;
+            if (activeSession != session || session.State != MatchSessionState.WaitingForCpu)
+                yield break;
+            session.TryApplyCpuAction();
+            ScheduleCpuTurn();
+        }
+
+        private void StopCpuTurn()
+        {
+            if (cpuTurnCoroutine == null) return;
+            StopCoroutine(cpuTurnCoroutine);
+            cpuTurnCoroutine = null;
+        }
+
+        private void EndSession()
+        {
+            StopCpuTurn();
+            if (activeSession == null) return;
+            activeSession.SnapshotChanged -= HandleSnapshotChanged;
+            activeSession.Finished -= HandleSessionFinished;
+            activeSession.Faulted -= HandleSessionFaulted;
+            activeSession = null;
         }
         private static void HandleQuitRequested() => Application.Quit();
     }

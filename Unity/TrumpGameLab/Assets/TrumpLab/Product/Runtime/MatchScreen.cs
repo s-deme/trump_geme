@@ -1,6 +1,8 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +17,9 @@ namespace TrumpLab.Product
         [SerializeField] private Text? humanHandLabel;
         [SerializeField] private Text? actionSummaryLabel;
         [SerializeField] private RectTransform? actionRoot;
+        [SerializeField] private Button? actionButtonTemplate;
+
+        private readonly List<Button> actionButtons = new List<Button>();
 
         public override ScreenId Id => ScreenId.Match;
         public Text StatusLabel => Required(statusLabel, nameof(statusLabel));
@@ -25,9 +30,13 @@ namespace TrumpLab.Product
         public Text ActionSummaryLabel => Required(actionSummaryLabel, nameof(actionSummaryLabel));
         public RectTransform ActionRoot => actionRoot ?? throw new InvalidOperationException(
             "Match action root is not configured.");
+        public Button ActionButtonTemplate => actionButtonTemplate ?? throw new InvalidOperationException(
+            "Match action button template is not configured.");
+        public IReadOnlyList<string> RenderedActionIds { get; private set; } = Array.Empty<string>();
+        public event System.Action<string>? ActionRequested;
 
         public void Configure(Text status, Text opponentHand, Text stock, Text discard,
-            Text humanHand, Text actionSummary, RectTransform actions)
+            Text humanHand, Text actionSummary, RectTransform actions, Button actionTemplate)
         {
             statusLabel = status;
             opponentHandLabel = opponentHand;
@@ -36,6 +45,7 @@ namespace TrumpLab.Product
             humanHandLabel = humanHand;
             actionSummaryLabel = actionSummary;
             actionRoot = actions;
+            actionButtonTemplate = actionTemplate;
         }
 
         public void Render(MatchViewModel model)
@@ -47,7 +57,43 @@ namespace TrumpLab.Product
             DiscardLabel.text = model.Discard;
             HumanHandLabel.text = model.HumanHand;
             ActionSummaryLabel.text = model.ActionSummary;
+            RenderActions(model);
         }
+
+        private void RenderActions(MatchViewModel model)
+        {
+            ClearActionButtons();
+            RenderedActionIds = Array.AsReadOnly(model.Actions.Select(action => action.Id).ToArray());
+            foreach (MatchActionViewModel action in model.Actions)
+            {
+                Button button = Instantiate(ActionButtonTemplate, ActionRoot);
+                button.name = "Action_" + action.Id;
+                button.gameObject.SetActive(true);
+                button.interactable = model.InputEnabled;
+                Text? label = button.GetComponentInChildren<Text>(true);
+                if (label == null)
+                    throw new InvalidOperationException("Action button template requires a Text label.");
+                label.text = action.Label;
+                string actionId = action.Id;
+                button.onClick.AddListener(() => ActionRequested?.Invoke(actionId));
+                actionButtons.Add(button);
+            }
+        }
+
+        private void ClearActionButtons()
+        {
+            foreach (Button button in actionButtons)
+            {
+                if (button == null) continue;
+                button.onClick.RemoveAllListeners();
+                button.gameObject.SetActive(false);
+                if (Application.isPlaying) Destroy(button.gameObject);
+                else DestroyImmediate(button.gameObject);
+            }
+            actionButtons.Clear();
+        }
+
+        private void OnDestroy() => ClearActionButtons();
 
         private static Text Required(Text? value, string name) => value ??
             throw new InvalidOperationException("Match control is not configured: " + name);

@@ -6,6 +6,23 @@ using System.Linq;
 
 namespace TrumpLab.Product
 {
+    public sealed class MatchActionViewModel
+    {
+        public string Id { get; }
+        public string Label { get; }
+
+        public MatchActionViewModel(string id, string label)
+        {
+            Id = Required(id, nameof(id));
+            Label = Required(label, nameof(label));
+        }
+
+        private static string Required(string value, string parameterName) =>
+            string.IsNullOrWhiteSpace(value)
+                ? throw new ArgumentException("Action display value cannot be empty.", parameterName)
+                : value;
+    }
+
     public sealed class MatchViewModel
     {
         public string Status { get; }
@@ -14,11 +31,12 @@ namespace TrumpLab.Product
         public string Discard { get; }
         public string HumanHand { get; }
         public string ActionSummary { get; }
-        public IReadOnlyList<ActionPresentation> Actions { get; }
+        public IReadOnlyList<MatchActionViewModel> Actions { get; }
+        public bool InputEnabled { get; }
 
         public MatchViewModel(string status, string opponentHand, string stock,
             string discard, string humanHand, string actionSummary,
-            IEnumerable<ActionPresentation> actions)
+            IEnumerable<MatchActionViewModel> actions, bool inputEnabled)
         {
             Status = Required(status, nameof(status));
             OpponentHand = Required(opponentHand, nameof(opponentHand));
@@ -28,6 +46,7 @@ namespace TrumpLab.Product
             ActionSummary = Required(actionSummary, nameof(actionSummary));
             if (actions == null) throw new ArgumentNullException(nameof(actions));
             Actions = Array.AsReadOnly(actions.ToArray());
+            InputEnabled = inputEnabled;
         }
 
         private static string Required(string value, string parameterName) =>
@@ -38,7 +57,7 @@ namespace TrumpLab.Product
 
     public static class CrazyEightsMatchPresenter
     {
-        public static MatchViewModel Create(GamePresentation presentation)
+        public static MatchViewModel Create(GamePresentation presentation, bool inputEnabled)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
             if (presentation.GameId != "crazy_eights")
@@ -79,6 +98,10 @@ namespace TrumpLab.Product
             string opponentText = "CPU hand: " + string.Join(" ",
                 Enumerable.Repeat("■", opponentHand.Count));
             string humanText = "Your hand: " + string.Join(" ", humanHand.Cards.Select(CardLabel));
+            MatchActionViewModel[] actions = presentation.Actions
+                .Select(action => new MatchActionViewModel(action.Id, ActionLabel(action)))
+                .ToArray();
+            bool canAct = inputEnabled && humanTurn && !presentation.IsTerminal;
 
             return new MatchViewModel(
                 status,
@@ -86,10 +109,12 @@ namespace TrumpLab.Product
                 "Stock: " + stock.Count,
                 discardText,
                 humanText,
-                presentation.Actions.Count == 0
+                actions.Length == 0
                     ? "No actions available"
-                    : "Legal actions: " + presentation.Actions.Count,
-                presentation.Actions);
+                    : (canAct ? "Choose a legal action: " : "Input locked  •  Legal actions: ") +
+                        actions.Length,
+                actions,
+                canAct);
         }
 
         public static string CardLabel(Card card)
@@ -97,6 +122,29 @@ namespace TrumpLab.Product
             string rank = card.Rank == 1 ? "A" : card.Rank == 11 ? "J" :
                 card.Rank == 12 ? "Q" : card.Rank == 13 ? "K" : card.Rank.ToString();
             return rank + SuitSymbol(card.Suit);
+        }
+
+        private static string ActionLabel(ActionPresentation presentation)
+        {
+            TrumpLab.Action action = presentation.Action;
+            switch (action.Kind)
+            {
+                case "draw": return "Draw";
+                case "pass": return "Pass";
+                case "choose_starter_suit": return "Choose " + SuitName(SuitFromCode(action.Value));
+                case "play":
+                case "play_last_card":
+                    if (!action.Card.HasValue)
+                        throw new ArgumentException("Play action must contain a card.", nameof(presentation));
+                    string calledSuit = action.Value == null
+                        ? string.Empty
+                        : " → " + SuitName(SuitFromCode(action.Value));
+                    return "Play " + CardLabel(action.Card.Value) + calledSuit;
+                default:
+                    throw new ArgumentException(
+                        "Unsupported Crazy Eights action kind: " + action.Kind,
+                        nameof(presentation));
+            }
         }
 
         private static CardZonePresentation Hand(GamePresentation presentation, int player) =>
@@ -123,5 +171,17 @@ namespace TrumpLab.Product
 
         private static string SuitName(Suit suit) => suit == Suit.Clubs ? "Clubs" :
             suit == Suit.Diamonds ? "Diamonds" : suit == Suit.Hearts ? "Hearts" : "Spades";
+
+        private static Suit SuitFromCode(string? value)
+        {
+            switch (value)
+            {
+                case "C": return Suit.Clubs;
+                case "D": return Suit.Diamonds;
+                case "H": return Suit.Hearts;
+                case "S": return Suit.Spades;
+                default: throw new ArgumentException("Action suit code is invalid.", nameof(value));
+            }
+        }
     }
 }
