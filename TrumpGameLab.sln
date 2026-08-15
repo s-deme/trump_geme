@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrumpLab.Core", "Packages\com.trump-game-lab.rules\Runtime\TrumpLab.Core.csproj", "{8B5C4E30-1D8C-4D46-927B-2B9D071B5C32}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrumpLab.Cli", "tools\TrumpLab.Cli\TrumpLab.Cli.csproj", "{5E8B53C0-42D4-4A2D-B858-63D77BEFC910}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrumpLab.Tests", "tests\TrumpLab.Tests\TrumpLab.Tests.csproj", "{D02A1B50-7F08-4015-A5A8-58CC8CE3438D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8B5C4E30-1D8C-4D46-927B-2B9D071B5C32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8B5C4E30-1D8C-4D46-927B-2B9D071B5C32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8B5C4E30-1D8C-4D46-927B-2B9D071B5C32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8B5C4E30-1D8C-4D46-927B-2B9D071B5C32}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E8B53C0-42D4-4A2D-B858-63D77BEFC910}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E8B53C0-42D4-4A2D-B858-63D77BEFC910}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E8B53C0-42D4-4A2D-B858-63D77BEFC910}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E8B53C0-42D4-4A2D-B858-63D77BEFC910}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D02A1B50-7F08-4015-A5A8-58CC8CE3438D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D02A1B50-7F08-4015-A5A8-58CC8CE3438D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D02A1B50-7F08-4015-A5A8-58CC8CE3438D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D02A1B50-7F08-4015-A5A8-58CC8CE3438D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

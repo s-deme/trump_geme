@@ -1,0 +1,6 @@
+<Project>
+  <!-- WSL-mounted Unity workspaces can lock shared project outputs during parallel builds. -->
+  <PropertyGroup>
+    <BuildInParallel>false</BuildInParallel>
+  </PropertyGroup>
+</Project>

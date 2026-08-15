@@ -1,0 +1,14 @@
+{
+  "name": "TrumpLab.Core.EditorTests",
+  "rootNamespace": "TrumpLab.Tests",
+  "references": [
+    "TrumpLab.Core"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

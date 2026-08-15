@@ -1,0 +1,19 @@
+{
+  "description": "Route project work to phase-specific character roles.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 -c 'import pathlib,runpy; c=pathlib.Path.cwd(); p=next(d / \".codex/hooks/phase_persona.py\" for d in (c, *c.parents) if (d / \".codex/hooks/phase_persona.py\").is_file()); runpy.run_path(str(p), run_name=\"__main__\")'",
+            "commandWindows": "py -3 -c \"import pathlib,runpy; c=pathlib.Path.cwd(); p=next(d / '.codex/hooks/phase_persona.py' for d in (c, *c.parents) if (d / '.codex/hooks/phase_persona.py').is_file()); runpy.run_path(str(p), run_name='__main__')\"",
+            "timeout": 5,
+            "statusMessage": "工程担当を選定中",
+            "additionalContextLimit": 1200
+          }
+        ]
+      }
+    ]
+  }
+}

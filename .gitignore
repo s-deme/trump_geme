@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+Library/
+Logs/
+Temp/
+UserSettings/
+.vs/
+.idea/
+*.csproj.user
+*.suo
+TestResults/
+__pycache__/
+*.pyc
+.pytest_cache/

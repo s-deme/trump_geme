@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Packages/com.trump-game-lab.rules/Runtime/TrumpLab.Core.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CoreContractTests.cs"
+             Link="CoreContractTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/BaohuangContractTests.cs"
+             Link="BaohuangContractTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/NapoleonContractTests.cs"
+             Link="NapoleonContractTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/InitialRuleAuditTests.cs"
+             Link="InitialRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SecondRuleAuditTests.cs"
+             Link="SecondRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/ThirdRuleAuditTests.cs"
+             Link="ThirdRuleAuditTests.cs" />
+  </ItemGroup>
+</Project>
