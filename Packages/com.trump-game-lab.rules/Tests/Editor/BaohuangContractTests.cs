@@ -251,6 +251,7 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        [Category("BroadSimulation")]
         public void BaohuangCpuIgnoresAnotherPlayersHiddenGuardIdentityAndAlwaysStaysLegal()
         {
             IGame left = BuiltInGames.Registry.Create("baohuang", 5, 91);

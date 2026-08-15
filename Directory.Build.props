@@ -6,4 +6,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'TrumpLab.Core'">
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin/TrumpLab.Core/</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/TrumpLab.Core/</BaseIntermediateOutputPath>
+  </PropertyGroup>
 </Project>

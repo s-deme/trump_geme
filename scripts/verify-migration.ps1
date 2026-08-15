@@ -38,6 +38,16 @@ if ($LASTEXITCODE -gt 1) {
     throw "UnityEngine scan failed."
 }
 
+$runtimeBuildDirectories = @(
+    "Packages/com.trump-game-lab.rules/Runtime/bin",
+    "Packages/com.trump-game-lab.rules/Runtime/obj"
+)
+foreach ($directory in $runtimeBuildDirectories) {
+    if (Test-Path -LiteralPath $directory) {
+        Write-Error "Generated .NET build directory must stay outside the Unity package: $directory"
+    }
+}
+
 Invoke-Step {
     $script:catalogueTail = dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue | Select-Object -Last 1
 } "dotnet run catalogue failed."

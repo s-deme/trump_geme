@@ -10,6 +10,7 @@ namespace TrumpLab.Tests
         private static readonly int[] BriscolaRanks = { 1, 3, 13, 12, 11, 7, 6, 5, 4, 2 };
 
         [Test]
+        [Category("BroadSimulation")]
         public void Unit12FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1201, "schmear", "briscola_chiamata", "briscola_bugiarda", "goninkan", "portland");
 

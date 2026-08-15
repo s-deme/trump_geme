@@ -8,6 +8,7 @@ namespace TrumpLab.Tests
     public sealed class TenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit10FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1001, "doppelkopf", "guillotine", "sasaki_44a", "schafkopf", "the_trick");
 
@@ -48,7 +49,7 @@ namespace TrumpLab.Tests
                 IGame game = BuiltInGames.Registry.Create("the_trick", players: players, seed: 1030 + players);
                 Card starter = new Card(Suit.Clubs, players == 3 ? 5 : 2);
                 Assert.That(ParseHand(game.View(game.CurrentPlayer)), Does.Contain(starter));
-                Assert.That(game.LegalActions(), Has.Count.EqualTo(13), "starter card is not forced");
+                Assert.That(game.LegalActions().Count, Is.EqualTo(13), "starter card is not forced");
                 var random = new DeterministicRandom(103000 + players);
                 var tricks = new int[players];
                 var trick = new List<Tuple<int, Card>>();

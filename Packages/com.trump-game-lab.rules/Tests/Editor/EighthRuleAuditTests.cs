@@ -8,6 +8,7 @@ namespace TrumpLab.Tests
     public sealed class EighthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit08FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             801, "tanuki", "multi_stack", "dubito", "three_tricks", "mini_misere");
 

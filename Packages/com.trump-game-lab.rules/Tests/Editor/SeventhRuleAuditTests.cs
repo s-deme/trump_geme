@@ -9,6 +9,7 @@ namespace TrumpLab.Tests
     public sealed class SeventhRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit07FixedSeedAudit() =>
             RuleAuditTestSupport.AssertFixedSeedBatch(701, "italian_whist", "minimo", "kaedama_trick", "trick_of_the_dead", "corpo");
 

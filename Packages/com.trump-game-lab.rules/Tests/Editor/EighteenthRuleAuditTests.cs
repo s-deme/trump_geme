@@ -10,6 +10,7 @@ namespace TrumpLab.Tests
     public sealed class EighteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit18FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1801, "baccarat", "twenty_four", "black_lady", "four_tricks");
 
@@ -18,7 +19,7 @@ namespace TrumpLab.Tests
         {
             IGame game = BuiltInGames.Registry.Create("baccarat", players: 3, seed: 1810);
             List<Card> deck = Field<List<Card>>(game, "deck");
-            Assert.That(deck, Has.Count.EqualTo(416));
+            Assert.That(deck.Count, Is.EqualTo(416));
             string?[] bets = Field<string?[]>(game, "bets");
             bets[0] = "bet_player"; bets[1] = "bet_banker"; bets[2] = "bet_tie";
             deck.Clear();
@@ -29,8 +30,8 @@ namespace TrumpLab.Tests
             });
             Invoke(game, "DealAndSettle");
             Assert.That(game.Result().Scores, Is.EqualTo(new[] { 1d, -1d, -1d }));
-            Assert.That(Field<List<Card>>(game, "playerHand"), Has.Count.EqualTo(2));
-            Assert.That(Field<List<Card>>(game, "bankerHand"), Has.Count.EqualTo(2));
+            Assert.That(Field<List<Card>>(game, "playerHand").Count, Is.EqualTo(2));
+            Assert.That(Field<List<Card>>(game, "bankerHand").Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -39,8 +40,8 @@ namespace TrumpLab.Tests
             IGame game = BuiltInGames.Registry.Create("black_lady", players: 5, seed: 1820);
             List<Card> table = Field<List<Card>>(game, "table");
             List<Card> faceUp = Field<List<Card>>(game, "faceUpTable");
-            Assert.That(table, Has.Count.EqualTo(2));
-            Assert.That(faceUp, Has.Count.EqualTo(1));
+            Assert.That(table.Count, Is.EqualTo(2));
+            Assert.That(faceUp.Count, Is.EqualTo(1));
             Assert.That(game.View(0), Does.Contain("table=[" + faceUp[0] + "] hidden_table=1"));
             Assert.That(game.View(1), Does.Contain("table=[" + faceUp[0] + "] hidden_table=1"));
 
@@ -58,7 +59,7 @@ namespace TrumpLab.Tests
         {
             IGame game = BuiltInGames.Registry.Create("four_tricks", players: 3, seed: 1830);
             List<Card> deck = (List<Card>)InvokeWithResult(game, "MakeDeck");
-            Assert.That(deck, Has.Count.EqualTo(36));
+            Assert.That(deck.Count, Is.EqualTo(36));
             Assert.That(deck.Select(card => card.Rank).Distinct(), Is.EquivalentTo(new[] { 1, 6, 7, 8, 9, 10, 11, 12, 13 }));
             Assert.That(InvokeWithResult(game, "TrickValue"), Is.EqualTo(1));
             foreach (IList hand in Field<IList>(game, "Hands")) hand.Clear();

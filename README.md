@@ -33,6 +33,9 @@ CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU�
 
 ```bash
 dotnet build TrumpGameLab.sln -m:1
+pwsh ./scripts/run-dotnet-tests.ps1 -Mode Fast
+pwsh ./scripts/run-dotnet-tests.ps1 -Mode Standard
+pwsh ./scripts/run-dotnet-tests.ps1 -Mode Full
 dotnet test tests/TrumpLab.Tests --logger "trx;LogFileName=test.trx" --results-directory TestResults
 ./scripts/verify-migration.sh
 pwsh ./scripts/verify-migration.ps1
@@ -45,6 +48,10 @@ dotnet run --project tools/TrumpLab.Cli -- compare --format json --output verifi
 dotnet run --project tools/TrumpLab.Cli -- play crazy_eights --players 4 --seed 10
 dotnet run --project tools/TrumpLab.Cli -- simulate crazy_eights -n 100 -o wild_rank=2
 ```
+
+実装中は既定の`Fast`で短く確認し、実装単位の完了時に`Full`とmigration verificationを
+1回実行します。Unity側も`run-unity-tests.ps1`の`Fast`、`Standard`、`Full`で同じ範囲を
+選択できます。`Full`のカバレッジとseed数は従来から変更していません。
 
 ## 新しいゲーム
 

@@ -7,6 +7,7 @@ namespace TrumpLab.Tests
     public sealed class FourteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit14FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1401, "old_maid", "speed", "gops", "spite_and_malice", "casino");
 
@@ -16,7 +17,7 @@ namespace TrumpLab.Tests
             IGame game = BuiltInGames.Registry.Create("old_maid", players: 4, seed: 1410);
             var random = new DeterministicRandom(141000);
             RuleAuditTestSupport.PlayWithLegalCpu(game, 141000);
-            Assert.That(game.Result().Winners, Has.Count.EqualTo(3));
+            Assert.That(game.Result().Winners.Count, Is.EqualTo(3));
             Assert.That(game.Result().Scores.Count(score => score < 0), Is.EqualTo(1));
         }
 

@@ -14,7 +14,7 @@ namespace TrumpLab.Tests
         {
             IReadOnlyDictionary<string, int> profile = NapoleonGame.DeckComposition();
             Assert.That(NapoleonGame.DeckSize, Is.EqualTo(53));
-            Assert.That(profile, Has.Count.EqualTo(53));
+            Assert.That(profile.Count, Is.EqualTo(53));
             Assert.That(profile.Values, Is.All.EqualTo(1));
             Assert.That(profile["JOKER"], Is.EqualTo(1));
             Assert.That(profile.Keys.Count(IsHonor), Is.EqualTo(20));

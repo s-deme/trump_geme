@@ -9,6 +9,7 @@ namespace TrumpLab.Tests
     public sealed class NineteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit19FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1901, "italian_whist", "gooseberry_fool", "briscola_bugiarda");
 
@@ -30,7 +31,7 @@ namespace TrumpLab.Tests
                     if (actions.All(action => action.Kind == "choose_joker_suit"))
                     {
                         sawSuitChoice = true;
-                        Assert.That(actions, Has.Count.EqualTo(2));
+                        Assert.That(actions.Count, Is.EqualTo(2));
                     }
                     if (actions.All(action => action.Kind == "choose_joker_rank"))
                     {
@@ -76,8 +77,7 @@ namespace TrumpLab.Tests
         public void BriscolaBugiardaExplicitSoloStartsPublicNoTrumpOneAgainstFour()
         {
             IGame game = BuiltInGames.Registry.Create("briscola_bugiarda", seed: 1960);
-            Assert.That(game.LegalActions(), Has.One.Matches<TrumpLab.Action>(
-                action => action.Kind == "bid_solo"));
+            Assert.That(game.LegalActions().Count(action => action.Kind == "bid_solo"), Is.EqualTo(1));
             int declarer = game.CurrentPlayer;
             game.Apply(new TrumpLab.Action("bid_solo"));
             for (int viewer = 0; viewer < 5; viewer++)

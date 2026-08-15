@@ -10,6 +10,7 @@ namespace TrumpLab.Tests
     public sealed class TwentiethRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit20FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             2001, "sasaki_44a", "toepen", "war", "blackjack", "crazy_eights",
             "cheat", "hearts", "spades", "twenty_four");
@@ -121,7 +122,7 @@ namespace TrumpLab.Tests
             int before = hands[player].Count;
             Assert.That(game.LegalActions(), Has.Some.Matches<TrumpLab.Action>(a => a.Kind == "draw"));
             game.Apply(new TrumpLab.Action("draw"));
-            Assert.That(hands[player], Has.Count.EqualTo(before + 1));
+            Assert.That(hands[player].Count, Is.EqualTo(before + 1));
             Assert.That(game.CurrentPlayer, Is.EqualTo((player + 1) % 2));
 
             bool sawStarterEight = false;
@@ -130,7 +131,7 @@ namespace TrumpLab.Tests
                 IGame candidate = BuiltInGames.Registry.Create("crazy_eights", players: 3, seed: seed);
                 if (candidate.LegalActions().All(action => action.Kind == "choose_starter_suit"))
                 {
-                    Assert.That(candidate.LegalActions(), Has.Count.EqualTo(4));
+                    Assert.That(candidate.LegalActions().Count, Is.EqualTo(4));
                     Assert.That(candidate.CurrentPlayer, Is.EqualTo(2));
                     sawStarterEight = true;
                 }
@@ -147,7 +148,7 @@ namespace TrumpLab.Tests
             Assert.That(game.LegalActions(), Has.Some.Matches<TrumpLab.Action>(a => a.Kind == "finish_claim"));
             game.Apply(new TrumpLab.Action("finish_claim"));
             Assert.That(game.View(), Does.Contain("phase=challenge").And.Contain("/5"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(2));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(2));
         }
 
         [Test]

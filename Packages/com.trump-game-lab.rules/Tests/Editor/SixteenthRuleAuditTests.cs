@@ -9,6 +9,7 @@ namespace TrumpLab.Tests
     public sealed class SixteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit16FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1601, "seven_bridge", "rummy_500", "canasta", "pinochle", "hearts");
 
@@ -25,7 +26,7 @@ namespace TrumpLab.Tests
             IGame game = BuiltInGames.Registry.Create("rummy_500", players: 2, seed: 1620,
                 options: new Dictionary<string, string> { { "target_score", "1" } });
             GameResult result = RuleAuditTestSupport.PlayWithLegalCpu(game, 162000);
-            Assert.That(result.Winners, Has.Count.EqualTo(1));
+            Assert.That(result.Winners.Count, Is.EqualTo(1));
             Assert.That(result.Scores.Count(value => value == result.Scores.Max()), Is.EqualTo(1));
         }
 

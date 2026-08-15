@@ -7,6 +7,7 @@ namespace TrumpLab.Tests
     public sealed class ThirteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit13FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1301, "toepen", "war", "blackjack", "crazy_eights", "go_fish");
 

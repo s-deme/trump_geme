@@ -11,6 +11,7 @@ namespace TrumpLab.Tests
     public sealed class TwentyFirstRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit21FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             2401, "piquet", "five_hundred", "skat", "ulti", "doppelkopf", "schafkopf",
             "goninkan", "speed", "casino", "seven_bridge", "canasta", "pinochle",
@@ -56,7 +57,7 @@ namespace TrumpLab.Tests
                     game.Apply(game.LegalActions().First(action => action.Kind == "discard_to_kitty" && action.Value != "X"));
                 game.Apply(new TrumpLab.Action("finish_discard"));
                 Assert.That(game.View(), Does.Contain("phase=joker_nomination"));
-                Assert.That(game.LegalActions(), Has.Count.EqualTo(5));
+                Assert.That(game.LegalActions().Count, Is.EqualTo(5));
                 found = true;
             }
             Assert.That(found, Is.True, "a deterministic opening with the Joker in the first bidder's hand");
@@ -194,10 +195,10 @@ namespace TrumpLab.Tests
             for (int pass = 0; pass < 3; pass++) game.Apply(new TrumpLab.Action("pass"));
             game.Apply(new TrumpLab.Action("name_trump", value: "H"));
             Assert.That(game.View(), Does.Contain("phase=partner_pass"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(220));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(220));
             game.Apply(game.LegalActions()[0]);
             Assert.That(game.View(), Does.Contain("phase=bidder_return"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(455));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(455));
             Assert.That(PinochleGame.MeldScore(new[] { new Card(Suit.Hearts, 9) }, Suit.Hearts), Is.EqualTo(1));
         }
 

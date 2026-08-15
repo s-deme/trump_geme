@@ -24,7 +24,7 @@ namespace TrumpLab.Tests
             hands[0].Clear(); hands[0].Add(new Card(Suit.Clubs, 2));
             hands[1].Clear(); hands[1].AddRange(new[] { new Card(Suit.Clubs, 1), new Card(Suit.Diamonds, 4) });
             response.Apply(new TrumpLab.Action("play", new Card(Suit.Clubs, 2)));
-            Assert.That(response.LegalActions(), Has.Count.EqualTo(2),
+            Assert.That(response.LegalActions().Count, Is.EqualTo(2),
                 "The responder may discard off-suit; Briscola has no follow-suit duty.");
         }
 

@@ -12,7 +12,7 @@ namespace TrumpLab.Tests
         public void StandardDeckIsUnique()
         {
             List<Card> deck = Cards.StandardDeck();
-            Assert.That(deck, Has.Count.EqualTo(52));
+            Assert.That(deck.Count, Is.EqualTo(52));
             Assert.That(deck.Distinct().Count(), Is.EqualTo(52));
         }
 
@@ -108,7 +108,7 @@ namespace TrumpLab.Tests
                 new Card(Suit.Clubs, 2)
             });
             Assert.That(result.Item1, Is.EqualTo(2));
-            Assert.That(result.Item2, Has.Count.EqualTo(2));
+            Assert.That(result.Item2.Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -268,7 +268,7 @@ namespace TrumpLab.Tests
             Assert.That(game.LegalActions().Select(action => action.Kind),
                 Is.EquivalentTo(new[] { "pass", "order_up", "order_up_alone" }));
             game.Apply(new TrumpLab.Action("order_up"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(6));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(6));
             Assert.That(game.LegalActions().All(action => action.Kind == "discard"), Is.True);
             game.Apply(game.LegalActions()[0]);
             Assert.That(game.LegalActions().All(action => action.Kind == "play"), Is.True);
@@ -359,7 +359,7 @@ namespace TrumpLab.Tests
         public void GolfRequiresTwoInitialRevealsForEveryPlayer()
         {
             IGame game = BuiltInGames.Registry.Create("golf", 4, 91);
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(15));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(15));
             for (int player = 0; player < 4; player++)
                 game.Apply(game.LegalActions()[0]);
             Assert.That(game.LegalActions().Select(action => action.Kind),
@@ -485,7 +485,7 @@ namespace TrumpLab.Tests
                 new Card(Suit.Hearts, 3)
             }, 9), Is.EqualTo(3));
             IGame game = BuiltInGames.Registry.Create("cribbage", 2, 99);
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(15));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(15));
             game.Apply(game.LegalActions()[0]);
             game.Apply(game.LegalActions()[0]);
             Assert.That(game.View(), Does.Contain("phase=pegging"));
@@ -509,9 +509,9 @@ namespace TrumpLab.Tests
         public void SuperTrumpChoosesSuitThenRankBeforeTwoStages()
         {
             IGame game = BuiltInGames.Registry.Create("super_trump", 2, 111);
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(4));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(4));
             game.Apply(new TrumpLab.Action("choose_trump", value: "H"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(13));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(13));
             game.Apply(new TrumpLab.Action("choose_super", value: "5"));
             Assert.That(game.View(), Does.Contain("stage=1 trump=H super=5"));
             game.Apply(game.LegalActions()[0]);
@@ -586,7 +586,7 @@ namespace TrumpLab.Tests
             IGame game = BuiltInGames.Registry.Create("piquet", 2, 116);
             game.Apply(new TrumpLab.Action("sink_carte_blanche"));
             game.Apply(new TrumpLab.Action("sink_carte_blanche"));
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(1585));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(1585));
             game.Apply(game.LegalActions()[0]);
             Assert.That(game.View(), Does.Contain("phase=younger_exchange"));
             Assert.That(game.LegalActions().Any(action => action.Value == ""), Is.False);
@@ -629,7 +629,7 @@ namespace TrumpLab.Tests
         public void TanukiKeepsRoleSuitsPrivateAndThenDealsTwelve()
         {
             IGame game = BuiltInGames.Registry.Create("tanuki", 3, 120);
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(4));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(4));
             game.Apply(new TrumpLab.Action("choose_suit", value: "H"));
             game.Apply(new TrumpLab.Action("choose_suit", value: "S"));
             game.Apply(new TrumpLab.Action("choose_suit", value: "D"));
@@ -670,7 +670,7 @@ namespace TrumpLab.Tests
         {
             IGame game = BuiltInGames.Registry.Create("sheriff", 3, 123,
                 new Dictionary<string, string> { ["target_score"] = "1" });
-            Assert.That(game.LegalActions(), Has.Count.EqualTo(3));
+            Assert.That(game.LegalActions().Count, Is.EqualTo(3));
             game.Apply(new TrumpLab.Action("choose_role", value: "mayor"));
             game.Apply(new TrumpLab.Action("choose_role", value: "sheriff"));
             game.Apply(new TrumpLab.Action("choose_role", value: "robber"));
@@ -826,7 +826,7 @@ namespace TrumpLab.Tests
             BeginTrumpCrewStageTwo(noSuitJoker, new[] { 0, 0, 2 });
             noSuitJoker.Apply(new TrumpLab.Action("play", value: "JOKER"));
             Assert.That(noSuitJoker.View(), Does.Contain("JOKER>any"));
-            Assert.That(noSuitJoker.LegalActions(), Has.Count.EqualTo(2));
+            Assert.That(noSuitJoker.LegalActions().Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -897,6 +897,9 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        [Category("BroadSimulation")]
+        [Category("Exhaustive")]
+        [Timeout(1800000)]
         public void EveryRegisteredGameCompletesAcrossSeeds()
         {
             foreach (GameInfo info in BuiltInGames.Registry.All())
@@ -1021,6 +1024,7 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        [Category("BroadSimulation")]
         public void EveryPlayerBoundaryCompletes()
         {
             foreach (GameInfo info in BuiltInGames.Registry.All())
@@ -1033,6 +1037,7 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        [Category("BroadSimulation")]
         public void SameSeedProducesSameResult()
         {
             foreach (GameInfo info in BuiltInGames.Registry.All())

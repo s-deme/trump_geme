@@ -15,6 +15,15 @@ if rg -n '\bUnityEngine\b' Packages/com.trump-game-lab.rules/Runtime; then
     exit 1
 fi
 
+for directory in \
+    Packages/com.trump-game-lab.rules/Runtime/bin \
+    Packages/com.trump-game-lab.rules/Runtime/obj; do
+    if test -d "$directory"; then
+        echo "Generated .NET build directory must stay outside the Unity package: $directory" >&2
+        exit 1
+    fi
+done
+
 test "$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue | tail -1)" = "合計 92 件"
 test "$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue --pending | tail -1)" = "合計 0 件"
 

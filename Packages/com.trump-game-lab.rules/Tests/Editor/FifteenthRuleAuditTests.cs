@@ -9,6 +9,7 @@ namespace TrumpLab.Tests
     public sealed class FifteenthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit15FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1501, "golf", "sevens", "concentration", "cheat", "page_one");
 

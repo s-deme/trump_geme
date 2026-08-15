@@ -9,6 +9,7 @@ namespace TrumpLab.Tests
     public sealed class NinthRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit09FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             901, "agony_aunt", "collusion", "confirmation", "big_two", "triple_crown");
 

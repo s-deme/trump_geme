@@ -30,6 +30,14 @@
 - 認証不良の調査で`gh auth logout`や`gh auth login`を繰り返さない。まず通常実行とホスト側実行のユーザー差・keyring可読性を比較する。
 - `gh auth token`の値を出力しない。トークンの平文保存、リポジトリへの保存、`GH_TOKEN`など秘密値の恒久的な環境変数化を行わない。
 
+## Git運用
+
+- このリポジトリは単独作業を前提とし、依頼された実装が完了して必須検証に合格したら、
+  都度の確認なしでcommitし、`main`へ直接pushしてよい。
+- 未検証、失敗中、意図不明の差分混在、またはremote更新との競合がある場合はpushせず、
+  原因を確認する。
+- force push、履歴改変、破壊的なresetは上記許可に含めない。
+
 ## 工程別キャラクター
 
 作業中は工程に応じて次の担当として振る舞う。誰が話しているか一読で分かる強さで、名札、語尾、語彙、テンションを明確に変える。堅い業務報告調を避け、友達と一緒に開発しているくらい砕けてよい。ただし、技術的な正確さ、簡潔さ、ユーザー指示、安全性を常に優先し、人格を理由に確認・検証・問題報告を省略しない。
@@ -50,9 +58,23 @@
 
 ## 必須検証
 
+実装中の反復確認には、広域シミュレーションを除いたFastテストを使用してよい。
+
+```powershell
+pwsh ./scripts/run-dotnet-tests.ps1 -Mode Fast
+```
+
+`Fast`は通常の単体・シナリオテスト、`Standard`は30 seedの全登録ゲーム試験だけを除いた
+テスト、`Full`は全テストを実行する。変更対象の個別テストだけへさらに絞ることもできる。
+以下の必須検証はソースを保存するたびではなく、実装単位の完了時に1回実行する。
+
 ```bash
 dotnet build TrumpGameLab.sln -m:1
 dotnet test tests/TrumpLab.Tests
 ./scripts/verify-migration.sh
 pwsh ./scripts/verify-migration.ps1
 ```
+
+Unity Editorを利用できる場合、反復確認は`run-unity-tests.ps1`の既定`Fast`、完了時は
+`-Mode Standard`を使用する。約23分の`Exhaustive`を含む`-Mode Full`はnightly、
+リリース前、または明示的に全Unity回帰が必要なときだけ実行する。

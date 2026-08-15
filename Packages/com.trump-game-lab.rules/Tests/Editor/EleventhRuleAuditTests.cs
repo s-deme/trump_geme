@@ -8,6 +8,7 @@ namespace TrumpLab.Tests
     public sealed class EleventhRuleAuditTests
     {
         [Test]
+        [Category("BroadSimulation")]
         public void Unit11FixedSeedAudit() => RuleAuditTestSupport.AssertFixedSeedBatch(
             1101, "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke");
 
