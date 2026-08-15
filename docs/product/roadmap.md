@@ -3,7 +3,7 @@
 ## 現在地
 
 - 現在のマイルストーン：`M01 構造化表示契約`
-- 現在のタスク：`M01-T01`（`Ready`）
+- 現在のタスク：`M01-T02`（`Ready`）
 - 参照ゲーム：`crazy_eights`
 - 最終更新日：2026-08-16
 
@@ -15,7 +15,7 @@
 
 | ID | 状態 | マイルストーン | 完了状態 | 依存 |
 |---|---|---|---|---|
-| M01 | Ready | [構造化表示契約](milestones/M01-structured-presentation.md) | UIが表示文字列を解析せず、Crazy Eightsを安全に描画・操作できる | なし |
+| M01 | In Progress | [構造化表示契約](milestones/M01-structured-presentation.md) | UIが表示文字列を解析せず、Crazy Eightsを安全に描画・操作できる | なし |
 | M02 | Backlog | [Unity縦切り版](milestones/M02-unity-vertical-slice.md) | Crazy Eightsを人間対CPUで起動から結果まで遊べる | M01 |
 | M03 | Backlog | [セーブ・リプレイ](milestones/M03-save-and-replay.md) | 中断再開と決定的な行動再生ができる | M02 |
 | M04 | Backlog | [CPU難易度](milestones/M04-cpu-difficulty.md) | 弱・標準・強を観測可能情報と固定seedで検証できる | M03 |
