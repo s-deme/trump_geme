@@ -23,6 +23,11 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Install ripgrep
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ripgrep --no-progress -y
+
       - name: Build
         run: dotnet build TrumpGameLab.sln -m:1
 

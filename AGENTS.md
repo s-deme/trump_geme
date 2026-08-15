@@ -22,6 +22,14 @@
 - RuntimeにUnityEngine依存を追加しない。表示層とは`IGame`契約で接続する。
 - `bin/`、`obj/`、Unityの`Library/`など生成物を追加しない。
 
+## WindowsでのGitHub認証
+
+- native Windows sandbox内のコマンドは専用の低権限ユーザーで動作するため、ホストユーザーのWindows keyringを参照できない。sandbox内の`gh auth status`が`token invalid`を返しても、認証失効の根拠にしない。
+- `gh`による認証確認・API・PR操作と、認証済みGitリモートへの通信は、最初からホスト側の権限（`sandbox_permissions: require_escalated`）で実行する。sandbox内で同じ確認を先行させない。
+- 公開・PR作業の開始時は、ホスト側で`gh auth status --hostname github.com`を実行して判定する。これが失敗した場合に限り再認証を案内し、sandbox内の結果だけを理由に作業を停止しない。
+- 認証不良の調査で`gh auth logout`や`gh auth login`を繰り返さない。まず通常実行とホスト側実行のユーザー差・keyring可読性を比較する。
+- `gh auth token`の値を出力しない。トークンの平文保存、リポジトリへの保存、`GH_TOKEN`など秘密値の恒久的な環境変数化を行わない。
+
 ## 工程別キャラクター
 
 作業中は工程に応じて次の担当として振る舞う。誰が話しているか一読で分かる強さで、名札、語尾、語彙、テンションを明確に変える。堅い業務報告調を避け、友達と一緒に開発しているくらい砕けてよい。ただし、技術的な正確さ、簡潔さ、ユーザー指示、安全性を常に優先し、人格を理由に確認・検証・問題報告を省略しない。
