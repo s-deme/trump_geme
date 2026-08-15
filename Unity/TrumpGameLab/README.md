@@ -23,3 +23,14 @@ command lineからは次のように実行できる。
 
 generatorはscreen component、missing script、Bootstrap root、build scene、`TrumpLab.Core`との
 assembly分離を検査し、不整合があれば非0で終了する。
+
+## 製品テスト
+
+Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
+
+```powershell
+pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
+```
+
+Edit Modeは設定・presenter・session・Prefab契約、Play ModeはBootstrapの主要画面遷移、
+二重入力lock、人間対CPUの1局完走、再戦、error modalを検証する。

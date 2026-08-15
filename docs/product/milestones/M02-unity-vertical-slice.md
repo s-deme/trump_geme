@@ -2,8 +2,8 @@
 
 ## 状態
 
-- マイルストーン：`In Progress`
-- 次のタスク：`M02-T06`
+- マイルストーン：`Done`
+- 次のタスク：なし（全タスク完了）
 - 参照ゲーム：`crazy_eights`
 - 依存：`M01`
 
@@ -38,7 +38,7 @@
 | M02-T03 | Done | Crazy Eightsの盤面と手札を構造化状態から描画する | T02 | 表示文字列の解析なしでviewerに許された情報だけを描画する |
 | M02-T04 | Done | 人間入力、CPU手番、入力ロックを含む対局ループを実装する | T03 | 合法手だけを選べ、CPUを含め1局が完走する |
 | M02-T05 | Done | 設定、結果、再戦、エラー表示を実装する | T04 | 起動から再戦まで画面操作だけで完結する |
-| M02-T06 | Ready | Edit Mode・Play ModeテストとUnity Standard検証を追加する | T05 | 主要画面遷移と1局完走を自動検証し、完了条件を満たす |
+| M02-T06 | Done | Edit Mode・Play ModeテストとUnity Standard検証を追加する | T05 | 主要画面遷移と1局完走を自動検証し、完了条件を満たす |
 
 ## 完了条件
 
@@ -62,6 +62,15 @@
 - 製品用Unityプロジェクトの配置が既存UPMパッケージ構成を破壊する場合
 - UI実装のためにRuntimeへUnityEngine依存が必要になった場合
 - 参照ゲームまたは対象プラットフォームを変更する製品判断が必要になった場合
+
+## 完了時検証
+
+- `dotnet build TrumpGameLab.sln -m:1`：成功（警告0、エラー0）
+- `dotnet test tests/TrumpLab.Tests`：239/239合格
+- Bash版・PowerShell版migration verification：成功
+- 製品Edit Mode：6/6合格
+- 製品Play Mode：1/1合格
+- Unity Standard：237/237合格
 
 ## 次への遷移
 

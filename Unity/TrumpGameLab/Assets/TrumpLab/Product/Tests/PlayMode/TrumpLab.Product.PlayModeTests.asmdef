@@ -1,0 +1,13 @@
+{
+  "name": "TrumpLab.Product.PlayModeTests",
+  "rootNamespace": "TrumpLab.Product.Tests",
+  "references": [
+    "TrumpLab.Product",
+    "TrumpLab.Core",
+    "UnityEngine.UI"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

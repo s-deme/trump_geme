@@ -19,8 +19,6 @@ namespace TrumpLab.Product
         [SerializeField] private RectTransform? actionRoot;
         [SerializeField] private Button? actionButtonTemplate;
 
-        private readonly List<Button> actionButtons = new List<Button>();
-
         public override ScreenId Id => ScreenId.Match;
         public Text StatusLabel => Required(statusLabel, nameof(statusLabel));
         public Text OpponentHandLabel => Required(opponentHandLabel, nameof(opponentHandLabel));
@@ -76,21 +74,21 @@ namespace TrumpLab.Product
                 label.text = action.Label;
                 string actionId = action.Id;
                 button.onClick.AddListener(() => ActionRequested?.Invoke(actionId));
-                actionButtons.Add(button);
             }
         }
 
         private void ClearActionButtons()
         {
-            foreach (Button button in actionButtons)
+            if (actionRoot == null) return;
+            Button[] existingButtons = actionRoot.GetComponentsInChildren<Button>(true);
+            foreach (Button button in existingButtons)
             {
-                if (button == null) continue;
+                if (button == null || button == actionButtonTemplate) continue;
                 button.onClick.RemoveAllListeners();
                 button.gameObject.SetActive(false);
                 if (Application.isPlaying) Destroy(button.gameObject);
                 else DestroyImmediate(button.gameObject);
             }
-            actionButtons.Clear();
         }
 
         private void OnDestroy() => ClearActionButtons();
