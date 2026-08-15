@@ -51,12 +51,13 @@ namespace TrumpLab.Product.Editor
             var settings = Instantiate<GameSettingsScreen>(settingsPrefab, canvas.transform);
             var match = Instantiate<MatchScreen>(matchPrefab, canvas.transform);
             var result = Instantiate<ResultScreen>(resultPrefab, canvas.transform);
+            ProductErrorPanel errors = CreateErrorPanel(canvas.transform, font);
 
             var productRoot = new GameObject("ProductRoot");
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
             router.Configure(new ProductScreen[] { title, settings, match, result });
-            controller.Configure(router, title, settings, match, result);
+            controller.Configure(router, title, settings, match, result, errors);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
@@ -84,13 +85,25 @@ namespace TrumpLab.Product.Editor
         {
             GameObject root = ScreenRoot<GameSettingsScreen>("GameSettingsScreen");
             CreateText(root.transform, "Title", "GAME SETTINGS", font, 52,
-                new Vector2(0.2f, 0.72f), new Vector2(0.8f, 0.84f));
+                new Vector2(0.2f, 0.78f), new Vector2(0.8f, 0.9f));
             Text summary = CreateText(root.transform, "Summary",
-                "Crazy Eights\nHuman: Player 1  /  CPU: Player 2\nSeed: 1  /  Wild rank: 8",
-                font, 28, new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.68f));
-            Button start = CreateButton(root.transform, "StartButton", "Start", font, new Vector2(130f, -170f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font, new Vector2(-130f, -170f));
-            root.GetComponent<GameSettingsScreen>().Configure(summary, start, back);
+                "Crazy Eights  •  Human: Player 1  •  CPU: Player 2  •  Difficulty: 1",
+                font, 26, new Vector2(0.12f, 0.64f), new Vector2(0.88f, 0.75f));
+            CreateText(root.transform, "SeedLabel", "Seed", font, 28,
+                new Vector2(0.27f, 0.52f), new Vector2(0.46f, 0.59f));
+            InputField seed = CreateInputField(root.transform, "SeedInput", "1", "Whole number", font,
+                new Vector2(170f, 80f));
+            CreateText(root.transform, "WildRankLabel", "Wild rank (1-13)", font, 28,
+                new Vector2(0.23f, 0.41f), new Vector2(0.46f, 0.48f));
+            InputField wildRank = CreateInputField(root.transform, "WildRankInput", "8", "1 to 13", font,
+                new Vector2(170f, -40f));
+            Text validation = CreateText(root.transform, "Validation", "", font, 24,
+                new Vector2(0.2f, 0.29f), new Vector2(0.8f, 0.37f));
+            validation.color = new Color(1f, 0.55f, 0.45f, 1f);
+            Button start = CreateButton(root.transform, "StartButton", "Start", font, new Vector2(130f, -220f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font, new Vector2(-130f, -220f));
+            root.GetComponent<GameSettingsScreen>().Configure(
+                summary, seed, wildRank, validation, start, back);
             return SavePrefab(root, PrefabDirectory + "/GameSettingsScreen.prefab");
         }
 
@@ -152,6 +165,27 @@ namespace TrumpLab.Product.Editor
             Button title = CreateButton(root.transform, "TitleButton", "Title", font, new Vector2(-140f, -165f));
             root.GetComponent<ResultScreen>().Configure(summary, rematch, title);
             return SavePrefab(root, PrefabDirectory + "/ResultScreen.prefab");
+        }
+
+        private static ProductErrorPanel CreateErrorPanel(Transform parent, Font font)
+        {
+            var root = new GameObject("ErrorPanel", typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(ProductErrorPanel));
+            root.transform.SetParent(parent, false);
+            Stretch(root.GetComponent<RectTransform>());
+            Image background = root.GetComponent<Image>();
+            background.color = new Color(0.08f, 0.025f, 0.025f, 0.96f);
+            CreateText(root.transform, "Title", "MATCH STOPPED", font, 48,
+                new Vector2(0.2f, 0.67f), new Vector2(0.8f, 0.8f));
+            Text message = CreateText(root.transform, "Message", "The match stopped safely.", font, 28,
+                new Vector2(0.2f, 0.4f), new Vector2(0.8f, 0.64f));
+            Button dismiss = CreateButton(root.transform, "DismissButton", "Return to title", font,
+                new Vector2(0f, -180f));
+            dismiss.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
+            ProductErrorPanel panel = root.GetComponent<ProductErrorPanel>();
+            panel.Configure(message, dismiss);
+            panel.Hide();
+            return panel;
         }
 
         private static GameObject ScreenRoot<T>(string name) where T : ProductScreen
@@ -236,6 +270,36 @@ namespace TrumpLab.Product.Editor
             return button;
         }
 
+        private static InputField CreateInputField(Transform parent, string name, string value,
+            string placeholderValue, Font font, Vector2 anchoredPosition)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(InputField));
+            root.transform.SetParent(parent, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(360f, 64f);
+            rect.anchoredPosition = anchoredPosition;
+            Image background = root.GetComponent<Image>();
+            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+            Text text = CreateText(root.transform, "Text", value, font, 28,
+                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f));
+            text.alignment = TextAnchor.MiddleLeft;
+            text.color = new Color(0.05f, 0.08f, 0.06f, 1f);
+            Text placeholder = CreateText(root.transform, "Placeholder", placeholderValue, font, 28,
+                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f));
+            placeholder.alignment = TextAnchor.MiddleLeft;
+            placeholder.color = new Color(0.25f, 0.28f, 0.26f, 0.55f);
+            InputField input = root.GetComponent<InputField>();
+            input.targetGraphic = background;
+            input.textComponent = text;
+            input.placeholder = placeholder;
+            input.contentType = InputField.ContentType.IntegerNumber;
+            input.text = value;
+            return input;
+        }
+
         private static RectTransform CreatePanel(Transform parent, string name,
             Vector2 anchorMin, Vector2 anchorMax)
         {
@@ -307,6 +371,8 @@ namespace TrumpLab.Product.Editor
                 .FirstOrDefault(component => component != null);
             if (controller == null || canvas == null || eventSystem == null)
                 throw new InvalidOperationException("Bootstrap scene is missing a required root component.");
+            if (controller.ErrorPanel == null || controller.ErrorPanel.gameObject.activeSelf)
+                throw new InvalidOperationException("Bootstrap error panel is missing or initially visible.");
             if (controller.Router.Screens.Count != expectedPrefabs.Length ||
                 controller.Router.Screens.Any(screen => screen == null))
                 throw new InvalidOperationException("Bootstrap scene does not contain all product screens.");
@@ -320,7 +386,10 @@ namespace TrumpLab.Product.Editor
                 match.RenderedActionIds.Distinct(StringComparer.Ordinal).Count() !=
                     match.RenderedActionIds.Count)
                 throw new InvalidOperationException("Match screen did not preserve unique legal action IDs.");
+            GameSettingsScreen settings = (GameSettingsScreen)controller.Router.Get(ScreenId.GameSettings);
+            ValidateSettings(settings);
             ValidatePlayableSession();
+            ValidateRepeatableRematch();
             if (roots.Sum(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount) != 0)
                 throw new InvalidOperationException("Bootstrap scene has a missing root script.");
             if (EditorBuildSettings.scenes.Length != 1 ||
@@ -375,6 +444,35 @@ namespace TrumpLab.Product.Editor
                 humanActions == 0 || cpuActions == 0)
                 throw new InvalidOperationException(
                     "Crazy Eights did not complete with both human and CPU actions.");
+        }
+
+        private static void ValidateSettings(GameSettingsScreen settings)
+        {
+            if (GameSettingsScreen.TryCreateRequest("not-a-number", "8", out _, out _))
+                throw new InvalidOperationException("Settings accepted an invalid seed.");
+            if (GameSettingsScreen.TryCreateRequest("42", "14", out _, out _))
+                throw new InvalidOperationException("Settings accepted an invalid wild rank.");
+            if (!GameSettingsScreen.TryCreateRequest(
+                    "42", "8", out GameStartRequest? request, out _) || request == null ||
+                request.Seed != 42 || request.WildRank != 8)
+                throw new InvalidOperationException("Settings did not create the requested game settings.");
+            if (!settings.TryReadRequest(out GameStartRequest? defaults, out _) || defaults == null ||
+                defaults.Seed != 1 || defaults.WildRank != 8)
+                throw new InvalidOperationException("Generated settings defaults are invalid.");
+        }
+
+        private static void ValidateRepeatableRematch()
+        {
+            var first = new GameSessionController(seed: 23, wildRank: 8);
+            var rematch = new GameSessionController(seed: 23, wildRank: 8);
+            first.Begin();
+            rematch.Begin();
+            if (first.Snapshot.CurrentPlayer != rematch.Snapshot.CurrentPlayer ||
+                !first.Snapshot.Actions.Select(action => action.Action)
+                    .SequenceEqual(rematch.Snapshot.Actions.Select(action => action.Action)) ||
+                !first.Snapshot.CardZones.SelectMany(zone => zone.Cards)
+                    .SequenceEqual(rematch.Snapshot.CardZones.SelectMany(zone => zone.Cards)))
+                throw new InvalidOperationException("Rematch did not reproduce the configured seed.");
         }
     }
 }

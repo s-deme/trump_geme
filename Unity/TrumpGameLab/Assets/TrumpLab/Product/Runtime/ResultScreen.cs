@@ -25,6 +25,12 @@ namespace TrumpLab.Product
             titleButton = title;
         }
 
+        public void Render(ResultViewModel model)
+        {
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            SummaryLabel.text = model.Summary;
+        }
+
         private void Awake()
         {
             if (summaryLabel == null || rematchButton == null || titleButton == null)
