@@ -30,7 +30,7 @@ namespace TrumpLab.Games
         private readonly DeterministicRandom rng;private readonly int targetScore;private readonly int[] teamScores=new int[2];private readonly int[] redThrees=new int[2];
         private List<List<CanastaCard>> hands=new List<List<CanastaCard>>();private List<CanastaCard> stock=new List<CanastaCard>();private readonly List<CanastaCard> discard=new List<CanastaCard>();
         private readonly Dictionary<int,List<CanastaCard>>[] melds={new Dictionary<int,List<CanastaCard>>(),new Dictionary<int,List<CanastaCard>>()};
-        private readonly bool[] opened=new bool[2];private int dealer=-1;private string phase="draw";private int outTeam=-1;private bool finished;
+        private readonly bool[] opened=new bool[2];private int dealer=-1;private string phase="draw";private int outTeam=-1;private int outRequester=-1;private bool? outPermission;private bool discardFrozen;private bool turnOpenedAtStart;private bool concealedOut;private bool finished;
         public override string GameId=>"canasta";public override string Name=>"カナスタ";
         public CanastaGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
         {Players=4;this.rng=rng;targetScore=options.Integer("target_score",5000);StartHand();}
@@ -38,7 +38,8 @@ namespace TrumpLab.Games
         {
             dealer=(dealer+1)%4;for(int team=0;team<2;team++){melds[team].Clear();opened[team]=false;redThrees[team]=0;}stock=BuildDeck();rng.Shuffle(stock);hands=Enumerable.Range(0,4).Select(_=>new List<CanastaCard>()).ToList();
             for(int round=0;round<11;round++)for(int player=0;player<4;player++){hands[player].Add(Pop(stock));ExposeRedThrees(player,true);}
-            discard.Clear();discard.Add(Pop(stock));outTeam=-1;phase="draw";CurrentPlayer=(dealer+1)%4;
+            discard.Clear();discardFrozen=false;CanastaCard starter;do{starter=Pop(stock);discard.Add(starter);if(starter.IsWild||starter.IsBlackThree||starter.IsRedThree)discardFrozen=true;}while((starter.IsWild||starter.IsBlackThree||starter.IsRedThree)&&stock.Count>0);
+            outTeam=-1;outRequester=-1;outPermission=null;concealedOut=false;phase="draw";CurrentPlayer=(dealer+1)%4;
             for(int player=0;player<4;player++)ExposeRedThrees(player,true);
         }
         private static List<CanastaCard> BuildDeck()
@@ -48,20 +49,23 @@ namespace TrumpLab.Games
             int actual=ValidateTurn(player),team=actual%2;
             if(phase=="draw")
             {
-                var result=new List<Action>();if(stock.Count>0)result.Add(new Action("draw_stock"));if(CanTakePile(actual))result.Add(new Action("take_pile"));if(stock.Count==0)result.Add(new Action("end_hand"));return result;
+                var result=new List<Action>();if(stock.Count>0)result.Add(new Action("draw_stock"));result.AddRange(PileBundles(actual).Select(bundle=>new Action("take_pile",value:EncodeBundle(bundle))));if(stock.Count==0)result.Add(new Action("end_hand"));return result;
             }
+            if(phase=="out_permission")return new[]{new Action("allow_go_out"),new Action("deny_go_out")};
             var actions=new List<Action>();
-            if(!opened[team]){List<List<CanastaCard>>? bundle=InitialBundle(hands[actual],team,null);if(bundle!=null&&CanRemove(actual,bundle.SelectMany(group=>group)))actions.Add(new Action("initial_meld"));}
+            if(!opened[team])foreach(List<List<CanastaCard>> bundle in InitialBundles(hands[actual],team,null).Where(bundle=>CanRemove(actual,bundle.SelectMany(group=>group))))actions.Add(new Action("initial_meld",value:EncodeBundle(bundle)));
             else
             {
                 foreach(List<CanastaCard> group in AvailableGroups(hands[actual]))if(CanRemove(actual,group))actions.Add(new Action("meld_group",value:string.Join(",",group.Select(card=>card.Id))));
+                if(outPermission==true&&hands[actual].Count>=3&&hands[actual].All(card=>card.IsBlackThree))actions.Add(new Action("meld_group",value:string.Join(",",hands[actual].Select(card=>card.Id))));
                 for(int index=0;index<hands[actual].Count;index++)
                 {CanastaCard card=hands[actual][index];if(CanAdd(team,card)&&CanRemove(actual,new[]{card}))actions.Add(new Action("add_meld",value:card.Id.ToString(CultureInfo.InvariantCulture)));}
             }
-            bool canGoOut=HasCanasta(team);for(int index=0;index<hands[actual].Count;index++)if(hands[actual].Count>1||canGoOut)actions.Add(new Action("discard",value:hands[actual][index].Id.ToString(CultureInfo.InvariantCulture)));return actions;
+            if(HasCanasta(team)&&!outPermission.HasValue)actions.Add(new Action("ask_go_out"));
+            bool canGoOut=HasCanasta(team)&&HasOutPermission(actual);for(int index=0;index<hands[actual].Count;index++)if(hands[actual].Count>1||canGoOut)actions.Add(new Action("discard",value:hands[actual][index].Id.ToString(CultureInfo.InvariantCulture)));return actions;
         }
         private bool CanRemove(int player,IEnumerable<CanastaCard> cards)
-        {CanastaCard[] removed=cards.ToArray();int remaining=hands[player].Count-removed.Count(card=>hands[player].Any(value=>value.Id==card.Id));int team=player%2;return remaining>=2||HasCanastaAfter(team,removed);}
+        {CanastaCard[] removed=cards.ToArray();int remaining=hands[player].Count-removed.Count(card=>hands[player].Any(value=>value.Id==card.Id));int team=player%2;bool canasta=HasCanastaAfter(team,removed);return remaining>=2||remaining==1&&canasta||remaining==0&&HasOutPermission(player)&&canasta;}
         private bool HasCanastaAfter(int team,IEnumerable<CanastaCard> additions)
         {
             if(HasCanasta(team))return true;CanastaCard[] cards=additions.ToArray();
@@ -74,48 +78,60 @@ namespace TrumpLab.Games
                 return existing+group.Count()+usableWilds>=7;
             });
         }
-        private bool CanTakePile(int player)
+        private IEnumerable<List<List<CanastaCard>>> PileBundles(int player)
         {
-            if(discard.Count==0)return false;CanastaCard top=discard[discard.Count-1];if(top.IsWild||top.IsBlackThree||top.IsRedThree)return false;
-            if(hands[player].Count(card=>!card.IsWild&&card.Rank==top.Rank)<2)return false;List<List<CanastaCard>>? bundle=opened[player%2]?new List<List<CanastaCard>>{hands[player].Where(card=>!card.IsWild&&card.Rank==top.Rank).Take(2).Concat(new[]{top}).ToList()}:InitialBundle(hands[player],player%2,top);
-            if(bundle==null)return false;int handUsed=bundle.SelectMany(group=>group).Count(card=>hands[player].Any(value=>value.Id==card.Id));int pileAdded=discard.Count(card=>card.Id!=top.Id&&!card.IsRedThree);int remaining=hands[player].Count-handUsed+pileAdded;return remaining>=2||HasCanastaAfter(player%2,bundle.SelectMany(group=>group));
+            if(discard.Count==0)yield break;CanastaCard top=discard[discard.Count-1];if(top.IsWild||top.IsBlackThree||top.IsRedThree)yield break;int team=player%2;
+            IEnumerable<List<List<CanastaCard>>> bundles;
+            if(opened[team]&&!discardFrozen&&melds[team].ContainsKey(top.Rank))bundles=new[]{new List<List<CanastaCard>>{new List<CanastaCard>{top}}};
+            else if(opened[team])bundles=PairBundles(hands[player],top);
+            else bundles=InitialBundles(hands[player],team,top);
+            foreach(List<List<CanastaCard>> bundle in bundles)
+            {CanastaCard[] additions=bundle.SelectMany(group=>group).ToArray();int handUsed=additions.Count(card=>hands[player].Any(value=>value.Id==card.Id));int pileAdded=discard.Count(card=>card.Id!=top.Id&&!card.IsRedThree);int remaining=hands[player].Count-handUsed+pileAdded;bool canasta=HasCanastaAfter(team,additions);if(remaining>=2||remaining==1&&canasta||remaining==0&&HasOutPermission(player)&&canasta)yield return bundle;}
         }
         public override void Apply(Action action)
         {
             int player=ValidateTurn(null);Guard.Legal(action,LegalActions(player));TurnCount++;int team=player%2;
             if(phase=="draw")
             {
-                if(action.Kind=="end_hand"){ScoreHand();return;}
+                if(action.Kind=="end_hand"){ScoreHand();return;}turnOpenedAtStart=opened[team];outPermission=null;
                 if(action.Kind=="draw_stock"){hands[player].Add(Pop(stock));if(ExposeRedThrees(player,true)){ScoreHand();return;}phase="meld";return;}
-                CanastaCard top=discard[discard.Count-1];List<List<CanastaCard>> bundle;
-                if(opened[team])
-                {List<CanastaCard> pair=hands[player].Where(card=>!card.IsWild&&card.Rank==top.Rank).Take(2).ToList();pair.Add(top);bundle=new List<List<CanastaCard>>{pair};}
-                else bundle=InitialBundle(hands[player],team,top)!;
+                CanastaCard top=discard[discard.Count-1];List<List<CanastaCard>> bundle=DecodeBundle(action.Value!,hands[player].Concat(new[]{top}));
                 List<CanastaCard> pile=discard.ToList();discard.Clear();ApplyGroups(player,bundle);foreach(CanastaCard card in pile.Where(card=>bundle.SelectMany(group=>group).All(used=>used.Id!=card.Id)))
-                {if(card.IsRedThree)redThrees[team]++;else hands[player].Add(card);}opened[team]=true;phase="meld";return;
+                {if(card.IsRedThree)redThrees[team]++;else hands[player].Add(card);}opened[team]=true;discardFrozen=false;phase="meld";return;
             }
+            if(phase=="out_permission")
+            {outPermission=action.Kind=="allow_go_out";phase="meld";CurrentPlayer=outRequester;return;}
+            if(action.Kind=="ask_go_out"){outRequester=player;phase="out_permission";CurrentPlayer=(player+2)%4;return;}
             if(action.Kind=="initial_meld")
-            {List<List<CanastaCard>> bundle=InitialBundle(hands[player],team,null)!;ApplyGroups(player,bundle);opened[team]=true;if(hands[player].Count==0&&HasCanasta(team)){outTeam=team;ScoreHand();}return;}
+            {List<List<CanastaCard>> bundle=DecodeBundle(action.Value!,hands[player]);ApplyGroups(player,bundle);opened[team]=true;if(hands[player].Count==0&&HasCanasta(team)){outTeam=team;concealedOut=!turnOpenedAtStart;ScoreHand();}return;}
             if(action.Kind=="meld_group")
             {int[] ids=ParseIds(action.Value!);List<CanastaCard> group=hands[player].Where(card=>ids.Contains(card.Id)).ToList();ApplyGroups(player,new[]{group});if(hands[player].Count==0&&HasCanasta(team)){outTeam=team;ScoreHand();}return;}
             if(action.Kind=="add_meld")
             {int id=int.Parse(action.Value!,CultureInfo.InvariantCulture);CanastaCard card=hands[player].First(value=>value.Id==id);hands[player].Remove(card);int rank=card.IsWild?BestWildTarget(team):card.Rank;melds[team][rank].Add(card);if(hands[player].Count==0&&HasCanasta(team)){outTeam=team;ScoreHand();}return;}
-            int discardId=int.Parse(action.Value!,CultureInfo.InvariantCulture);CanastaCard thrown=hands[player].First(card=>card.Id==discardId);hands[player].Remove(thrown);discard.Add(thrown);if(hands[player].Count==0){outTeam=team;ScoreHand();return;}phase="draw";CurrentPlayer=(player+1)%4;
+            int discardId=int.Parse(action.Value!,CultureInfo.InvariantCulture);CanastaCard thrown=hands[player].First(card=>card.Id==discardId);hands[player].Remove(thrown);discard.Add(thrown);if(thrown.IsWild||thrown.IsBlackThree)discardFrozen=true;if(hands[player].Count==0){outTeam=team;concealedOut=!turnOpenedAtStart;ScoreHand();return;}outPermission=null;outRequester=-1;phase="draw";CurrentPlayer=(player+1)%4;
         }
         private void ApplyGroups(int player,IEnumerable<List<CanastaCard>> groups)
         {
             int team=player%2;foreach(List<CanastaCard> group in groups)
             {int rank=group.First(card=>!card.IsWild).Rank;foreach(CanastaCard card in group.Where(card=>hands[player].Any(value=>value.Id==card.Id)).ToArray())hands[player].RemoveAll(value=>value.Id==card.Id);if(!melds[team].ContainsKey(rank))melds[team][rank]=new List<CanastaCard>();foreach(CanastaCard card in group)if(melds[team][rank].All(value=>value.Id!=card.Id))melds[team][rank].Add(card);}
         }
-        private List<List<CanastaCard>>? InitialBundle(List<CanastaCard> hand,int team,CanastaCard? forcedTop)
+        private IEnumerable<List<List<CanastaCard>>> PairBundles(List<CanastaCard> hand,CanastaCard top)
+        {CanastaCard[] matches=hand.Where(card=>!card.IsWild&&card.Rank==top.Rank).ToArray();for(int left=0;left<matches.Length-1;left++)for(int right=left+1;right<matches.Length;right++)yield return new List<List<CanastaCard>>{new List<CanastaCard>{matches[left],matches[right],top}};}
+        private IEnumerable<List<List<CanastaCard>>> InitialBundles(List<CanastaCard> hand,int team,CanastaCard? forcedTop)
         {
-            var groups=new List<List<CanastaCard>>();var used=new HashSet<int>();
-            if(forcedTop.HasValue)
-            {CanastaCard[] pair=hand.Where(card=>!card.IsWild&&card.Rank==forcedTop.Value.Rank).Take(2).ToArray();if(pair.Length<2)return null;var forced=new List<CanastaCard>{pair[0],pair[1],forcedTop.Value};groups.Add(forced);foreach(CanastaCard card in pair)used.Add(card.Id);}
-            var wilds=new Queue<CanastaCard>(hand.Where(card=>card.IsWild&&!used.Contains(card.Id)));
-            foreach(var rankGroup in hand.Where(card=>!card.IsWild&&!card.IsRedThree&&!card.IsBlackThree&&!used.Contains(card.Id)).GroupBy(card=>card.Rank).OrderByDescending(group=>group.Sum(CardValue)))
-            {var group=rankGroup.ToList();if(group.Count<3&&group.Count==2&&wilds.Count>0)group.Add(wilds.Dequeue());if(group.Count>=3){groups.Add(group);foreach(CanastaCard card in group)used.Add(card.Id);}}
-            int required=InitialRequirement(team);var selected=new List<List<CanastaCard>>();int total=0;foreach(List<CanastaCard> group in groups.OrderByDescending(group=>group.Sum(CardValue))){selected.Add(group);total+=group.Sum(CardValue);if(total>=required)return selected;}return null;
+            var options=new List<List<CanastaCard>>();CanastaCard[] wilds=hand.Where(card=>card.IsWild).ToArray();
+            foreach(var rankGroup in hand.Where(card=>!card.IsWild&&!card.IsRedThree&&!card.IsBlackThree).GroupBy(card=>card.Rank))
+            {
+                CanastaCard[] naturals=rankGroup.ToArray();for(int naturalMask=1;naturalMask<(1<<naturals.Length);naturalMask++)
+                {var selected=Enumerable.Range(0,naturals.Length).Where(index=>(naturalMask&(1<<index))!=0).Select(index=>naturals[index]).ToList();if(forcedTop.HasValue&&forcedTop.Value.Rank==rankGroup.Key)selected.Add(forcedTop.Value);else if(forcedTop.HasValue&&forcedTop.Value.Rank!=rankGroup.Key){}
+                    for(int wildMask=0;wildMask<(1<<wilds.Length);wildMask++){var group=selected.Concat(Enumerable.Range(0,wilds.Length).Where(index=>(wildMask&(1<<index))!=0).Select(index=>wilds[index])).ToList();int natural=group.Count(card=>!card.IsWild);int wild=group.Count(card=>card.IsWild);if(group.Count>=3&&natural>=2&&wild<=3&&natural>wild)options.Add(group);}}
+            }
+            if(forcedTop.HasValue)options=options.Where(group=>group.First(card=>!card.IsWild).Rank!=forcedTop.Value.Rank||
+                group.Any(card=>card.Id==forcedTop.Value.Id)&&group.Count(card=>hand.Any(value=>value.Id==card.Id)&&!card.IsWild)>=2).ToList();
+            int required=InitialRequirement(team);var results=new List<List<List<CanastaCard>>>();
+            void Walk(int index,List<List<CanastaCard>> chosen,HashSet<int> used)
+            {if(chosen.Sum(group=>group.Sum(CardValue))>=required&&(!forcedTop.HasValue||chosen.SelectMany(group=>group).Any(card=>card.Id==forcedTop.Value.Id))){results.Add(chosen.Select(group=>group.ToList()).ToList());return;}for(int next=index;next<options.Count;next++){List<CanastaCard> group=options[next];if(group.Any(card=>used.Contains(card.Id))||chosen.Any(existing=>existing.Any(card=>!card.IsWild)&&group.Any(card=>!card.IsWild)&&existing.First(card=>!card.IsWild).Rank==group.First(card=>!card.IsWild).Rank))continue;foreach(CanastaCard card in group)used.Add(card.Id);chosen.Add(group);Walk(next+1,chosen,used);chosen.RemoveAt(chosen.Count-1);foreach(CanastaCard card in group)used.Remove(card.Id);}}
+            Walk(0,new List<List<CanastaCard>>(),new HashSet<int>());return results.GroupBy(EncodeBundle).Select(group=>group.First());
         }
         private static List<List<CanastaCard>> AvailableGroups(List<CanastaCard> hand)
         {
@@ -131,6 +147,7 @@ namespace TrumpLab.Games
         private int BestWildTarget(int team)=>melds[team].Where(pair=>pair.Value.Count(card=>card.IsWild)<3&&pair.Value.Count(card=>!card.IsWild)>pair.Value.Count(card=>card.IsWild)).OrderByDescending(pair=>pair.Value.Count).First().Key;
         private int InitialRequirement(int team)=>teamScores[team]<0?15:teamScores[team]<1500?50:teamScores[team]<3000?90:120;
         private bool HasCanasta(int team)=>melds[team].Values.Any(cards=>cards.Count>=7);
+        private bool HasOutPermission(int player)=>outPermission==true&&outRequester==player;
         private bool ExposeRedThrees(int player,bool replace)
         {
             while(true){int index=hands[player].FindIndex(card=>card.IsRedThree);if(index<0)return false;hands[player].RemoveAt(index);redThrees[player%2]++;if(!replace)return false;if(stock.Count==0)return true;hands[player].Add(Pop(stock));}
@@ -139,14 +156,17 @@ namespace TrumpLab.Games
         private void ScoreHand()
         {
             for(int team=0;team<2;team++)
-            {int value=melds[team].Values.SelectMany(cards=>cards).Sum(CardValue)-Enumerable.Range(0,4).Where(player=>player%2==team).Sum(player=>hands[player].Sum(CardValue));foreach(List<CanastaCard> canasta in melds[team].Values.Where(cards=>cards.Count>=7))value+=canasta.Any(card=>card.IsWild)?300:500;int threes=redThrees[team]==4?800:redThrees[team]*100;value+=opened[team]?threes:-threes;if(outTeam==team)value+=100;teamScores[team]+=value;}
+            {int value=melds[team].Values.SelectMany(cards=>cards).Sum(CardValue)-Enumerable.Range(0,4).Where(player=>player%2==team).Sum(player=>hands[player].Sum(CardValue));foreach(List<CanastaCard> canasta in melds[team].Values.Where(cards=>cards.Count>=7))value+=canasta.Any(card=>card.IsWild)?300:500;int threes=redThrees[team]==4?800:redThrees[team]*100;value+=opened[team]?threes:-threes;if(outTeam==team)value+=100+(concealedOut?100:0);teamScores[team]+=value;}
             if(teamScores.Max()>=targetScore)finished=true;else StartHand();
         }
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
-        {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="draw"){if(actions.Any(action=>action.Kind=="take_pile"))return actions.First(action=>action.Kind=="take_pile");if(actions.Any(action=>action.Kind=="draw_stock"))return actions.First(action=>action.Kind=="draw_stock");return actions.First();}Action[] meldActions=actions.Where(action=>action.Kind=="initial_meld"||action.Kind=="meld_group"||action.Kind=="add_meld").ToArray();if(meldActions.Length>0)return meldActions[0];return actions.Where(action=>action.Kind=="discard").OrderByDescending(action=>CardValue(hands[player].First(card=>card.Id==int.Parse(action.Value!,CultureInfo.InvariantCulture)))).First();}
+        {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="draw"){if(actions.Any(action=>action.Kind=="take_pile"))return actions.First(action=>action.Kind=="take_pile");if(actions.Any(action=>action.Kind=="draw_stock"))return actions.First(action=>action.Kind=="draw_stock");return actions.First();}if(phase=="out_permission")return actions[0];Action[] meldActions=actions.Where(action=>action.Kind=="initial_meld"||action.Kind=="meld_group"||action.Kind=="add_meld").ToArray();if(meldActions.Length>0)return meldActions[0];if(actions.Any(action=>action.Kind=="ask_go_out"))return actions.First(action=>action.Kind=="ask_go_out");return actions.Where(action=>action.Kind=="discard").OrderByDescending(action=>CardValue(hands[player].First(card=>card.Id==int.Parse(action.Value!,CultureInfo.InvariantCulture)))).First();}
         public override bool IsTerminal=>finished;
         public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=teamScores.Max();return new GameResult(Enumerable.Range(0,4).Where(player=>teamScores[player%2]==high),Enumerable.Range(0,4).Select(player=>(double)teamScores[player%2]),"classic canasta partnership score",TurnCount,new Dictionary<string,object>{{"team_scores",teamScores.ToArray()}});}
-        public override string View(int? player=null){int viewer=player??CurrentPlayer;return $"phase={phase} scores=[{string.Join(",",teamScores)}] opened=[{string.Join(",",opened)}] red3=[{string.Join(",",redThrees)}] stock={stock.Count} discard={(discard.Count==0?"-":discard.Last().ToString())} canastas=[{string.Join(",",melds.Select(team=>team.Values.Count(cards=>cards.Count>=7)))}] hand_counts=[{string.Join(",",hands.Select(hand=>hand.Count))}]\nyour hand: {string.Join(" ",hands[viewer])}";}
+        public override string View(int? player=null){int viewer=player??CurrentPlayer;return $"phase={phase} scores=[{string.Join(",",teamScores)}] opened=[{string.Join(",",opened)}] red3=[{string.Join(",",redThrees)}] stock={stock.Count} discard={(discard.Count==0?"-":discard.Last().ToString())} frozen={discardFrozen} canastas=[{string.Join(",",melds.Select(team=>team.Values.Count(cards=>cards.Count>=7)))}] hand_counts=[{string.Join(",",hands.Select(hand=>hand.Count))}]\nyour hand: {string.Join(" ",hands[viewer])}";}
+        private static string EncodeBundle(IEnumerable<List<CanastaCard>> bundle)=>string.Join(";",bundle.Select(group=>string.Join(",",group.Select(card=>card.Id).OrderBy(id=>id))).OrderBy(value=>value));
+        private static List<List<CanastaCard>> DecodeBundle(string value,IEnumerable<CanastaCard> available)
+        {Dictionary<int,CanastaCard> cards=available.ToDictionary(card=>card.Id);return value.Split(';').Select(group=>group.Split(',').Select(id=>cards[int.Parse(id,CultureInfo.InvariantCulture)]).ToList()).ToList();}
         private static int[] ParseIds(string value)=>value.Split(',').Select(text=>int.Parse(text,CultureInfo.InvariantCulture)).ToArray();private static CanastaCard Pop(List<CanastaCard> cards){CanastaCard card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
         public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("canasta","カナスタ",4,4,"partnership-rummy","4人固定ペア、108枚、捨て札山常時凍結のクラシック採用仕様。赤3、初回メルド下限、7枚カナスタを得点化する。","Pagat Classic Canasta",new Dictionary<string,string>{{"target_score","勝利点（既定5000）"}}),(p,r,o)=>new CanastaGame(p,r,o));
     }
@@ -154,10 +174,12 @@ namespace TrumpLab.Games
     internal sealed class TableMeld
     {
         public List<Card> Cards { get; }=new List<Card>();
+        public List<int> CardOwners { get; }=new List<int>();
         public string Kind { get; set; }
         public int Owner { get; }
-        public TableMeld(IEnumerable<Card> cards,string kind,int owner){Cards.AddRange(cards);Kind=kind;Owner=owner;}
-        public override string ToString()=>$"{Kind}[{string.Join(" ",Cards)}]";
+        public TableMeld(IEnumerable<Card> cards,string kind,int owner){Cards.AddRange(cards);CardOwners.AddRange(Cards.Select(_=>owner));Kind=kind;Owner=owner;}
+        public void Add(Card card,int owner){Cards.Add(card);CardOwners.Add(owner);}
+        public override string ToString()=>$"{Kind}[{string.Join(" ",Cards.Select((card,index)=>card+"@P"+CardOwners[index]))}]";
     }
 
     internal static class RummyRules
@@ -186,12 +208,22 @@ namespace TrumpLab.Games
                 if(aceHigh&&byRank.ContainsKey(1))
                 {int[] high=byRank.Keys.Where(rank=>rank!=1).Concat(new[]{14}).OrderBy(value=>value).ToArray();for(int start=0;start<high.Length;start++)for(int end=start+2;end<high.Length;end++){int[] selected=high.Skip(start).Take(end-start+1).ToArray();if(Consecutive(selected))result.Add(selected.Select(rank=>byRank[rank==14?1:rank]).ToArray());}}
             }
-            if(singleSeven)for(int index=0;index<hand.Count;index++)if(hand[index].Rank==7)result.Add(new[]{index});
+            if(singleSeven)
+            {
+                for(int index=0;index<hand.Count;index++)if(hand[index].Rank==7)result.Add(new[]{index});
+                for(int left=0;left<hand.Count-1;left++)for(int right=left+1;right<hand.Count;right++)
+                {
+                    Card a=hand[left],b=hand[right];
+                    if(a.Rank==7&&b.Rank==7&&a.Suit!=b.Suit||a.Suit==b.Suit&&
+                        (a.Rank==7&&Math.Abs(b.Rank-7)==1||b.Rank==7&&Math.Abs(a.Rank-7)==1))
+                        result.Add(new[]{left,right});
+                }
+            }
             return result.GroupBy(indexes=>string.Join(",",indexes.OrderBy(i=>i))).Select(group=>group.First()).ToArray();
         }
         private static void AddCombinations(int[] values,int size,int offset,List<int> chosen,List<int[]> result)
         {if(chosen.Count==size){result.Add(chosen.ToArray());return;}for(int index=offset;index<=values.Length-(size-chosen.Count);index++){chosen.Add(values[index]);AddCombinations(values,size,index+1,chosen,result);chosen.RemoveAt(chosen.Count-1);}}
-        public static string Kind(IReadOnlyList<Card> cards)=>cards.Count==1&&cards[0].Rank==7?"seven":IsSet(cards)?"set":"run";
+        public static string Kind(IReadOnlyList<Card> cards)=>cards.All(card=>card.Rank==7)&&cards.Count<=2?"seven":IsSet(cards)?"set":"run";
         public static bool CanLayOff(TableMeld meld,Card card,bool aceHigh=false)
         {
             var combined=meld.Cards.Concat(new[]{card}).ToArray();if(meld.Kind=="set")return IsSet(combined);if(meld.Kind=="run")return IsRun(combined,aceHigh);
@@ -204,22 +236,24 @@ namespace TrumpLab.Games
 
     public sealed class SevenBridgeGame : GameBase
     {
-        private readonly DeterministicRandom rng;private readonly List<List<Card>> hands;private List<Card> stock;private readonly List<Card> discard=new List<Card>();private readonly List<TableMeld> melds=new List<TableMeld>();
-        private readonly bool[] hasPlayed;private string phase="draw";private List<int> claimers=new List<int>();private int claimIndex;private int normalNext;private int winner=-1;private int recycles;private bool stalemate;private bool hadMeldAtTurnStart;private bool winnerHadMeld;private bool finished;
+        private readonly DeterministicRandom rng;private readonly List<List<Card>> hands;private List<Card> stock=new List<Card>();private readonly List<Card> discard=new List<Card>();private readonly List<TableMeld> melds=new List<TableMeld>();private readonly int[] scores;private readonly int targetScore;
+        private readonly bool[] hasPlayed;private string phase="draw";private List<int> claimers=new List<int>();private int claimIndex;private int normalNext;private int winner=-1;private int dealer=-1;private int handsPlayed;private int progressVersion;private int lastRecycleProgress=-1;private bool hadMeldAtTurnStart;private bool winnerHadMeld;private bool finished;
         public override string GameId=>"seven_bridge";public override string Name=>"セブンブリッジ";
-        public SevenBridgeGame(int players,DeterministicRandom rng)
+        public SevenBridgeGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
+        {Players=players;this.rng=rng;hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();hasPlayed=new bool[players];scores=new int[players];targetScore=Math.Max(1,options.Integer("target_score",200));StartHand();}
+        private void StartHand()
         {
-            Players=players;this.rng=rng;stock=Cards.Shuffled(Cards.StandardDeck(),rng);hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
-            for(int round=0;round<7;round++)for(int player=0;player<players;player++)hands[player].Add(Pop(stock));discard.Add(Pop(stock));hasPlayed=new bool[players];
+            dealer=(dealer+1)%Players;stock=Cards.Shuffled(Cards.StandardDeck(),rng);foreach(List<Card> hand in hands)hand.Clear();discard.Clear();melds.Clear();Array.Clear(hasPlayed,0,hasPlayed.Length);
+            for(int round=0;round<7;round++)for(int offset=1;offset<=Players;offset++)hands[(dealer+offset)%Players].Add(Pop(stock));discard.Add(Pop(stock));phase="draw";winner=-1;progressVersion=0;lastRecycleProgress=-1;winnerHadMeld=false;CurrentPlayer=(dealer+1)%Players;
         }
         public override IReadOnlyList<Action> LegalActions(int? player=null)
         {
             int actual=ValidateTurn(player);
             if(phase=="draw")return new[]{new Action("draw_stock")};
             if(phase=="claim_pon")
-            {var actions=new List<Action>{new Action("pass")};if(hasPlayed[actual]&&hands[actual].Count>2)foreach(int[] pair in PairClaims(hands[actual],discard[discard.Count-1]))actions.Add(new Action("pon",value:string.Join(",",pair)));return actions;}
+            {var actions=new List<Action>{new Action("pass")};if(hasPlayed[actual]&&hands[actual].Count>=2)foreach(int[] pair in PairClaims(hands[actual],discard[discard.Count-1]))actions.Add(new Action("pon",value:string.Join(",",pair)));return actions;}
             if(phase=="claim_chi")
-            {var actions=new List<Action>{new Action("pass")};if(hasPlayed[actual]&&hands[actual].Count>2)foreach(int[] pair in RunClaims(hands[actual],discard[discard.Count-1]))actions.Add(new Action("chi",value:string.Join(",",pair)));return actions;}
+            {var actions=new List<Action>{new Action("pass")};if(hasPlayed[actual]&&hands[actual].Count>=2)foreach(int[] pair in RunClaims(hands[actual],discard[discard.Count-1]))actions.Add(new Action("chi",value:string.Join(",",pair)));return actions;}
             var result=new List<Action>();
             foreach(int[] indexes in RummyRules.NewMelds(hands[actual],singleSeven:true))if(indexes.Length<hands[actual].Count)result.Add(new Action("meld",value:string.Join(",",indexes)));
             if(melds.Any(meld=>meld.Owner==actual)&&hands[actual].Count>1)for(int index=0;index<hands[actual].Count;index++)for(int target=0;target<melds.Count;target++)if(RummyRules.CanLayOff(melds[target],hands[actual][index]))result.Add(new Action("layoff",target:target,value:index.ToString(CultureInfo.InvariantCulture)));
@@ -228,17 +262,17 @@ namespace TrumpLab.Games
         public override void Apply(Action action)
         {
             int player=ValidateTurn(null);Guard.Legal(action,LegalActions(player));TurnCount++;
-            if(phase=="draw"){hadMeldAtTurnStart=melds.Any(meld=>meld.Owner==player);if(!Recycle()){stalemate=true;finished=true;return;}hands[player].Add(Pop(stock));phase="meld";return;}
+            if(phase=="draw"){hadMeldAtTurnStart=melds.Any(meld=>meld.Owner==player);if(!Recycle()){StartHand();return;}hands[player].Add(Pop(stock));phase="meld";return;}
             if(phase=="claim_pon"||phase=="claim_chi")
             {
-                if(action.Kind=="pass"){AdvanceClaim();return;}hadMeldAtTurnStart=melds.Any(meld=>meld.Owner==player);List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(action.Value!));cards.Add(Pop(discard));melds.Add(new TableMeld(cards,action.Kind=="pon"?"set":"run",player));phase="meld";return;
+                if(action.Kind=="pass"){AdvanceClaim();return;}hadMeldAtTurnStart=melds.Any(meld=>meld.Owner==player);List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(action.Value!));cards.Add(Pop(discard));melds.Add(new TableMeld(cards,action.Kind=="pon"?"set":"run",player));progressVersion++;if(hands[player].Count==0){winner=player;winnerHadMeld=hadMeldAtTurnStart;ScoreHand();return;}phase="meld";return;
             }
             if(action.Kind=="meld")
-            {List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(action.Value!));melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));return;}
+            {List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(action.Value!));melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));progressVersion++;return;}
             if(action.Kind=="layoff")
-            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Cards.Add(card);if(meld.Kind=="seven")meld.Kind=card.Rank==7?"set":"run";return;}
+            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Add(card,player);if(meld.Kind=="seven")meld.Kind=card.Rank==7?"set":"run";progressVersion++;return;}
             int discardIndex=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card thrown=hands[player][discardIndex];hands[player].RemoveAt(discardIndex);discard.Add(thrown);hasPlayed[player]=true;
-            if(hands[player].Count==0){winner=player;winnerHadMeld=hadMeldAtTurnStart;finished=true;return;}BeginClaims(player);
+            if(hands[player].Count==0){winner=player;winnerHadMeld=hadMeldAtTurnStart;ScoreHand();return;}BeginClaims(player);
         }
         private void BeginClaims(int discarder)
         {normalNext=(discarder+1)%Players;claimers=Enumerable.Range(1,Players-1).Select(offset=>(discarder+offset)%Players).ToList();claimIndex=0;phase="claim_pon";CurrentPlayer=claimers[0];}
@@ -251,15 +285,17 @@ namespace TrumpLab.Games
         {int[] matches=Enumerable.Range(0,hand.Count).Where(index=>hand[index].Rank==card.Rank&&hand[index].Suit!=card.Suit).ToArray();var result=new List<int[]>();for(int a=0;a<matches.Length-1;a++)for(int b=a+1;b<matches.Length;b++)if(hand[matches[a]].Suit!=hand[matches[b]].Suit)result.Add(new[]{matches[a],matches[b]});return result;}
         private static IEnumerable<int[]> RunClaims(IReadOnlyList<Card> hand,Card card)
         {var result=new List<int[]>();for(int a=0;a<hand.Count-1;a++)for(int b=a+1;b<hand.Count;b++)if(RummyRules.IsRun(new[]{hand[a],hand[b],card}))result.Add(new[]{a,b});return result;}
-        private bool Recycle(){if(stock.Count>0)return true;if(recycles>=1||discard.Count<=1)return false;recycles++;Card top=Pop(discard);stock=discard.ToList();discard.Clear();discard.Add(top);rng.Shuffle(stock);return stock.Count>0;}
+        private bool Recycle(){if(stock.Count>0)return true;if(discard.Count<=1||lastRecycleProgress==progressVersion)return false;lastRecycleProgress=progressVersion;Card top=Pop(discard);stock=discard.ToList();discard.Clear();discard.Add(top);rng.Shuffle(stock);return stock.Count>0;}
         private static int Penalty(Card card)=>card.Rank==7?20:card.Rank==1?1:Math.Min(card.Rank,10);
+        private void ScoreHand()
+        {int points=Enumerable.Range(0,Players).Where(i=>i!=winner).Sum(i=>hands[i].Sum(Penalty));if(!winnerHadMeld)points*=2;scores[winner]+=points;handsPlayed++;if(scores[winner]>=targetScore)finished=true;else StartHand();}
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
         {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="draw")return actions[0];if(phase.StartsWith("claim",StringComparison.Ordinal))return actions.FirstOrDefault(action=>action.Kind!="pass")==default?actions[0]:actions.First(action=>action.Kind!="pass");Action[] plays=actions.Where(action=>action.Kind=="meld"||action.Kind=="layoff").ToArray();if(plays.Length>0)return plays[0];return actions.Where(action=>action.Kind=="discard").OrderByDescending(action=>Penalty(hands[player][int.Parse(action.Value!,CultureInfo.InvariantCulture)])).First();}
         public override bool IsTerminal=>finished;
-        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");if(stalemate){double[] drawScores=hands.Select(hand=>(double)-hand.Sum(Penalty)).ToArray();return new GameResult(Enumerable.Range(0,Players),drawScores,"second stock exhaustion draw",TurnCount);}int points=Enumerable.Range(0,Players).Where(i=>i!=winner).Sum(i=>hands[i].Sum(Penalty));if(!winnerHadMeld)points*=2;double[] scores=Enumerable.Range(0,Players).Select(i=>i==winner?(double)points:-hands[i].Sum(Penalty)).ToArray();return new GameResult(new[]{winner},scores,"seven bridge going out",TurnCount,new Dictionary<string,object>{{"winner_points",points}});}
-        public override string View(int? player=null){int viewer=player??CurrentPlayer;return $"phase={phase} stock={stock.Count} discard={discard.Last()} melds={string.Join(" ",melds)} hand_counts=[{string.Join(",",hands.Select(hand=>hand.Count))}]\nyour hand: {string.Join(" ",hands[viewer])}";}
+        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=scores.Max();return new GameResult(Enumerable.Range(0,Players).Where(player=>scores[player]==high),scores.Select(value=>(double)value),"first to "+targetScore+" Seven Bridge points",TurnCount,new Dictionary<string,object>{{"hands",handsPlayed}});}
+        public override string View(int? player=null){int viewer=player??CurrentPlayer;return $"phase={phase} hand={handsPlayed+1} dealer=P{dealer} scores=[{string.Join(",",scores)}] stock={stock.Count} discard={discard.Last()} melds={string.Join(" ",melds)} hand_counts=[{string.Join(",",hands.Select(hand=>hand.Count))}]\nyour hand: {string.Join(" ",hands[viewer])}";}
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("seven_bridge","セブンブリッジ",2,6,"rummy","7枚を配り、通常メルド・付け札に加えて捨て札へのポン優先／チーを順次応答で処理し、最後の1枚を捨てて上がる。","Pagat Seven Bridge"),(p,r,o)=>new SevenBridgeGame(p,r));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("seven_bridge","セブンブリッジ",2,5,"rummy","7枚を配り、7を含む2枚meld、付け札、捨て札へのPon優先／Chiを処理する。山札は必要なだけ再利用し、上がり点を200点まで累積する。","Pagat Seven Bridge",new Dictionary<string,string>{{"target_score","勝利点（既定200）"}}),(p,r,o)=>new SevenBridgeGame(p,r,o));
     }
 
     public sealed class Rummy500Game : GameBase
@@ -296,18 +332,20 @@ namespace TrumpLab.Games
                 if(action.Kind=="end_hand"){ScoreHand();return;}if(action.Kind=="draw_stock"){hands[player].Add(Pop(stock));protectedIndex=-1;phase="meld";return;}
                 if(action.Kind=="draw_discard"){hands[player].Add(Pop(discard));protectedIndex=hands[player].Count-1;phase="meld";return;}
                 string[] parts=action.Value!.Split('|');int pileIndex=int.Parse(parts[0],CultureInfo.InvariantCulture);Card selected=discard[pileIndex];List<Card> claimed=discard.Skip(pileIndex).ToList();discard.RemoveRange(pileIndex,discard.Count-pileIndex);
-                List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(parts[1]));cards.Add(selected);claimed.RemoveAt(0);hands[player].AddRange(claimed);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=cards.Sum(Value);protectedIndex=-1;phase="meld";return;
+                List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(parts[1]));cards.Add(selected);claimed.RemoveAt(0);hands[player].AddRange(claimed);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=MeldValue(cards);protectedIndex=-1;phase="meld";return;
             }
             if(action.Kind=="meld")
-            {int[] indexes=RummyRules.ParseIndexes(action.Value!);AdjustProtected(indexes);List<Card> cards=RummyRules.RemoveIndexes(hands[player],indexes);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=cards.Sum(Value);if(hands[player].Count==0)ScoreHand();return;}
+            {int[] indexes=RummyRules.ParseIndexes(action.Value!);AdjustProtected(indexes);List<Card> cards=RummyRules.RemoveIndexes(hands[player],indexes);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=MeldValue(cards);if(hands[player].Count==0)ScoreHand();return;}
             if(action.Kind=="layoff")
-            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);AdjustProtected(new[]{index});Card card=hands[player][index];hands[player].RemoveAt(index);melds[action.Target!.Value].Cards.Add(card);meldedValues[player]+=Value(card);if(hands[player].Count==0)ScoreHand();return;}
+            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);AdjustProtected(new[]{index});Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Add(card,player);meldedValues[player]+=card.Rank==1&&meld.Kind=="run"&&meld.Cards.Any(value=>value.Rank==2)?1:Value(card);if(hands[player].Count==0)ScoreHand();return;}
             int discardIndex=int.Parse(action.Value!,CultureInfo.InvariantCulture);discard.Add(hands[player][discardIndex]);hands[player].RemoveAt(discardIndex);if(hands[player].Count==0){ScoreHand();return;}phase="draw";protectedIndex=-1;CurrentPlayer=(player+1)%Players;
         }
         private static int Value(Card card)=>card.Rank==1?15:Math.Min(card.Rank,10);
+        private static int MeldValue(IEnumerable<Card> cards)
+        {Card[] values=cards.ToArray();bool lowAce=values.Any(card=>card.Rank==1)&&values.Any(card=>card.Rank==2)&&RummyRules.IsRun(values,true);return values.Sum(card=>card.Rank==1&&lowAce?1:Value(card));}
         private void AdjustProtected(IEnumerable<int> removed)
         {if(protectedIndex<0)return;int[] indexes=removed.ToArray();if(indexes.Contains(protectedIndex)){protectedIndex=-1;return;}protectedIndex-=indexes.Count(index=>index<protectedIndex);}
-        private void ScoreHand(){for(int player=0;player<Players;player++)scores[player]+=meldedValues[player]-hands[player].Sum(Value);if(scores.Max()>=targetScore)finished=true;else StartHand();}
+        private void ScoreHand(){for(int player=0;player<Players;player++)scores[player]+=meldedValues[player]-hands[player].Sum(Value);int high=scores.Max();if(high>=targetScore&&scores.Count(score=>score==high)==1)finished=true;else StartHand();}
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
         {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="draw"){Action[] claims=actions.Where(action=>action.Kind=="take_discard_meld").ToArray();if(claims.Length>0)return claims[0];if(actions.Any(action=>action.Kind=="end_hand"))return actions.First(action=>action.Kind=="end_hand");return actions.First(action=>action.Kind=="draw_stock"||action.Kind=="draw_discard");}Action[] plays=actions.Where(action=>action.Kind=="meld"||action.Kind=="layoff").ToArray();if(plays.Length>0)return plays[0];return actions.Where(action=>action.Kind=="discard").OrderByDescending(action=>Value(hands[player][int.Parse(action.Value!,CultureInfo.InvariantCulture)])).First();}
         public override bool IsTerminal=>finished;

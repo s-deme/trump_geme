@@ -15,7 +15,7 @@ namespace TrumpLab.Games
         {
             Players=players;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(),rng);
             hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
-            int size=players==2?7:5;
+            int size=players<=3?7:5;
             for(int round=0;round<size;round++)foreach(List<Card> hand in hands)hand.Add(Pop(deck));
             stock=deck;books=new int[players];
             for(int i=0;i<players;i++)RemoveBooks(i);
@@ -75,7 +75,7 @@ namespace TrumpLab.Games
                 $"your hand: {string.Join(" ",hands[viewer])}";}
         private static Card Pop(List<Card> cards){Card c=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return c;}
         public static void Register(GameRegistry registry)=>registry.Register(
-            new GameInfo("go_fish","ゴーフィッシュ",2,5,"collection","相手に同じランクを要求し、4枚組を集める。","traditional"),
+            new GameInfo("go_fish","ゴーフィッシュ",2,5,"collection","Bicycle版。2～3人は7枚、4～5人は5枚。自分が持つrankを相手に要求し、成功または山から同rankを引けば続行する。4枚bookを公開して全13組中最多を競う。","Bicycle/Go Fish"),
             (players,rng,options)=>new GoFishGame(players,rng));
     }
 }

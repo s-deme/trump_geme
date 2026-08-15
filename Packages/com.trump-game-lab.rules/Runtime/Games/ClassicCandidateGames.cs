@@ -100,6 +100,8 @@ namespace TrumpLab.Games
         private readonly List<List<Card>> hands;
         private readonly int[] passes;
         private readonly int[] finishOrder;
+        private readonly bool[,] placed = new bool[4,14];
+        private readonly List<int> eliminated = new List<int>();
         private readonly int[] low = Enumerable.Repeat(7,4).ToArray();
         private readonly int[] high = Enumerable.Repeat(7,4).ToArray();
         private int nextPlace=1;
@@ -114,6 +116,7 @@ namespace TrumpLab.Games
             hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
             for(int index=0;index<deck.Count;index++)hands[index%players].Add(deck[index]);
             passes=new int[players];finishOrder=new int[players];
+            for(int suit=0;suit<4;suit++)placed[suit,7]=true;
             int diamondSevenOwner=0;
             for(int player=0;player<players;player++)
             {
@@ -145,26 +148,37 @@ namespace TrumpLab.Games
             if(action.Kind=="play")
             {
                 Card card=action.Card!.Value;hands[player].Remove(card);int suit=(int)card.Suit;
-                if(card.Rank<7)low[suit]=card.Rank;else high[suit]=card.Rank;
+                placed[suit,card.Rank]=true;ExtendConnectedRow(suit);
                 if(hands[player].Count==0)finishOrder[player]=nextPlace++;
             }
             else if(action.Kind=="pass")passes[player]++;
             else
             {
-                foreach(Card card in hands[player])
-                {int suit=(int)card.Suit;low[suit]=Math.Min(low[suit],card.Rank);high[suit]=Math.Max(high[suit],card.Rank);}
-                hands[player].Clear();finishOrder[player]=Players;
+                foreach(Card card in hands[player])placed[(int)card.Suit,card.Rank]=true;
+                hands[player].Clear();finishOrder[player]=-(eliminated.Count+1);eliminated.Add(player);
+                for(int suit=0;suit<4;suit++)ExtendConnectedRow(suit);
             }
             CompletePlayersWithNoCards();
-            if(nextPlace>Players){finished=true;return;}
+            if(finishOrder.All(place=>place!=0)){FinalizeEliminatedPlaces();finished=true;return;}
             CurrentPlayer=NextActive(player);
+        }
+
+        private void ExtendConnectedRow(int suit)
+        {
+            while(low[suit]>1&&placed[suit,low[suit]-1])low[suit]--;
+            while(high[suit]<13&&placed[suit,high[suit]+1])high[suit]++;
+        }
+
+        private void FinalizeEliminatedPlaces()
+        {
+            for(int index=0;index<eliminated.Count;index++)finishOrder[eliminated[index]]=Players-index;
         }
 
         private void CompletePlayersWithNoCards()
         {
             foreach(int player in Enumerable.Range(0,Players).Where(i=>hands[i].Count==0&&finishOrder[i]==0).ToArray())
                 finishOrder[player]=nextPlace++;
-            if(finishOrder.All(place=>place>0))finished=true;
+            if(finishOrder.All(place=>place!=0)){FinalizeEliminatedPlaces();finished=true;}
         }
         private int NextActive(int player)
         {for(int offset=1;offset<=Players;offset++){int next=(player+offset)%Players;if(finishOrder[next]==0)return next;}return player;}
@@ -188,12 +202,14 @@ namespace TrumpLab.Games
             int viewer=player??CurrentPlayer;
             string rows=string.Join(" ",Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit=>
                 $"{Card.SuitCode(suit)}:{low[(int)suit]}-{high[(int)suit]}"));
-            return $"layout={rows} passes=[{string.Join(",",passes)}] places=[{string.Join(",",finishOrder)}]\n"+
+            string allPlaced=string.Join(" ",Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit=>
+                $"{Card.SuitCode(suit)}:[{string.Join(",",Enumerable.Range(1,13).Where(rank=>placed[(int)suit,rank]))}]"));
+            return $"layout={rows} placed={allPlaced} passes=[{string.Join(",",passes)}] places=[{string.Join(",",finishOrder)}]\n"+
                 $"your hand: {string.Join(" ",hands[viewer])}";
         }
         public static void Register(GameRegistry registry)=>registry.Register(
             new GameInfo("sevens","七並べ",3,8,"layout-shedding",
-                "4枚の7から各スートを上下へ伸ばし、3回まで任意にパスして上がり順を競う。","Pagat Shichi Narabe"),
+                "ジョーカーなし・A/K非接続。4枚の7から各スートを上下へ伸ばし、3回まで任意にパスする。4回目は失格し、孤立札を含む全手札を所定位置へ公開する。","Trump Stadium Shichi Narabe"),
             (p,r,o)=>new SevensGame(p,r));
     }
 
@@ -283,12 +299,15 @@ namespace TrumpLab.Games
         private List<List<Card>?> pending=new List<List<Card>?>();
         private List<List<Card>> captured=new List<List<Card>>();
         private readonly List<Tuple<int,Card>> trick=new List<Tuple<int,Card>>();
+        private readonly List<Card> carry=new List<Card>();
         private List<Card> kitty=new List<Card>();
         private bool heartsBroken;
         private bool firstTrick;
         private string phase="pass";
         private int passDirection;
         private bool finished;
+        private int lastTrickWinner=-1;
+        private bool Cancellation=>Players>=6;
 
         public override string GameId=>"hearts";
         public override string Name=>"ハーツ";
@@ -300,16 +319,13 @@ namespace TrumpLab.Games
         private static int Penalty(Card card)=>card.Suit==Suit.Hearts?1:card.Suit==Suit.Spades&&card.Rank==12?13:0;
         private void StartRound()
         {
-            roundNo++;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(),rng);int size=52/Players;
+            roundNo++;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(copies:Cancellation?2:1),rng);int size=deck.Count/Players;
             hands=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();
             for(int round=0;round<size;round++)for(int player=0;player<Players;player++)hands[player].Add(Pop(deck));
-            kitty=deck;captured=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();trick.Clear();
-            Card clubTwo=new Card(Suit.Clubs,2);
-            if(kitty.Contains(clubTwo))
-            {Card replacement=hands[0][hands[0].Count-1];hands[0][hands[0].Count-1]=clubTwo;kitty.Remove(clubTwo);kitty.Add(replacement);}
+            kitty=deck;captured=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();trick.Clear();carry.Clear();lastTrickWinner=-1;
             heartsBroken=false;firstTrick=true;passDirection=PassDirection();
-            phase=passDirection==0?"play":"pass";pending=Enumerable.Range(0,Players).Select(_=>(List<Card>?)null).ToList();
-            CurrentPlayer=phase=="pass"?0:OpeningPlayer();
+            phase=Cancellation||passDirection==0?"play":"pass";pending=Enumerable.Range(0,Players).Select(_=>(List<Card>?)null).ToList();
+            CurrentPlayer=phase=="pass"?0:Cancellation?(roundNo-1)%Players:OpeningPlayer();
         }
         private int PassDirection()
         {
@@ -320,7 +336,7 @@ namespace TrumpLab.Games
         {
             Card clubTwo=new Card(Suit.Clubs,2);int owner=hands.FindIndex(hand=>hand.Contains(clubTwo));
             if(owner>=0)return owner;
-            return hands.Select((hand,index)=>Tuple.Create(index,hand.Where(c=>c.Suit==Suit.Clubs).DefaultIfEmpty().Min(c=>c.Rank)))
+            return hands.Select((hand,index)=>Tuple.Create(index,hand.Where(c=>c.Suit==Suit.Clubs).Select(c=>c.Rank).DefaultIfEmpty(99).Min()))
                 .OrderBy(item=>item.Item2).First().Item1;
         }
         public override IReadOnlyList<Action> LegalActions(int? player=null)
@@ -334,6 +350,11 @@ namespace TrumpLab.Games
                 return actions;
             }
             IEnumerable<Card> cards=hands[actual];
+            if(Cancellation)
+            {
+                if(trick.Count>0){Suit led=trick[0].Item2.Suit;Card[] follow=cards.Where(card=>card.Suit==led).ToArray();if(follow.Length>0)cards=follow;}
+                return cards.Select(card=>new Action("play",card)).Distinct().ToArray();
+            }
             if(trick.Count==0)
             {
                 if(firstTrick)
@@ -370,20 +391,38 @@ namespace TrumpLab.Games
             Card card=action.Card!.Value;hands[player].Remove(card);trick.Add(Tuple.Create(player,card));
             if(card.Suit==Suit.Hearts||(card.Suit==Suit.Spades&&card.Rank==12))heartsBroken=true;
             if(trick.Count<Players){CurrentPlayer=(player+1)%Players;return;}
-            Suit led=trick[0].Item2.Suit;Tuple<int,Card> winning=trick.Where(item=>item.Item2.Suit==led)
-                .OrderByDescending(item=>Strength(item.Item2)).First();
+            Suit led=trick[0].Item2.Suit;
+            Tuple<int,Card>? winning;
+            if(Cancellation)
+            {
+                Card[] live=trick.Where(item=>item.Item2.Suit==led).GroupBy(item=>item.Item2)
+                    .Where(group=>group.Count()%2==1).Select(group=>group.Key).ToArray();
+                winning=live.Length==0?null:trick.Where(item=>live.Contains(item.Item2))
+                    .OrderByDescending(item=>Strength(item.Item2)).First();
+                if(winning==null)
+                {
+                    int leader=trick[0].Item1;carry.AddRange(trick.Select(item=>item.Item2));trick.Clear();CurrentPlayer=leader;
+                    if(hands.All(hand=>hand.Count==0))
+                    {int recipient=lastTrickWinner>=0?lastTrickWinner:leader;captured[recipient].AddRange(carry);carry.Clear();
+                        if(kitty.Count>0){captured[recipient].AddRange(kitty);kitty.Clear();}ScoreRound();}
+                    return;
+                }
+            }
+            else winning=trick.Where(item=>item.Item2.Suit==led).OrderByDescending(item=>Strength(item.Item2)).First();
             bool firstPenaltyTrick=captured.Sum(pile=>pile.Count(card=>Penalty(card)>0))==0&&trick.Any(item=>Penalty(item.Item2)>0);
-            captured[winning.Item1].AddRange(trick.Select(item=>item.Item2));
-            if(kitty.Count>0&&firstPenaltyTrick)
+            captured[winning!.Item1].AddRange(carry);carry.Clear();captured[winning.Item1].AddRange(trick.Select(item=>item.Item2));lastTrickWinner=winning.Item1;
+            if(kitty.Count>0&&(Cancellation?firstTrick:firstPenaltyTrick))
             {captured[winning.Item1].AddRange(kitty);kitty.Clear();}
             trick.Clear();CurrentPlayer=winning.Item1;firstTrick=false;
             if(hands.All(hand=>hand.Count==0))ScoreRound();
         }
         private void ScoreRound()
         {
-            int[] penalties=captured.Select(pile=>pile.Sum(Penalty)).ToArray();int moon=Array.FindIndex(penalties,value=>value==26);
-            if(moon>=0)for(int index=0;index<Players;index++)if(index!=moon)scores[index]+=26;
-            else for(int other=0;other<Players;other++)scores[other]+=penalties[other];
+            int total=Cancellation?52:26;int[] penalties=captured.Select(pile=>pile.Sum(Penalty)).ToArray();int moon=Array.FindIndex(penalties,value=>value==total);
+            if(moon>=0)
+            {for(int index=0;index<Players;index++)if(index!=moon)scores[index]+=total;}
+            else
+            {for(int other=0;other<Players;other++)scores[other]+=penalties[other];}
             if(scores.Max()>=targetScore)finished=true;else StartRound();
         }
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
@@ -405,18 +444,20 @@ namespace TrumpLab.Games
         {
             int viewer=player??CurrentPlayer;
             return $"round={roundNo} phase={phase} broken={heartsBroken} penalties=[{string.Join(",",scores)}] hands=[{string.Join(",",hands.Select(hand=>hand.Count))}]\n"+
-                $"trick: {(trick.Count==0?"-":string.Join(" ",trick.Select(item=>item.Item2)))}\nyour hand: {string.Join(" ",hands[viewer])}";
+                $"trick: {(trick.Count==0?"-":string.Join(" ",trick.Select(item=>item.Item2)))} carry={carry.Count}\nyour hand: {string.Join(" ",hands[viewer])}";
         }
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
         public static void Register(GameRegistry registry)=>registry.Register(
             new GameInfo("hearts","ハーツ",3,6,"trick-avoidance",
-                "マストフォローでハートとスペードQを避け、100失点到達時の最少失点を競う。","Bicycle Hearts",
+                "3～5人はPagatのAmerican Heartsとkitty variation。6人は2deckで同一札を相殺し、無勝者trickを次へcarryするCancellation Hearts。100失点到達時の最少失点を競う。","Pagat Hearts / Cancellation Hearts",
                 new Dictionary<string,string>{{"target_score","終了する失点（既定100）"}}),(p,r,o)=>new HeartsGame(p,r,o));
     }
 
     public sealed class TwentyFourGame : GameBase
     {
         private readonly List<Card> stock;
+        private readonly DeterministicRandom rng;
+        private readonly List<List<Card>> privateStacks=new List<List<Card>>();
         private readonly int[] scores;
         private readonly bool[] responded;
         private readonly int targetScore;
@@ -424,51 +465,81 @@ namespace TrumpLab.Games
         private bool solvable;
         private int? noSolutionClaimant;
         private int starter=-1;
+        private int collectionWinner=-1;
+        private string phase="claim";
         private bool finished;
 
         public override string GameId=>"twenty_four";
         public override string Name=>"24";
         public TwentyFourGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
         {
-            Players=players;stock=Cards.Shuffled(Cards.StandardDeck(Enumerable.Range(1,10)),rng);
-            scores=new int[players];responded=new bool[players];targetScore=options.Integer("target_score",5);NextPuzzle();
+            Players=players;this.rng=rng;stock=Cards.Shuffled(Cards.StandardDeck(Enumerable.Range(1,10)),rng);
+            scores=new int[players];responded=new bool[players];targetScore=options.Integer("target_score",5);
+            if(players==2)
+            {privateStacks.Add(stock.Where((card,index)=>index%2==0).ToList());privateStacks.Add(stock.Where((card,index)=>index%2==1).ToList());stock.Clear();}
+            NextPuzzle();
         }
         private void NextPuzzle()
         {
-            if(stock.Count<4||scores.Max()>=targetScore){finished=true;return;}
-            puzzle=new List<Card>();for(int index=0;index<4;index++)puzzle.Add(Pop(stock));
+            phase="claim";
+            if(Players==2)
+            {
+                int empty=privateStacks.FindIndex(stack=>stack.Count==0);
+                if(empty>=0){collectionWinner=empty;finished=true;return;}
+                puzzle=new List<Card>();for(int player=0;player<2;player++)for(int index=0;index<2;index++)puzzle.Add(Pop(privateStacks[player]));
+            }
+            else
+            {
+                if(stock.Count<4||scores.Max()>=targetScore){finished=true;return;}
+                puzzle=new List<Card>();for(int index=0;index<4;index++)puzzle.Add(Pop(stock));
+            }
             solvable=CanMake24(puzzle.Select(card=>(double)card.Rank).ToArray());
             Array.Clear(responded,0,responded.Length);noSolutionClaimant=null;starter=(starter+1)%Players;CurrentPlayer=starter;
         }
         public override IReadOnlyList<Action> LegalActions(int? player=null)
-        {ValidateTurn(player);return new[]{new Action("claim_24"),new Action("no_solution")};}
+        {ValidateTurn(player);if(phase=="replace_no_solution")return new[]{new Action("keep_own_card",value:"0"),new Action("keep_own_card",value:"1")};return new[]{new Action("claim_24"),new Action("no_solution")};}
         public override void Apply(Action action)
         {
             int player=ValidateTurn(null);Guard.Legal(action,LegalActions(player));TurnCount++;responded[player]=true;
+            if(phase=="replace_no_solution")
+            {
+                int own=int.Parse(action.Value!,CultureInfo.InvariantCulture);int puzzleIndex=player*2+own;
+                privateStacks[player].Insert(0,puzzle[puzzleIndex]);
+                puzzle[puzzleIndex]=Pop(privateStacks[player]);
+                if(player==0){CurrentPlayer=1;return;}
+                phase="claim";Array.Clear(responded,0,responded.Length);noSolutionClaimant=null;
+                starter=(starter+1)%2;CurrentPlayer=starter;solvable=CanMake24(puzzle.Select(card=>(double)card.Rank).ToArray());return;
+            }
             if(action.Kind=="claim_24")
             {
-                if(solvable){scores[player]++;NextPuzzle();return;}
+                if(Players==2){int collector=solvable?1-player:player;AwardPuzzle(collector);NextPuzzle();return;}
+                if(solvable){scores[player]+=noSolutionClaimant.HasValue?2:1;NextPuzzle();return;}
                 scores[player]--;
             }
             else
             {
                 if(!noSolutionClaimant.HasValue)noSolutionClaimant=player;
                 if(responded.All(value=>value))
-                {if(!solvable)scores[noSolutionClaimant.Value]++;NextPuzzle();return;}
+                {
+                    if(Players==2){phase="replace_no_solution";CurrentPlayer=0;return;}
+                    if(!solvable)scores[noSolutionClaimant.Value]++;NextPuzzle();return;
+                }
             }
             int next=NextUnresponded(player);if(next<0)NextPuzzle();else CurrentPlayer=next;
         }
         private int NextUnresponded(int player)
         {for(int offset=1;offset<=Players;offset++){int next=(player+offset)%Players;if(!responded[next])return next;}return -1;}
         public override Action ChooseCpuAction(int player,DeterministicRandom rng,int difficulty=1)=>
-            new Action(solvable?"claim_24":"no_solution");
+            phase=="replace_no_solution"?new Action("keep_own_card",value:"0"):new Action(solvable?"claim_24":"no_solution");
         public override bool IsTerminal=>finished;
         public override GameResult Result()
         {
-            if(!finished)throw new InvalidOperationException("Game is not over.");int high=scores.Max();
-            return new GameResult(Enumerable.Range(0,Players).Where(i=>scores[i]==high),scores.Select(v=>(double)v),"24 claims",TurnCount);
+            if(!finished)throw new InvalidOperationException("Game is not over.");
+            if(Players==2)return new GameResult(new[]{collectionWinner},privateStacks.Select(stack=>-(double)stack.Count),"first private stack emptied",TurnCount);
+            int high=scores.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>scores[i]==high),scores.Select(v=>(double)v),"24 claims",TurnCount);
         }
-        public override string View(int? player=null)=>$"numbers=[{string.Join(",",puzzle.Select(card=>card.Rank))}] scores=[{string.Join(",",scores)}] cards_left={stock.Count}";
+        private void AwardPuzzle(int collector){var cards=puzzle.ToList();rng.Shuffle(cards);privateStacks[collector].InsertRange(0,cards);}
+        public override string View(int? player=null)=>$"phase={phase} numbers=[{string.Join(",",puzzle.Select(card=>card.Rank))}] scores=[{string.Join(",",scores)}] cards_left={(Players==2?string.Join(",",privateStacks.Select(stack=>stack.Count)):stock.Count.ToString())}";
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
         public static bool CanMake24(double[] values)
         {
@@ -484,7 +555,7 @@ namespace TrumpLab.Games
         }
         public static void Register(GameRegistry registry)=>registry.Register(
             new GameInfo("twenty_four","24",2,8,"arithmetic",
-                "公開された4数を各1回、四則演算と括弧で24にできるか競う。","Pagat Twenty-Four",
+                "Pagat版。2人は各20枚の私有stackから2枚ずつ公開し、正解時は相手が4枚を引き取って先にstackをなくす。3人以上は中央4枚の1点戦で、誤no-solution後の解答は2点。","Pagat Twenty-Four",
                 new Dictionary<string,string>{{"target_score","勝利点（既定5）"}}),(p,r,o)=>new TwentyFourGame(p,r,o));
     }
 }

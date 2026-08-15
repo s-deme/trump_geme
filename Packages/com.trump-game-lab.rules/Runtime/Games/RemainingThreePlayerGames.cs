@@ -35,6 +35,8 @@ namespace TrumpLab.Games
         private readonly List<List<ItalianCard>> reserved = NewHands();
         private readonly List<List<ItalianCard>> secondHands = NewHands();
         private readonly List<Tuple<int, ItalianCard>> trick = new List<Tuple<int, ItalianCard>>();
+        private readonly Dictionary<int, Suit> jokerSuits = new Dictionary<int, Suit>();
+        private readonly Dictionary<int, int> jokerRanks = new Dictionary<int, int>();
         private readonly int[] firstTricks = new int[3];
         private readonly int[] secondTricks = new int[3];
         private readonly int[] scores = new int[3];
@@ -43,6 +45,7 @@ namespace TrumpLab.Games
         private int dealsPlayed;
         private int tricksPlayed;
         private string phase = "reserve";
+        private int jokerChoiceIndex = -1;
         private bool finished;
 
         public override string GameId => "italian_whist";
@@ -67,7 +70,8 @@ namespace TrumpLab.Games
             foreach (List<ItalianCard> hand in hands) hand.Clear();
             foreach (List<ItalianCard> pile in reserved) pile.Clear();
             foreach (List<ItalianCard> pile in secondHands) pile.Clear();
-            trick.Clear(); Array.Clear(firstTricks, 0, 3); Array.Clear(secondTricks, 0, 3);
+            trick.Clear(); jokerSuits.Clear(); jokerRanks.Clear();
+            Array.Clear(firstTricks, 0, 3); Array.Clear(secondTricks, 0, 3);
             Array.Clear(reserveCounts, 0, 3);
             var deck = Cards.StandardDeck().Select(card => new ItalianCard(card)).ToList();
             deck.Add(new ItalianCard(true)); deck.Add(new ItalianCard(false)); rng.Shuffle(deck);
@@ -80,6 +84,23 @@ namespace TrumpLab.Games
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
             int actual = ValidateTurn(player);
+            if (phase == "choose_joker_suit")
+            {
+                ItalianCard joker = trick[jokerChoiceIndex].Item2;
+                Suit[] suits = joker.Red
+                    ? new[] { Suit.Diamonds, Suit.Hearts }
+                    : new[] { Suit.Clubs, Suit.Spades };
+                return suits.Select(suit => new Action("choose_joker_suit",
+                    value: Card.SuitCode(suit))).ToArray();
+            }
+            if (phase == "choose_joker_rank")
+            {
+                Suit suit = jokerSuits[jokerChoiceIndex];
+                var used = new HashSet<int>(trick.Where(item => !item.Item2.Joker &&
+                    item.Item2.Card!.Value.Suit == suit).Select(item => item.Item2.Card!.Value.Rank));
+                return Enumerable.Range(1, 13).Where(rank => !used.Contains(rank))
+                    .Select(rank => new Action("choose_joker_rank", value: rank.ToString())).ToArray();
+            }
             if (phase == "reserve") return hands[actual]
                 .Select(card => new Action("reserve_for_second_half", card.Card, value: card.Id)).ToArray();
             IEnumerable<ItalianCard> cards = hands[actual];
@@ -98,6 +119,16 @@ namespace TrumpLab.Games
         public override void Apply(Action action)
         {
             int player = ValidateTurn(null); Guard.Legal(action, LegalActions(player)); TurnCount++;
+            if (phase == "choose_joker_suit")
+            {
+                jokerSuits[jokerChoiceIndex] = Card.ParseSuit(action.Value!);
+                ContinueJokerResolution(); return;
+            }
+            if (phase == "choose_joker_rank")
+            {
+                jokerRanks[jokerChoiceIndex] = int.Parse(action.Value!);
+                ContinueJokerResolution(); return;
+            }
             ItalianCard card = hands[player].First(item => item.Id == action.Value);
             hands[player].Remove(card);
             if (phase == "reserve")
@@ -109,9 +140,56 @@ namespace TrumpLab.Games
             }
             trick.Add(Tuple.Create(player, card));
             if (trick.Count < 3) { CurrentPlayer = (player + 1) % 3; return; }
+            BeginJokerResolution(); return;
+        }
+
+        private void BeginJokerResolution()
+        {
+            jokerSuits.Clear(); jokerRanks.Clear();
+            for (int index = 0; index < trick.Count; index++)
+            {
+                if (!trick[index].Item2.Joker) continue;
+                Suit? forced = ForcedJokerSuit(index);
+                if (forced.HasValue) jokerSuits[index] = forced.Value;
+            }
+            ContinueJokerResolution();
+        }
+
+        private void ContinueJokerResolution()
+        {
+            int unresolvedSuit = Enumerable.Range(0, trick.Count).Where(index =>
+                trick[index].Item2.Joker && !jokerSuits.ContainsKey(index)).DefaultIfEmpty(-1).First();
+            if (unresolvedSuit >= 0)
+            {
+                jokerChoiceIndex = unresolvedSuit; phase = "choose_joker_suit";
+                CurrentPlayer = trick[unresolvedSuit].Item1; return;
+            }
+            int unresolvedRank = Enumerable.Range(0, trick.Count).Where(index =>
+                trick[index].Item2.Joker && !jokerRanks.ContainsKey(index)).DefaultIfEmpty(-1).First();
+            if (unresolvedRank >= 0)
+            {
+                jokerChoiceIndex = unresolvedRank; phase = "choose_joker_rank";
+                CurrentPlayer = trick[unresolvedRank].Item1; return;
+            }
+            phase = tricksPlayed < 9 ? "first_half" : "second_half";
+            ResolveCompletedTrick();
+        }
+
+        private Suit? ForcedJokerSuit(int index)
+        {
+            ItalianCard joker = trick[index].Item2;
+            if (index > 0 && !trick[0].Item2.Joker && trick[0].Item2.Red == joker.Red)
+                return trick[0].Item2.Card!.Value.Suit;
+            ItalianCard? matching = trick.Where((item, other) => other != index)
+                .Select(item => item.Item2).FirstOrDefault(card => !card.Joker && card.Red == joker.Red);
+            return matching?.Card!.Value.Suit;
+        }
+
+        private void ResolveCompletedTrick()
+        {
             int winner = TrickWinner();
             if (phase == "first_half") firstTricks[winner]++; else secondTricks[winner]++;
-            trick.Clear(); tricksPlayed++;
+            trick.Clear(); jokerSuits.Clear(); jokerRanks.Clear(); jokerChoiceIndex = -1; tricksPlayed++;
             if (tricksPlayed == 9 && phase == "first_half")
             {
                 for (int p = 0; p < 3; p++) hands[p].AddRange(secondHands[p]);
@@ -146,24 +224,15 @@ namespace TrumpLab.Games
         {
             ItalianCard card = trick[index].Item2;
             if (!card.Joker) return card.Card!.Value.Suit;
-            ItalianCard lead = trick[0].Item2;
-            if (!lead.Joker && lead.Red == card.Red) return lead.Card!.Value.Suit;
-            ItalianCard? matching = trick.Select(item => item.Item2)
-                .FirstOrDefault(item => !item.Joker && item.Red == card.Red);
-            if (matching != null) return matching.Card!.Value.Suit;
-            if (!card.Red && HasTrump) return Suit.Spades;
-            return card.Red ? Suit.Hearts : Suit.Clubs;
+            return jokerSuits[index];
         }
 
         private int EffectiveStrength(int index, IReadOnlyList<Suit> suits)
         {
             ItalianCard card = trick[index].Item2;
             if (!card.Joker) return Strength(card.Card!.Value);
-            var used = new HashSet<int>(Enumerable.Range(0, trick.Count)
-                .Where(other => other != index && suits[other] == suits[index] && !trick[other].Item2.Joker)
-                .Select(other => Strength(trick[other].Item2.Card!.Value)));
-            for (int strength = 14; strength >= 2; strength--) if (!used.Contains(strength)) return strength;
-            return 2;
+            int rank = jokerRanks[index];
+            return rank == 1 ? 14 : rank;
         }
 
         private void FinishDeal()
@@ -176,6 +245,11 @@ namespace TrumpLab.Games
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
+            if (phase == "choose_joker_suit")
+                return HasTrump && actions.Any(action => action.Value == "S")
+                    ? actions.First(action => action.Value == "S") : actions[0];
+            if (phase == "choose_joker_rank")
+                return tricksPlayed < 9 ? actions.Last() : actions[0];
             if (phase == "reserve") return actions.OrderBy(action => ActionStrength(action)).First();
             return phase == "first_half"
                 ? actions.OrderByDescending(action => ActionStrength(action)).First()
@@ -200,8 +274,13 @@ namespace TrumpLab.Games
         {
             int viewer = player ?? CurrentPlayer;
             string hiddenSecond = phase == "second_half" ? "revealed" : secondHands[viewer].Count + " hidden";
+            string declarations = string.Join(" ", Enumerable.Range(0, trick.Count)
+                .Where(index => trick[index].Item2.Joker && jokerSuits.ContainsKey(index))
+                .Select(index => trick[index].Item2.Id + "=" + Card.SuitCode(jokerSuits[index]) +
+                    (jokerRanks.ContainsKey(index) ? ":" + jokerRanks[index] : ":?")));
             return $"phase={phase} deal={dealsPlayed + 1}/{sessionDeals} dealer=P{dealer} trump={(HasTrump ? "S" : "none")} " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] " +
+                $"joker_declarations=[{declarations}] " +
                 $"first_tricks=[{string.Join(",", firstTricks)}] second_tricks=[{string.Join(",", secondTricks)}] " +
                 $"scores=[{string.Join(",", scores)}] reserved=[{string.Join(",", reserveCounts)}] your_second_half={hiddenSecond} " +
                 $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
@@ -209,7 +288,7 @@ namespace TrumpLab.Games
 
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("italian_whist", "イタリアン・ホイスト", 3, 3, "two-half trick-taking",
-                "54枚を18枚ずつ配り、各自が後半用9枚を左・右・自分へ順に渡す。前半勝数－後半勝数を、no-trumpとspade-trump各3ディールで競う。ジョーカーのスート・ランク宣言は公開済みtrickから決定論的に解決する。",
+                "54枚を18枚ずつ配り、各自が後半用9枚を左・右・自分へ順に渡す。前半勝数－後半勝数を、no-trumpとspade-trump各3ディールで競う。Joker所有者は必要なsuitと場にないrankを全員のplay後に宣言する。",
                 "gokurakism/Italian Whist", new Dictionary<string, string> { { "deals", "6" } }),
             (players, random, options) => new ItalianWhistGame(players, random, options));
     }
@@ -488,6 +567,8 @@ namespace TrumpLab.Games
 
         private int TrickWinner()
         {
+            if (phase == "first_half")
+                return trick.OrderByDescending(item => Strength(item.Item2)).First().Item1;
             Tuple<int, Card>? firstKing = trick.FirstOrDefault(item => item.Item2.Rank == 13);
             if (firstKing != null) return firstKing.Item1;
             Suit led = trick[0].Item2.Suit; Tuple<int, Card> best = trick[0];
@@ -538,6 +619,7 @@ namespace TrumpLab.Games
         private readonly int targetScore;
         private readonly List<List<Card>> hands = NewHands();
         private readonly List<List<Card>> pokerHands = NewHands();
+        private readonly List<List<Card>> revealedPokerHands = NewHands();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
         private readonly int[] tricks = new int[3];
         private readonly int[] scores = new int[3];
@@ -547,6 +629,7 @@ namespace TrumpLab.Games
         private int bidder = -1;
         private int tricksPlayed;
         private string phase = "reserve_poker";
+        private bool hasPokerShowdown;
         private bool finished;
 
         public override string GameId => "corpo";
@@ -644,6 +727,12 @@ namespace TrumpLab.Games
 
         private void ScorePoker()
         {
+            for (int player = 0; player < 3; player++)
+            {
+                revealedPokerHands[player].Clear();
+                revealedPokerHands[player].AddRange(pokerHands[player]);
+            }
+            hasPokerShowdown = true;
             int[][] values = pokerHands.Select(PokerValue).ToArray();
             int[] winners = Enumerable.Range(0, 3).Where(player =>
                 Enumerable.Range(0, 3).All(other => Compare(values[player], values[other]) >= 0)).ToArray();
@@ -700,11 +789,14 @@ namespace TrumpLab.Games
 
         public override string View(int? player = null)
         {
-            int viewer = player ?? CurrentPlayer; bool revealPoker = phase == "play" && tricksPlayed >= 9;
-            string poker = revealPoker ? string.Join(" ", pokerHands[viewer]) : pokerHands[viewer].Count + " reserved";
+            int viewer = player ?? CurrentPlayer;
+            string poker = pokerHands[viewer].Count + " reserved";
+            string revealedPoker = hasPokerShowdown ? string.Join(" | ", Enumerable.Range(0, 3)
+                .Select(index => "P" + index + ":" + string.Join(" ", revealedPokerHands[index]))) : "none";
             return $"phase={phase} dealer=P{dealer} bidder={(bidder < 0 ? "none" : "P" + bidder)} tricks_played={tricksPlayed}/9 " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] " +
-                $"scores=[{string.Join(",", scores)}] poker={poker} hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
+                $"scores=[{string.Join(",", scores)}] poker={poker} revealed_poker=[{revealedPoker}] " +
+                $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
 
         public static void Register(GameRegistry registry) => registry.Register(

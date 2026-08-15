@@ -110,6 +110,11 @@ namespace TrumpLab.Games
 
         private void RotateRoles()
         {
+            if (Players == 2)
+            {
+                int first = roles[0]; roles[0] = roles[1]; roles[1] = first;
+                return;
+            }
             int last = roles[3];
             for (int index = 3; index > 0; index--) roles[index] = roles[index - 1];
             roles[0] = last;
@@ -151,7 +156,7 @@ namespace TrumpLab.Games
 
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("multi_stack", "マルチスタック", 2, 4, "cooperative shedding",
-                "公開4枚手札から±1の共有stackへ、同色・色交互・上昇・下降の役割制限で1枚以上出す。0～8枚まで補充し、1枚譲渡でき、Jで4役が巡回する協力ゲーム。",
+                "公開4枚手札から±1の共有stackへ人数別の役割制限で1枚以上出す。0～8枚まで補充し、1枚譲渡でき、Jで役が巡回する協力ゲーム。",
                 "gokurakism/Multi Stacks"),
             (players, random, options) => new MultiStackGame(players, random));
     }
@@ -320,14 +325,18 @@ namespace TrumpLab.Games
             if (phase == "lot")
             {
                 lot[player] = action.Kind == "declare_lot"; declarations++;
-                if (declarations >= Players) { phase = "play"; CurrentPlayer = (dealer + 1) % Players; }
-                else CurrentPlayer = (player + 1) % Players;
+                phase = "play";
                 return;
             }
             MiniCard card = hands[player].First(item => item.Id == action.Value); hands[player].Remove(card);
             if (action.Kind == "play_joker_win") jokerWins = true;
             trick.Add(Tuple.Create(player, card));
-            if (trick.Count < Players) { CurrentPlayer = (player + 1) % Players; return; }
+            if (trick.Count < Players)
+            {
+                CurrentPlayer = (player + 1) % Players;
+                if (Players != 3 && tricks.Sum() == 0 && declarations < Players) phase = "lot";
+                return;
+            }
             int winner = TrickWinner(); tricks[winner]++; trick.Clear(); jokerWins = false;
             if (tricks.Sum() >= handSize) FinishDeal(); else CurrentPlayer = winner;
         }
@@ -793,6 +802,7 @@ namespace TrumpLab.Games
         private readonly int sessionDeals;
         private readonly List<List<Card>> hands;
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
+        private readonly List<Tuple<int, Card>> revealedTrick = new List<Tuple<int, Card>>();
         private readonly Card?[] bidCards;
         private readonly int[] bids;
         private readonly int[] originalBids;
@@ -819,14 +829,20 @@ namespace TrumpLab.Games
         }
         private void StartDeal()
         {
-            foreach (List<Card> hand in hands) hand.Clear(); trick.Clear(); Array.Clear(tricks, 0, Players);
+            foreach (List<Card> hand in hands) hand.Clear(); trick.Clear(); revealedTrick.Clear(); Array.Clear(tricks, 0, Players);
             for (int p = 0; p < Players; p++) bidCards[p] = null;
             IEnumerable<Card> cards = Cards.StandardDeck(); if (Players == 3) cards = cards.Where(card => card.Suit != Suit.Clubs);
-            List<Card> deck = Cards.Shuffled(cards, rng); clockwise = dealsPlayed % 2 == 1;
+            clockwise = dealsPlayed % 2 == 1;
             if (dealsPlayed > 0) dealer = Enumerable.Range(0, Players).OrderBy(player => scores[player]).First();
             else dealer = (dealer + 1) % Players;
-            for (int round = 0; round < 13; round++)
-                for (int offset = 1; offset <= Players; offset++) hands[Advance(dealer, offset)].Add(Pop(deck));
+            do
+            {
+                foreach (List<Card> hand in hands) hand.Clear();
+                List<Card> deck = Cards.Shuffled(cards, rng);
+                for (int round = 0; round < 13; round++)
+                    for (int offset = 1; offset <= Players; offset++) hands[Advance(dealer, offset)].Add(Pop(deck));
+            }
+            while (hands.Any(hand => hand.All(card => card.Rank >= 2 && card.Rank <= 10) || hand.All(card => card.Rank == 1 || card.Rank >= 11)));
             bidsMade = 0; highBidder = -1; trumpBroken = false; phase = "bid"; CurrentPlayer = Advance(dealer, 1);
         }
         private int Advance(int player, int amount = 1) => (player + (clockwise ? amount : -amount) + Players * amount) % Players;
@@ -872,7 +888,8 @@ namespace TrumpLab.Games
             if (trick.Count < Players) { CurrentPlayer = Advance(player, 1); return; }
             Suit led = trick[0].Item2.Suit; IEnumerable<Tuple<int, Card>> eligible = trick.Any(item => item.Item2.Suit == trump)
                 ? trick.Where(item => item.Item2.Suit == trump) : trick.Where(item => item.Item2.Suit == led);
-            int winner = eligible.OrderByDescending(item => Strength(item.Item2)).First().Item1; tricks[winner]++; trick.Clear();
+            int winner = eligible.OrderByDescending(item => Strength(item.Item2)).First().Item1; tricks[winner]++;
+            revealedTrick.Clear(); revealedTrick.AddRange(trick); trick.Clear();
             if (tricks.Sum() >= 13) FinishDeal(); else CurrentPlayer = winner;
         }
         private void DetermineHighBidder()
@@ -885,7 +902,7 @@ namespace TrumpLab.Games
             for (int player = 0; player < Players; player++)
             {
                 int difference = highMode ? tricks[player] - bids[player] : bids[player] - tricks[player];
-                if (!highMode && originalBids[player] == 0 && bids[player] == 0 && tricks[player] == 0) scores[player] += 5;
+                if (!highMode && bids[player] == 0 && tricks[player] == 0) scores[player] += 5;
                 else scores[player] += difference > 0 ? difference * 2 : difference;
             }
             dealsPlayed++; if (dealsPlayed >= sessionDeals) finished = true; else StartDeal();
@@ -914,16 +931,16 @@ namespace TrumpLab.Games
         public override string View(int? player = null)
         {
             int viewer = player ?? CurrentPlayer;
-            string bidView = bidsMade < Players ? string.Join(",", bidCards.Select((card, p) => p == viewer && card.HasValue ? card.Value.ToString() : card.HasValue ? "XX" : "-")) : string.Join(",", bids);
+            string bidCardView = string.Join(",", bidCards.Select((card, p) => !card.HasValue ? "-" : bidsMade >= Players || p == viewer ? card.Value.ToString() : "XX"));
             string trickView = string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + (item.Item2.Suit == trump ? "XX" : item.Item2.ToString())));
-            return $"phase={phase} deal={dealsPlayed + 1}/{sessionDeals} direction={(clockwise ? "clockwise" : "counterclockwise")} bids=[{bidView}] " +
+            return $"phase={phase} deal={dealsPlayed + 1}/{sessionDeals} direction={(clockwise ? "clockwise" : "counterclockwise")} bid_cards=[{bidCardView}] bids=[{string.Join(",", bids)}] " +
                 $"mode={(phase == "bid" ? "hidden" : highMode ? "atas" : "bawah")} trump={(phase == "bid" ? "hidden" : Card.SuitCode(trump))} trick=[{trickView}] " +
-                $"tricks=[{string.Join(",", tricks)}] scores=[{string.Join(",", scores)}] hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
+                $"revealed_trick=[{string.Join(" ", revealedTrick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] scores=[{string.Join(",", scores)}] hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("truf", "トルフ", 3, 4, "simultaneous-card bid trick-taking",
-                "各自が手札1枚を秘密bidし、最高bid札のsuitを切り札、合計13超をatas・未満をbawahとする。13なら最高bidderが全bidを同量増減する。切り札はbreak前lead不可・伏せ出しとし、正差2倍／負差そのままを13deal集計する。3人はclubを除く39枚。",
-                "Pagat Truf", new Dictionary<string, string> { { "deals", "13" } }),
+                "各自が手札1枚を秘密bidし、最高bid札のsuitを切り札、合計13超をatas・未満をbawahとする。13なら最高bidderが全bidを同量増減する。切り札はbreak前lead不可・各trick終了まで伏せ、Pagat第3方式（正差2倍）と調整後0bid成功+5を13deal集計する。3人はclubを除く39枚。",
+                "Pagat/Truf", new Dictionary<string, string> { { "deals", "13（明示時は短縮session）" } }),
             (players, random, options) => new TrufGame(players, random, options));
     }
 }

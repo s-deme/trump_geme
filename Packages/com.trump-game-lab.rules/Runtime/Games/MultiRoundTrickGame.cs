@@ -70,9 +70,9 @@ namespace TrumpLab.Games
             registry.Register(new GameInfo("three_tricks","スリートリックス",4,4,"exact-trick",
                 "切り札なしで、各ラウンド3トリック獲得を目指す。","gokurakism"),(p,r,o)=>new ThreeTricksGame(p,r));
             registry.Register(new GameInfo("knave","ネイブ",3,3,"trick-taking",
-                "トリックは加点、獲得したJはスート別の減点になる。","traditional / gokurakism"),(p,r,o)=>new KnaveGame(p,r));
+                "トリックは加点、獲得したJはスート別の減点になる。","White Knuckle Cards Knaves"),(p,r,o)=>new KnaveGame(p,r));
             registry.Register(new GameInfo("four_tricks","フォートリックス",3,3,"exact-trick",
-                "全12トリックだが最終トリックを2扱いとし、4獲得を目指す。","gokurakism"),(p,r,o)=>new FourTricksGame(p,r));
+                "全12トリックだが最終トリックを2扱いとし、4獲得を目指す。","Gokurakism Four Tricks"),(p,r,o)=>new FourTricksGame(p,r));
         }
     }
     public sealed class ThreeTricksGame:MultiRoundTrickGame

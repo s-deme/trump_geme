@@ -8,7 +8,7 @@ namespace TrumpLab.Games
     {
         private readonly DeterministicRandom rng;private readonly int roundsToPlay;private int dealer,roundNo,carry;
         private int[] totalScores;private string phase="pass_two";private List<List<Card>> hands=new List<List<Card>>();
-        private List<List<Card>?> pending=new List<List<Card>?>();private List<Card> table=new List<Card>();
+        private List<List<Card>?> pending=new List<List<Card>?>();private List<Card> table=new List<Card>();private List<Card> faceUpTable=new List<Card>();
         private readonly List<Tuple<int,Card>> trick=new List<Tuple<int,Card>>();private List<List<Card>> captured=new List<List<Card>>();private bool finished;
         public override string GameId=>"black_lady";public override string Name=>"ブラックレディー";
         public BlackLadyGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
@@ -20,7 +20,8 @@ namespace TrumpLab.Games
             roundNo++;dealer=(dealer+1)%Players;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(),rng);int size=deck.Count/Players;
             hands=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();
             for(int r=0;r<size;r++)for(int offset=1;offset<=Players;offset++)hands[(dealer+offset)%Players].Add(Pop(deck));
-            table=deck;captured=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();trick.Clear();
+            table=deck;int faceUpCount=table.Count==2?1:table.Count==3||table.Count==4?2:0;faceUpTable=table.Take(faceUpCount).ToList();
+            captured=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();trick.Clear();
             phase="pass_two";pending=Enumerable.Range(0,Players).Select(_=>(List<Card>?)null).ToList();CurrentPlayer=(dealer+1)%Players;
         }
         private int Right(int player)=>(player+Players-1)%Players;
@@ -80,12 +81,12 @@ namespace TrumpLab.Games
             return new GameResult(Enumerable.Range(0,Players).Where(i=>totalScores[i]==high),totalScores.Select(v=>(double)v),
                 "highest score after penalties and clear bonuses",TurnCount,new Dictionary<string,object>{{"carry",carry}});}
         public override string View(int? player=null){int viewer=player??CurrentPlayer;return
-            $"round={roundNo}/{roundsToPlay} phase={phase} dealer=P{dealer} scores=[{string.Join(",",totalScores)}] carry={carry}\n"+
+            $"round={roundNo}/{roundsToPlay} phase={phase} dealer=P{dealer} scores=[{string.Join(",",totalScores)}] carry={carry} table=[{string.Join(" ",faceUpTable)}] hidden_table={table.Count-faceUpTable.Count}\n"+
             $"trick: {(trick.Count>0?string.Join(" ",trick.Select(x=>x.Item2)):"-")} hands=[{string.Join(",",hands.Select(h=>h.Count))}]\n"+
             $"your hand: {string.Join(" ",hands[viewer])}";}
         private static Card Pop(List<Card> cards){Card c=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return c;}
         public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("black_lady","ブラックレディー",3,7,"trick-avoidance",
-            "ハートとスペードQを避け、無失点者は繰越ボーナスを得る。","traditional / gokurakism",
+            "ハートとスペードQを避け、無失点者は繰越ボーナスを得る。","Gokurakism / Game Farm Black Lady",
             new Dictionary<string,string>{{"rounds","プレイするラウンド数（既定は人数と同じ）"}}),(p,r,o)=>new BlackLadyGame(p,r,o));
     }
 }

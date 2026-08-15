@@ -27,11 +27,13 @@ namespace TrumpLab.Games
         private readonly List<List<YCard>> hands;
         private readonly List<YCard> stock = new List<YCard>();
         private readonly List<YCard> lastDiscard = new List<YCard>();
+        private readonly List<YCard> drawOptions = new List<YCard>();
         private readonly List<YCard> waste = new List<YCard>();
+        private readonly List<string> revealedHands = new List<string>();
         private readonly int[] scores;
         private int dealer;
         private int rounds;
-        private int recycles;
+        private int nextStarter = -1;
         private string phase = "discard";
         private bool finished;
         public override string GameId => "yaniv";
@@ -41,8 +43,8 @@ namespace TrumpLab.Games
 
         private void StartRound()
         {
-            foreach (List<YCard> hand in hands) hand.Clear(); stock.Clear(); lastDiscard.Clear(); waste.Clear();
-            int copies = Players >= 5 ? 2 : 1;
+            foreach (List<YCard> hand in hands) hand.Clear(); stock.Clear(); lastDiscard.Clear(); drawOptions.Clear(); waste.Clear();
+            int copies = Players >= 4 ? 2 : 1;
             for (int copy = 0; copy < copies; copy++)
             {
                 stock.AddRange(Cards.StandardDeck().Select(card => new YCard(card, copy)));
@@ -50,7 +52,8 @@ namespace TrumpLab.Games
             }
             rng.Shuffle(stock); dealer = (dealer + 1) % Players;
             for (int round = 0; round < 5; round++) for (int offset = 1; offset <= Players; offset++) hands[(dealer + offset) % Players].Add(Pop(stock));
-            lastDiscard.Add(Pop(stock)); recycles = 0; phase = "discard"; CurrentPlayer = (dealer + 1) % Players;
+            lastDiscard.Add(Pop(stock)); phase = "discard";
+            CurrentPlayer = nextStarter >= 0 ? nextStarter : (dealer + 1) % Players; nextStarter = -1;
         }
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
@@ -59,12 +62,11 @@ namespace TrumpLab.Games
             {
                 var actions = new List<Action>();
                 if (stock.Count > 0) actions.Add(new Action("draw_stock"));
-                else if (waste.Count > 0 && recycles == 0) actions.Add(new Action("draw_recycled"));
-                else if (stock.Count == 0) actions.Add(new Action("end_exhausted_round"));
-                if (lastDiscard.Count > 0)
+                else if (waste.Count > 0) actions.Add(new Action("draw_recycled"));
+                if (drawOptions.Count > 0)
                 {
-                    actions.Add(ActionFor("draw_discard", lastDiscard[0]));
-                    if (lastDiscard.Count > 1) actions.Add(ActionFor("draw_discard", lastDiscard[lastDiscard.Count - 1]));
+                    actions.Add(ActionFor("draw_discard", drawOptions[0]));
+                    if (drawOptions.Count > 1) actions.Add(ActionFor("draw_discard", drawOptions[drawOptions.Count - 1]));
                 }
                 return actions.Distinct().ToArray();
             }
@@ -81,9 +83,21 @@ namespace TrumpLab.Games
         }
         private static void AddCombinations(List<Action> result, YCard[] values, int size, int index, List<YCard> selected)
         {
-            if (selected.Count == size) { result.Add(ComboAction("discard", selected)); return; }
+            if (selected.Count == size) { AddSetOrders(result, selected); return; }
             for (int i = index; i <= values.Length - (size - selected.Count); i++)
             { selected.Add(values[i]); AddCombinations(result, values, size, i + 1, selected); selected.RemoveAt(selected.Count - 1); }
+        }
+        private static void AddSetOrders(List<Action> result, IReadOnlyList<YCard> cards)
+        {
+            if (cards.Count <= 2) { result.Add(ComboAction("discard", cards)); return; }
+            for (int first = 0; first < cards.Count; first++)
+                for (int last = 0; last < cards.Count; last++)
+                {
+                    if (first == last) continue;
+                    var ordered = new List<YCard> { cards[first] };
+                    ordered.AddRange(cards.Where((card, index) => index != first && index != last)); ordered.Add(cards[last]);
+                    result.Add(ComboAction("discard", ordered));
+                }
         }
         private static void AddRuns(List<Action> result, List<YCard> hand)
         {
@@ -108,32 +122,27 @@ namespace TrumpLab.Games
             if (action.Kind == "declare_yaniv") { ScoreRound(player); return; }
             if (phase == "draw")
             {
-                if (action.Kind == "end_exhausted_round") { ScoreExhaustedRound(); return; }
-                if (action.Kind == "draw_recycled") { stock.AddRange(waste); waste.Clear(); rng.Shuffle(stock); recycles++; }
-                YCard card = action.Kind == "draw_stock" || action.Kind == "draw_recycled" ? Pop(stock) : lastDiscard.Single(item => item.Id == action.Value);
-                if (action.Kind == "draw_discard") lastDiscard.Remove(card); hands[player].Add(card);
+                if (action.Kind == "draw_recycled") { stock.AddRange(waste); waste.Clear(); rng.Shuffle(stock); }
+                YCard card = action.Kind == "draw_stock" || action.Kind == "draw_recycled" ? Pop(stock) : drawOptions.Single(item => item.Id == action.Value);
+                if (action.Kind == "draw_discard") drawOptions.Remove(card); hands[player].Add(card);
+                waste.AddRange(drawOptions); drawOptions.Clear();
                 phase = "discard"; CurrentPlayer = (player + 1) % Players; return;
             }
             YCard[] discarded = action.Value!.Split(',').Select(id => hands[player].Single(card => card.Id == id)).ToArray();
-            foreach (YCard card in discarded) hands[player].Remove(card); waste.AddRange(lastDiscard); lastDiscard.Clear(); lastDiscard.AddRange(OrderDiscard(discarded)); phase = "draw";
+            foreach (YCard card in discarded) hands[player].Remove(card);
+            drawOptions.Clear(); drawOptions.AddRange(lastDiscard); lastDiscard.Clear(); lastDiscard.AddRange(discarded); phase = "draw";
         }
         private void ScoreRound(int caller)
         {
             int[] handPoints = hands.Select(HandPoints).ToArray(); int minimum = handPoints.Min(); bool success = handPoints[caller] == minimum && handPoints.Count(value => value == minimum) == 1;
+            revealedHands.Clear(); revealedHands.AddRange(hands.Select((hand, player) => "P" + player + ":" + string.Join(" ", hand)));
             for (int player = 0; player < Players; player++)
             {
                 int added = player == caller && success ? 0 : handPoints[player] + (player == caller ? 30 : 0); scores[player] += added;
                 if (scores[player] == 50) scores[player] = 25; else if (scores[player] == 100) scores[player] = 50;
             }
-            rounds++; if (scores.Any(score => score >= 101)) finished = true; else StartRound();
-        }
-        private void ScoreExhaustedRound()
-        {
-            for (int player = 0; player < Players; player++)
-            {
-                scores[player] += HandPoints(hands[player]);
-                if (scores[player] == 50) scores[player] = 25; else if (scores[player] == 100) scores[player] = 50;
-            }
+            nextStarter = Enumerable.Range(0, Players).OrderBy(player => handPoints[player])
+                .ThenBy(player => (player - caller - 1 + Players) % Players).First();
             rounds++; if (scores.Any(score => score >= 101)) finished = true; else StartRound();
         }
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
@@ -146,7 +155,6 @@ namespace TrumpLab.Games
             return actions.OrderByDescending(action => action.Value!.Split(',').Sum(id => hands[player].Single(card => card.Id == id).Points)).First();
         }
         private static int HandPoints(IEnumerable<YCard> cards) => cards.Sum(card => card.Points);
-        private static IEnumerable<YCard> OrderDiscard(IEnumerable<YCard> cards) => cards.OrderBy(card => card.Card.HasValue ? card.Card.Value.Rank : 0);
         private static Action ActionFor(string kind, YCard card) => new Action(kind, card.Card, value: card.Id);
         private static Action ComboAction(string kind, IEnumerable<YCard> cards)
         { YCard[] values = cards.ToArray(); return new Action(kind, values[0].Card, value: string.Join(",", values.Select(card => card.Id))); }
@@ -159,11 +167,11 @@ namespace TrumpLab.Games
         }
         public override string View(int? player = null)
         {
-            int viewer = player ?? CurrentPlayer; return $"phase={phase} round={rounds + 1} discard=[{string.Join(" ", lastDiscard)}] stock={stock.Count} scores=[{string.Join(",", scores)}] " +
+            int viewer = player ?? CurrentPlayer; return $"phase={phase} round={rounds + 1} discard=[{string.Join(" ", lastDiscard)}] draw_options=[{string.Join(" ", drawOptions)}] stock={stock.Count} scores=[{string.Join(",", scores)}] revealed_hands=[{string.Join(" | ", revealedHands)}] " +
                 $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}] your_points={HandPoints(hands[viewer])}\nyour hand: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
-            new GameInfo("yaniv", "ヤニブ", 2, 8, "draw-discard rummy", "各自5枚。単札、同rank組、同suit3枚以上の連番（Joker代用可）を捨て、山札または直前組の端から1枚引く。手札5点以下でYanivを宣言し、失敗時+30、50/100ちょうどの減点を適用して101点到達時の最少失点を競う。山札は1回再利用し、再枯渇時は手札点精算。", "gokurakism/Yaniv"),
+            new GameInfo("yaniv", "ヤニブ", 2, 8, "draw-discard rummy", "各自5枚（4人以上は54枚組を2組）。単札、同rank組、同suit3枚以上の連番（Joker代用可）を捨て、山札または直前組の端から1枚引く。手札5点以下でYanivを宣言して全手札を公開し、失敗時+30、50/100ちょうどの減点を適用して101点到達時の最少失点を競う。山札枯渇時は直前組以外を再利用する。", "ゴクラキズム/ヤニブ・Pagat/Yaniv"),
             (players, random, options) => new YanivGame(players, random));
     }
 
@@ -174,8 +182,10 @@ namespace TrumpLab.Games
         private readonly List<List<Card>> hands;
         private readonly int[] scores;
         private readonly bool[] passed;
+        private readonly int[] drawsThisRound;
         private Card? drawn;
         private int round;
+        private int roundStarter;
         private string phase = "draw";
         private bool finished;
         public override string GameId => "portland";
@@ -183,38 +193,46 @@ namespace TrumpLab.Games
         public PortlandGame(int players, DeterministicRandom rng)
         {
             Players = players; this.rng = rng; decks = Enumerable.Range(0, players).Select(_ => Cards.Shuffled(Cards.StandardDeck(), rng)).ToList();
-            hands = Enumerable.Range(0, players).Select(_ => new List<Card>()).ToList(); scores = new int[players]; passed = new bool[players]; StartRound();
+            hands = Enumerable.Range(0, players).Select(_ => new List<Card>()).ToList(); scores = new int[players]; passed = new bool[players]; drawsThisRound = new int[players]; StartRound();
         }
         private void StartRound()
         {
-            round++; Array.Clear(passed, 0, Players); drawn = null;
+            round++; Array.Clear(passed, 0, Players); Array.Clear(drawsThisRound, 0, Players); drawn = null;
             for (int player = 0; player < Players; player++)
             {
                 hands[player].Clear(); for (int i = 0; i < 5 && decks[player].Count > 0; i++) hands[player].Add(Pop(decks[player]));
                 if (hands[player].Count < 5 || decks[player].Count == 0) passed[player] = true;
             }
             if (passed.All(value => value)) { ScoreRound(); return; }
-            CurrentPlayer = Enumerable.Range(0, Players).First(player => !passed[player]); phase = "draw";
+            CurrentPlayer = Enumerable.Range(0, Players).Select(offset => (roundStarter + offset) % Players).First(player => !passed[player]); phase = "draw";
         }
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
             int actual = ValidateTurn(player);
-            if (phase == "draw") return new[] { new Action("reveal_next") };
-            var actions = new List<Action> { new Action("pass_round") };
+            if (phase == "draw") return new[] { new Action("pass_round"), new Action("reveal_next") };
+            var actions = new List<Action>();
             for (int index = 0; index < hands[actual].Count; index++) actions.Add(new Action("overwrite", drawn, target: index));
             return actions;
         }
         public override void Apply(Action action)
         {
             int player = ValidateTurn(null); Guard.Legal(action, LegalActions(player)); TurnCount++;
-            if (phase == "draw") { drawn = Pop(decks[player]); phase = "decide"; return; }
+            if (phase == "draw")
+            {
+                if (action.Kind == "pass_round") { passed[player] = true; AdvanceAfterTurn(player); return; }
+                drawn = Pop(decks[player]); drawsThisRound[player]++; phase = "decide"; return;
+            }
             if (action.Kind == "overwrite")
             {
                 hands[player][action.Target!.Value] = drawn!.Value;
                 if (decks[player].Count == 0) passed[player] = true;
             }
-            else passed[player] = true;
             drawn = null;
+            if (decks[player].Count == 0) passed[player] = true;
+            AdvanceAfterTurn(player);
+        }
+        private void AdvanceAfterTurn(int player)
+        {
             if (passed.All(value => value)) { ScoreRound(); return; }
             int next = (player + 1) % Players; while (passed[next]) next = (next + 1) % Players;
             CurrentPlayer = next; phase = "draw";
@@ -222,13 +240,19 @@ namespace TrumpLab.Games
         private void ScoreRound()
         {
             PokerRank?[] ranks = hands.Select(hand => hand.Count == 5 ? PokerHandEvaluator.EvaluateFive(hand) : (PokerRank?)null).ToArray();
-            int[] order = Enumerable.Range(0, Players).OrderByDescending(player => ranks[player], NullablePokerComparer.Instance).ToArray();
+            int[] order = Enumerable.Range(0, Players).OrderByDescending(player => ranks[player], NullablePokerComparer.Instance)
+                .ThenBy(player => (player - roundStarter + Players) % Players).ToArray();
             for (int place = 0; place < Players; place++) scores[order[place]] += (Players - place - 1) * round;
-            if (round >= 6) finished = true; else StartRound();
+            roundStarter = order[0]; if (round >= 6) finished = true; else StartRound();
         }
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
-            IReadOnlyList<Action> actions = LegalActions(player); if (phase == "draw") return actions[0];
+            IReadOnlyList<Action> actions = LegalActions(player);
+            if (phase == "draw")
+            {
+                int reserve = (6 - round) * 5;
+                return decks[player].Count > reserve && drawsThisRound[player] < 4 ? actions[1] : actions[0];
+            }
             PokerRank current = PokerHandEvaluator.EvaluateFive(hands[player]);
             Action? best = null; PokerRank bestRank = current;
             foreach (Action action in actions.Where(action => action.Kind == "overwrite"))
@@ -253,8 +277,8 @@ namespace TrumpLab.Games
         public override string View(int? player = null)
         {
             int viewer = player ?? CurrentPlayer; string pending = drawn.HasValue ? drawn.Value.ToString() : "-";
-            return $"phase={phase} round={round}/6 drawn={pending} scores=[{string.Join(",", scores)}] passed=[{string.Join(",", passed.Select(value => value ? 1 : 0))}] " +
-                $"deck_counts=[{string.Join(",", decks.Select(deck => deck.Count))}]\nyour five: {string.Join(" ", hands[viewer])}";
+            return $"phase={phase} round={round}/6 starter=P{roundStarter} drawn={pending} scores=[{string.Join(",", scores)}] passed=[{string.Join(",", passed.Select(value => value ? 1 : 0))}] " +
+                $"tables=[{string.Join(" | ", hands.Select((hand, owner) => "P" + owner + ":" + string.Join(" ", hand)))}] deck_counts=[{string.Join(",", decks.Select(deck => deck.Count))}]\nyour five: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("portland", "ポートランド", 2, 5, "poker push-your-luck", "各自が独立した52枚deckを全6roundで使う。各roundは5枚を公開し、1枚ずつめくって5枠の上書きを続けるかpassする。全員pass後にPoker役で順位を決め、(人数－順位)×round数を得る。5枚を用意できなければ最弱。", "gokurakism/Portland"),
@@ -278,6 +302,10 @@ namespace TrumpLab.Games
         private bool pendingExchangeHonest;
         private int knockResponses;
         private int resumePlayer;
+        private List<int> exchangeChallengers = new List<int>();
+        private int exchangeChallengeIndex;
+        private List<int> knockOfferPlayers = new List<int>();
+        private int knockOfferIndex;
         private string phase = "exchange";
         private bool finished;
         public override string GameId => "toepen";
@@ -296,12 +324,16 @@ namespace TrumpLab.Games
             int actual = ValidateTurn(player);
             if (phase == "exchange") return stock.Count >= 4 ? new[] { new Action("keep_hand"), new Action("exchange_hand") } : new[] { new Action("keep_hand") };
             if (phase == "challenge") return new[] { new Action("accept_exchange"), new Action("challenge_exchange") };
+            if (phase == "knock_offer")
+            {
+                var actions=new List<Action>{new Action("decline_knock")};
+                if(actual!=lastKnocker&&losses[actual]+stake<10)actions.Add(new Action("knock"));
+                return actions;
+            }
             if (phase == "knock_response") return new[] { new Action("stay"), new Action("fold") };
             IEnumerable<Card> cards = hands[actual];
             if (trick.Count > 0) { Suit led = trick[0].Item2.Suit; Card[] follow = cards.Where(card => card.Suit == led).ToArray(); if (follow.Length > 0) cards = follow; }
-            var actions = cards.Select(card => new Action("play", card)).ToList();
-            if (actual != lastKnocker && stake < Math.Max(2, 10 - losses[actual])) actions.Add(new Action("knock"));
-            return actions;
+            return cards.Select(card => new Action("play", card)).ToArray();
         }
         public override void Apply(Action action)
         {
@@ -313,7 +345,8 @@ namespace TrumpLab.Games
                 {
                     pendingExchanger = player; pendingExchangeHonest = hands[player].All(card => card.Rank == 1 || card.Rank >= 11);
                     hands[player].Clear(); for (int i = 0; i < 4; i++) hands[player].Add(Pop(stock));
-                    phase = "challenge"; CurrentPlayer = (player + 1) % Players; return;
+                    exchangeChallengers=Enumerable.Range(1,Players-1).Select(offset=>(player+offset)%Players).ToList();
+                    exchangeChallengeIndex=0;phase = "challenge"; CurrentPlayer = exchangeChallengers[0]; return;
                 }
                 AdvanceExchange(player); return;
             }
@@ -322,32 +355,55 @@ namespace TrumpLab.Games
                 if (action.Kind == "challenge_exchange")
                 {
                     losses[pendingExchangeHonest ? player : pendingExchanger]++;
+                    AdvanceExchange(pendingExchanger);return;
                 }
+                exchangeChallengeIndex++;
+                if(exchangeChallengeIndex<exchangeChallengers.Count){CurrentPlayer=exchangeChallengers[exchangeChallengeIndex];return;}
                 AdvanceExchange(pendingExchanger); return;
+            }
+            if(phase=="knock_offer")
+            {
+                if(action.Kind=="decline_knock")
+                {knockOfferIndex++;if(knockOfferIndex<knockOfferPlayers.Count)CurrentPlayer=knockOfferPlayers[knockOfferIndex];else{phase="play";CurrentPlayer=resumePlayer;}return;}
+                lastKnocker=player;knockResponses=ActivePlayers().Count()-1;phase="knock_response";CurrentPlayer=NextActive(player);return;
             }
             if (phase == "knock_response")
             {
                 if (action.Kind == "fold") { folded[player] = true; losses[player] += stake; }
                 knockResponses--;
                 if (ActivePlayers().Count() <= 1) { FinishDeal(ActivePlayers().First()); return; }
-                if (knockResponses <= 0) { stake++; phase = "play"; CurrentPlayer = folded[resumePlayer] ? NextActive(resumePlayer) : resumePlayer; }
+                if (knockResponses <= 0) { stake++; ResumeAfterKnock(); }
                 else CurrentPlayer = NextActive(player);
                 return;
             }
-            if (action.Kind == "knock")
-            {
-                lastKnocker = player; resumePlayer = player; knockResponses = ActivePlayers().Count() - 1; phase = "knock_response"; CurrentPlayer = NextActive(player); return;
-            }
             Card card = action.Card!.Value; hands[player].Remove(card); trick.Add(Tuple.Create(player, card));
-            if (trick.Count < ActivePlayers().Count()) { CurrentPlayer = NextActive(player); return; }
-            Suit ledSuit = trick[0].Item2.Suit; int winner = trick.Where(item => item.Item2.Suit == ledSuit).OrderByDescending(item => Strength(item.Item2)).First().Item1;
-            trick.Clear(); trickNumber++;
-            if (trickNumber >= 4) FinishDeal(winner); else CurrentPlayer = winner;
+            if(ActivePlayers().All(active=>trick.Any(item=>item.Item1==active)))ResolveTrick();
+            else BeginKnockOffers(NextActiveWithoutCard(player));
         }
         private void AdvanceExchange(int previous)
         {
-            if (exchangeCount >= Players) { phase = "play"; CurrentPlayer = (dealer + 1) % Players; }
+            if (exchangeCount >= Players) BeginKnockOffers((dealer + 1) % Players);
             else { phase = "exchange"; CurrentPlayer = (previous + 1) % Players; }
+        }
+        private void BeginKnockOffers(int resume)
+        {
+            resumePlayer=folded[resume]?NextActive(resume):resume;
+            knockOfferPlayers=Enumerable.Range(0,Players).Select(offset=>(resumePlayer+offset)%Players)
+                .Where(player=>!folded[player]).ToList();knockOfferIndex=0;phase="knock_offer";CurrentPlayer=knockOfferPlayers[0];
+        }
+        private void ResumeAfterKnock()
+        {
+            if(ActivePlayers().Count()<=1){FinishDeal(ActivePlayers().First());return;}
+            if(trick.Count>0&&ActivePlayers().All(active=>trick.Any(item=>item.Item1==active))){ResolveTrick();return;}
+            int resume=folded[resumePlayer]?NextActiveWithoutCard(resumePlayer):resumePlayer;
+            if(trick.Any(item=>item.Item1==resume))resume=NextActiveWithoutCard(resume);
+            BeginKnockOffers(resume);
+        }
+        private void ResolveTrick()
+        {
+            Suit ledSuit=trick[0].Item2.Suit;int winner=trick.Where(item=>item.Item2.Suit==ledSuit)
+                .OrderByDescending(item=>Strength(item.Item2)).First().Item1;trick.Clear();trickNumber++;
+            if(trickNumber>=4)FinishDeal(winner);else BeginKnockOffers(folded[winner]?NextActive(winner):winner);
         }
         private void FinishDeal(int winner)
         {
@@ -356,11 +412,13 @@ namespace TrumpLab.Games
         }
         private IEnumerable<int> ActivePlayers() => Enumerable.Range(0, Players).Where(player => !folded[player]);
         private int NextActive(int player) { int next = (player + 1) % Players; while (folded[next]) next = (next + 1) % Players; return next; }
+        private int NextActiveWithoutCard(int player){int next=NextActive(player);while(trick.Any(item=>item.Item1==next))next=NextActive(next);return next;}
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
             if (phase == "exchange") return hands[player].All(card => card.Rank == 1 || card.Rank >= 11) && actions.Count > 1 ? actions[1] : actions[0];
             if (phase == "challenge") return actions[0];
+            if (phase == "knock_offer") return actions[0];
             if (phase == "knock_response") return losses[player] + stake >= 10 ? actions[1] : actions[0];
             return actions.Where(action => action.Kind == "play").OrderBy(action => Strength(action.Card!.Value)).First();
         }

@@ -66,18 +66,23 @@ namespace TrumpLab.Games
 
     public sealed class TexasHoldemGame : GameBase
     {
-        private readonly List<List<Card>> hands;private readonly List<Card> deck;private readonly List<Card> board=new List<Card>();
-        private readonly bool[] folded;private readonly bool[] acted;private readonly int[] stacks;private readonly int[] streetContributions;
-        private string street="preflop";private int currentBet;private int raises;private int pot;private bool finished;
+        private readonly DeterministicRandom rng;private readonly List<List<Card>> hands;private List<Card> deck=new List<Card>();private readonly List<Card> board=new List<Card>();
+        private readonly bool[] folded;private readonly bool[] acted;private readonly int[] stacks;private readonly int[] streetContributions;private readonly int[] totalContributions;
+        private string street="preflop";private int currentBet;private int raises;private int pot;private int dealer=-1;private int handsPlayed;private bool finished;
         public override string GameId=>"texas_holdem";public override string Name=>"テキサスホールデム";
         public TexasHoldemGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
         {
-            Players=players;deck=Cards.Shuffled(Cards.StandardDeck(),rng);hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
-            for(int round=0;round<2;round++)for(int player=0;player<players;player++)hands[player].Add(Pop(deck));
-            folded=new bool[players];acted=new bool[players];stacks=Enumerable.Repeat(options.Integer("starting_stack",20),players).ToArray();streetContributions=new int[players];
-            int small=players==2?0:1,big=players==2?1:2;PostBlind(small,1);PostBlind(big,2);currentBet=2;CurrentPlayer=players==2?0:(big+1)%players;
+            Players=players;this.rng=rng;hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();folded=new bool[players];acted=new bool[players];stacks=Enumerable.Repeat(Math.Max(1,options.Integer("starting_stack",20)),players).ToArray();streetContributions=new int[players];totalContributions=new int[players];StartHand();
         }
-        private void PostBlind(int player,int amount){int paid=Math.Min(amount,stacks[player]);stacks[player]-=paid;streetContributions[player]+=paid;pot+=paid;}
+        private void StartHand()
+        {
+            if(stacks.Count(stack=>stack>0)<=1){finished=true;return;}dealer=NextSeat(dealer,player=>stacks[player]>0);deck=Cards.Shuffled(Cards.StandardDeck(),rng);foreach(List<Card> hand in hands)hand.Clear();board.Clear();
+            Array.Clear(acted,0,Players);Array.Clear(streetContributions,0,Players);Array.Clear(totalContributions,0,Players);for(int player=0;player<Players;player++)folded[player]=stacks[player]<=0;
+            for(int round=0;round<2;round++)for(int offset=1;offset<=Players;offset++){int player=(dealer+offset)%Players;if(!folded[player])hands[player].Add(Pop(deck));}
+            pot=0;street="preflop";raises=0;int small=stacks.Count(stack=>stack>0)==2?dealer:NextSeat(dealer,player=>!folded[player]);int big=NextSeat(small,player=>!folded[player]);PostBlind(small,1);PostBlind(big,2);currentBet=streetContributions.Max();
+            CurrentPlayer=stacks.Count(stack=>stack>0)==2?small:NextSeat(big,player=>!folded[player]&&stacks[player]>0);
+        }
+        private void PostBlind(int player,int amount)=>Pay(player,amount);
         public override IReadOnlyList<Action> LegalActions(int? player=null)
         {
             int actual=ValidateTurn(player);var result=new List<Action>();int owed=currentBet-streetContributions[actual];
@@ -91,23 +96,31 @@ namespace TrumpLab.Games
             {Pay(player,owed);Pay(player,int.Parse(action.Value!,CultureInfo.InvariantCulture));currentBet=streetContributions[player];raises++;for(int i=0;i<Players;i++)if(!folded[i])acted[i]=false;}
             acted[player]=true;Advance(player);
         }
-        private void Pay(int player,int amount){int paid=Math.Min(amount,stacks[player]);stacks[player]-=paid;streetContributions[player]+=paid;pot+=paid;}
+        private void Pay(int player,int amount){int paid=Math.Min(amount,stacks[player]);stacks[player]-=paid;streetContributions[player]+=paid;totalContributions[player]+=paid;pot+=paid;}
         private void Advance(int player)
         {
-            int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();if(active.Length==1){stacks[active[0]]+=pot;pot=0;finished=true;return;}
+            int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();if(active.Length==1){stacks[active[0]]+=pot;pot=0;EndHand();return;}
             int next=FindNext(player,i=>!folded[i]&&stacks[i]>0&&(!acted[i]||streetContributions[i]<currentBet));if(next>=0){CurrentPlayer=next;return;}
             if(street=="river"){Showdown();return;}street=street=="preflop"?"flop":street=="flop"?"turn":"river";
             if(street=="flop"){Pop(deck);for(int i=0;i<3;i++)board.Add(Pop(deck));}else{Pop(deck);board.Add(Pop(deck));}
             Array.Clear(acted,0,acted.Length);Array.Clear(streetContributions,0,streetContributions.Length);currentBet=0;raises=0;
-            next=FindNext(0,i=>!folded[i]&&stacks[i]>0);if(next<0)Showdown();else CurrentPlayer=next;
+            next=FindNext(dealer,i=>!folded[i]&&stacks[i]>0);if(next<0){while(board.Count<5){Pop(deck);board.Add(Pop(deck));}Showdown();}else CurrentPlayer=next;
         }
         private int FindNext(int player,Func<int,bool> predicate){for(int offset=1;offset<=Players;offset++){int next=(player+offset)%Players;if(predicate(next))return next;}return -1;}
         private void Showdown()
         {
-            int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();PokerRank best=active.Select(i=>PokerHandEvaluator.EvaluateBest(hands[i].Concat(board))).Max();
-            int[] winners=active.Where(i=>PokerHandEvaluator.EvaluateBest(hands[i].Concat(board)).CompareTo(best)==0).ToArray();int share=pot/winners.Length;
-            foreach(int winner in winners)stacks[winner]+=share;pot-=share*winners.Length;if(pot>0){stacks[winners[0]]+=pot;pot=0;}finished=true;
+            AwardSidePots(player=>PokerHandEvaluator.EvaluateBest(hands[player].Concat(board)));EndHand();
         }
+        private void AwardSidePots(Func<int,PokerRank> rank)
+        {
+            int previous=0;foreach(int level in totalContributions.Where(value=>value>0).Distinct().OrderBy(value=>value))
+            {int amount=(level-previous)*totalContributions.Count(value=>value>=level);int[] eligible=Enumerable.Range(0,Players).Where(player=>!folded[player]&&totalContributions[player]>=level).ToArray();if(eligible.Length>0)Award(amount,eligible,rank);pot-=amount;previous=level;}
+            if(pot>0){int[] eligible=Enumerable.Range(0,Players).Where(player=>!folded[player]).ToArray();Award(pot,eligible,rank);pot=0;}
+        }
+        private void Award(int amount,int[] eligible,Func<int,PokerRank> rank)
+        {PokerRank best=eligible.Select(rank).Max();int[] winners=eligible.Where(player=>rank(player).CompareTo(best)==0).ToArray();int share=amount/winners.Length;foreach(int winner in winners)stacks[winner]+=share;int odd=amount-share*winners.Length;foreach(int winner in Enumerable.Range(1,Players).Select(offset=>(dealer+offset)%Players).Where(winners.Contains).Take(odd))stacks[winner]++;}
+        private void EndHand(){handsPlayed++;StartHand();}
+        private int NextSeat(int player,Func<int,bool> predicate){for(int offset=1;offset<=Players;offset++){int next=(player+offset+Players)%Players;if(predicate(next))return next;}return -1;}
         public override Action ChooseCpuAction(int player,DeterministicRandom rng,int difficulty=1)
         {
             IReadOnlyList<Action> actions=LegalActions(player);PokerRank rank=board.Count+2>=5?PokerHandEvaluator.EvaluateBest(hands[player].Concat(board)):default;
@@ -115,24 +128,30 @@ namespace TrumpLab.Games
             if(actions.Any(a=>a.Kind=="check"))return actions.First(a=>a.Kind=="check");if(rank.Category==0&&currentBet-streetContributions[player]>=4)return actions.First(a=>a.Kind=="fold");return actions.First(a=>a.Kind=="call");
         }
         public override bool IsTerminal=>finished;
-        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=stacks.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>stacks[i]==high),stacks.Select(v=>(double)v),"chip stacks",TurnCount,new Dictionary<string,object>{{"board",board.ToArray()}});}
-        public override string View(int? player=null){int viewer=player??CurrentPlayer;string shown=finished?" hands="+string.Join(" ",Enumerable.Range(0,Players).Select(i=>$"P{i}[{string.Join(" ",hands[i])}]")):"";return $"street={street} pot={pot} bet={currentBet} board=[{string.Join(" ",board)}] stacks=[{string.Join(",",stacks)}] folded=[{string.Join(",",folded)}]{shown}\nyour hand: {string.Join(" ",hands[viewer])}";}
+        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=stacks.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>stacks[i]==high),stacks.Select(v=>(double)v),"last stack in Hold'em session",TurnCount,new Dictionary<string,object>{{"board",board.ToArray()},{"hands",handsPlayed}});}
+        public override string View(int? player=null){int viewer=player??CurrentPlayer;string shown=finished?" hands="+string.Join(" ",Enumerable.Range(0,Players).Select(i=>$"P{i}[{string.Join(" ",hands[i])}]")):"";return $"hand={handsPlayed+1} dealer=P{dealer} street={street} pot={pot} bet={currentBet} contributions=[{string.Join(",",totalContributions)}] board=[{string.Join(" ",board)}] stacks=[{string.Join(",",stacks)}] folded=[{string.Join(",",folded)}]{shown}\nyour hand: {string.Join(" ",hands[viewer])}";}
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("texas_holdem","テキサスホールデム",2,10,"community-poker","ブラインド、4回のベッティング、5枚の共通札を備え、7枚から最強の5枚役を作る。","Bicycle Texas Hold'em",new Dictionary<string,string>{{"starting_stack","開始チップ（既定20）"}}),(p,r,o)=>new TexasHoldemGame(p,r,o));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("texas_holdem","テキサスホールデム",2,10,"community-poker","buttonとblindをhandごとに移動し、4 betting street、all-in main/side pot、pot別参加資格を処理して最後のstackを競う。","Bicycle Texas Hold'em / Pagat Poker Betting",new Dictionary<string,string>{{"starting_stack","開始チップ（既定20）"}}),(p,r,o)=>new TexasHoldemGame(p,r,o));
     }
 
     public sealed class FiveCardDrawGame : GameBase
     {
-        private readonly List<List<Card>> hands;private readonly List<Card> deck;private readonly bool[] folded;private readonly bool[] acted;private readonly bool[] drew;
-        private readonly int[] stacks;private readonly int[] contributions;private readonly int[] drawnCounts;private string phase="bet1";private int currentBet;private int raises;private int pot;private bool finished;
+        private readonly DeterministicRandom rng;private readonly List<List<Card>> hands;private List<Card> deck=new List<Card>();private readonly bool[] folded;private readonly bool[] acted;private readonly bool[] drew;
+        private readonly int[] stacks;private readonly int[] contributions;private readonly int[] totalContributions;private readonly int[] drawnCounts;private string phase="bet1";private int currentBet;private int raises;private int pot;private int dealer=-1;private int handsPlayed;private bool betOccurred;private bool finished;
         public override string GameId=>"five_card_draw";public override string Name=>"ファイブカードドロー";
         public FiveCardDrawGame(int players,DeterministicRandom rng,IReadOnlyDictionary<string,string> options)
         {
-            Players=players;deck=Cards.Shuffled(Cards.StandardDeck(),rng);hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
-            for(int round=0;round<5;round++)for(int player=0;player<players;player++)hands[player].Add(Pop(deck));
-            folded=new bool[players];acted=new bool[players];drew=new bool[players];stacks=Enumerable.Repeat(options.Integer("starting_stack",20),players).ToArray();
-            contributions=new int[players];drawnCounts=new int[players];for(int player=0;player<players;player++){stacks[player]--;pot++;}CurrentPlayer=1%players;
+            Players=players;this.rng=rng;hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();folded=new bool[players];acted=new bool[players];drew=new bool[players];stacks=Enumerable.Repeat(Math.Max(1,options.Integer("starting_stack",20)),players).ToArray();
+            contributions=new int[players];totalContributions=new int[players];drawnCounts=new int[players];StartHand(false);
         }
+        private void StartHand(bool carryPot)
+        {
+            if(stacks.Count(stack=>stack>0)<=1){finished=true;return;}dealer=NextSeat(dealer,player=>stacks[player]>0);deck=Cards.Shuffled(Cards.StandardDeck(),rng);foreach(List<Card> hand in hands)hand.Clear();
+            Array.Clear(acted,0,Players);Array.Clear(drew,0,Players);Array.Clear(contributions,0,Players);Array.Clear(totalContributions,0,Players);Array.Clear(drawnCounts,0,Players);for(int player=0;player<Players;player++)folded[player]=stacks[player]<=0;
+            for(int round=0;round<5;round++)for(int offset=1;offset<=Players;offset++){int player=(dealer+offset)%Players;if(!folded[player])hands[player].Add(Pop(deck));}
+            if(!carryPot)pot=0;for(int player=0;player<Players;player++)if(!folded[player])PostAnte(player);phase="bet1";currentBet=0;raises=0;betOccurred=false;CurrentPlayer=NextSeat(dealer,player=>!folded[player]&&stacks[player]>0);if(CurrentPlayer<0)BeginDraw();
+        }
+        private void PostAnte(int player){int paid=Math.Min(1,stacks[player]);stacks[player]-=paid;totalContributions[player]+=paid;pot+=paid;}
         public override IReadOnlyList<Action> LegalActions(int? player=null)
         {
             int actual=ValidateTurn(player);
@@ -155,19 +174,26 @@ namespace TrumpLab.Games
                 int next=FindNext(player,index=>!folded[index]&&!drew[index]);if(next>=0){CurrentPlayer=next;return;}StartSecondBet();return;
             }
             int owed=currentBet-contributions[player];if(action.Kind=="fold")folded[player]=true;else if(action.Kind=="call")Pay(player,owed);else if(action.Kind=="raise")
-            {Pay(player,owed);Pay(player,int.Parse(action.Value!,CultureInfo.InvariantCulture));currentBet=contributions[player];raises++;for(int i=0;i<Players;i++)if(!folded[i])acted[i]=false;}
+            {Pay(player,owed);Pay(player,int.Parse(action.Value!,CultureInfo.InvariantCulture));currentBet=contributions[player];raises++;betOccurred=true;for(int i=0;i<Players;i++)if(!folded[i])acted[i]=false;}
             acted[player]=true;AdvanceBet(player);
         }
-        private void Pay(int player,int amount){int paid=Math.Min(amount,stacks[player]);stacks[player]-=paid;contributions[player]+=paid;pot+=paid;}
+        private void Pay(int player,int amount){int paid=Math.Min(amount,stacks[player]);stacks[player]-=paid;contributions[player]+=paid;totalContributions[player]+=paid;pot+=paid;}
         private void AdvanceBet(int player)
         {
-            int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();if(active.Length==1){stacks[active[0]]+=pot;pot=0;finished=true;return;}
-            int next=FindNext(player,index=>!folded[index]&&(!acted[index]||contributions[index]<currentBet));if(next>=0){CurrentPlayer=next;return;}
-            if(phase=="bet2"){Showdown();return;}phase="draw";CurrentPlayer=FindNext(0,index=>!folded[index]);
+            int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();if(active.Length==1){stacks[active[0]]+=pot;pot=0;EndHand();return;}
+            int next=FindNext(player,index=>!folded[index]&&stacks[index]>0&&(!acted[index]||contributions[index]<currentBet));if(next>=0){CurrentPlayer=next;return;}
+            if(phase=="bet2"){Showdown();return;}if(!betOccurred&&currentBet==0){handsPlayed++;StartHand(true);return;}BeginDraw();
         }
-        private void StartSecondBet(){phase="bet2";Array.Clear(acted,0,acted.Length);Array.Clear(contributions,0,contributions.Length);currentBet=0;raises=0;CurrentPlayer=FindNext(0,index=>!folded[index]);}
+        private void BeginDraw(){phase="draw";CurrentPlayer=NextSeat(dealer,index=>!folded[index]);}
+        private void StartSecondBet(){phase="bet2";Array.Clear(acted,0,acted.Length);Array.Clear(contributions,0,contributions.Length);currentBet=0;raises=0;betOccurred=false;CurrentPlayer=NextSeat(dealer,index=>!folded[index]&&stacks[index]>0);if(CurrentPlayer<0)Showdown();}
         private int FindNext(int player,Func<int,bool> predicate){for(int offset=1;offset<=Players;offset++){int next=(player+offset)%Players;if(predicate(next))return next;}return -1;}
-        private void Showdown(){int[] active=Enumerable.Range(0,Players).Where(i=>!folded[i]).ToArray();PokerRank best=active.Select(i=>PokerHandEvaluator.EvaluateFive(hands[i])).Max();int[] winners=active.Where(i=>PokerHandEvaluator.EvaluateFive(hands[i]).CompareTo(best)==0).ToArray();int share=pot/winners.Length;foreach(int winner in winners)stacks[winner]+=share;pot-=share*winners.Length;if(pot>0){stacks[winners[0]]+=pot;pot=0;}finished=true;}
+        private void Showdown(){AwardSidePots(player=>PokerHandEvaluator.EvaluateFive(hands[player]));EndHand();}
+        private void AwardSidePots(Func<int,PokerRank> rank)
+        {int previous=0;foreach(int level in totalContributions.Where(value=>value>0).Distinct().OrderBy(value=>value)){int amount=(level-previous)*totalContributions.Count(value=>value>=level);int[] eligible=Enumerable.Range(0,Players).Where(player=>!folded[player]&&totalContributions[player]>=level).ToArray();if(eligible.Length>0)Award(amount,eligible,rank);pot-=amount;previous=level;}if(pot>0){int[] eligible=Enumerable.Range(0,Players).Where(player=>!folded[player]).ToArray();Award(pot,eligible,rank);pot=0;}}
+        private void Award(int amount,int[] eligible,Func<int,PokerRank> rank)
+        {PokerRank best=eligible.Select(rank).Max();int[] winners=eligible.Where(player=>rank(player).CompareTo(best)==0).ToArray();int share=amount/winners.Length;foreach(int winner in winners)stacks[winner]+=share;int odd=amount-share*winners.Length;foreach(int winner in Enumerable.Range(1,Players).Select(offset=>(dealer+offset)%Players).Where(winners.Contains).Take(odd))stacks[winner]++;}
+        private void EndHand(){handsPlayed++;StartHand(false);}
+        private int NextSeat(int player,Func<int,bool> predicate){for(int offset=1;offset<=Players;offset++){int next=(player+offset+Players)%Players;if(predicate(next))return next;}return -1;}
         public override Action ChooseCpuAction(int player,DeterministicRandom rng,int difficulty=1)
         {
             IReadOnlyList<Action> actions=LegalActions(player);PokerRank rank=PokerHandEvaluator.EvaluateFive(hands[player]);
@@ -176,10 +202,10 @@ namespace TrumpLab.Games
             if(actions.Any(a=>a.Kind=="raise")&&rank.Category>=2)return actions.First(a=>a.Kind=="raise");if(actions.Any(a=>a.Kind=="check"))return actions.First(a=>a.Kind=="check");return rank.Category==0&&currentBet-contributions[player]>=2?actions.First(a=>a.Kind=="fold"):actions.First(a=>a.Kind=="call");
         }
         public override bool IsTerminal=>finished;
-        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=stacks.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>stacks[i]==high),stacks.Select(v=>(double)v),"chip stacks",TurnCount);}
-        public override string View(int? player=null){int viewer=player??CurrentPlayer;string shown=finished?" showdown="+string.Join(" ",Enumerable.Range(0,Players).Where(i=>!folded[i]).Select(i=>$"P{i}[{string.Join(" ",hands[i])}]")):"";return $"phase={phase} pot={pot} stacks=[{string.Join(",",stacks)}] draws=[{string.Join(",",drawnCounts)}]{shown}\nyour hand: {string.Join(" ",hands[viewer])}";}
+        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int high=stacks.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>stacks[i]==high),stacks.Select(v=>(double)v),"last stack in Five Card Draw session",TurnCount,new Dictionary<string,object>{{"hands",handsPlayed}});}
+        public override string View(int? player=null){int viewer=player??CurrentPlayer;string shown=finished?" showdown="+string.Join(" ",Enumerable.Range(0,Players).Where(i=>!folded[i]).Select(i=>$"P{i}[{string.Join(" ",hands[i])}]")):"";return $"hand={handsPlayed+1} dealer=P{dealer} phase={phase} pot={pot} contributions=[{string.Join(",",totalContributions)}] stacks=[{string.Join(",",stacks)}] draws=[{string.Join(",",drawnCounts)}]{shown}\nyour hand: {string.Join(" ",hands[viewer])}";}
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("five_card_draw","ファイブカードドロー",2,6,"draw-poker","アンティ、2回のベッティング、0～3枚の交換を行い、5枚ポーカー役を比較する。","Pagat Five Card Draw",new Dictionary<string,string>{{"starting_stack","開始チップ（既定20）"}}),(p,r,o)=>new FiveCardDrawGame(p,r,o));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("five_card_draw","ファイブカードドロー",2,6,"draw-poker","dealerを移動し、ante、全check時のpot持越し再配布、0～3枚交換、2回のbet、all-in side potを処理して最後のstackを競う。","Pagat Five Card Draw / Poker Betting",new Dictionary<string,string>{{"starting_stack","開始チップ（既定20）"}}),(p,r,o)=>new FiveCardDrawGame(p,r,o));
     }
 
     public sealed class BaccaratGame : GameBase
@@ -212,6 +238,6 @@ namespace TrumpLab.Games
         public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");double high=scores.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>Math.Abs(scores[i]-high)<0.000001),scores,"Punto Banco wager",TurnCount,new Dictionary<string,object>{{"outcome",outcome}});}
         public override string View(int? player=null)=>finished?$"outcome={outcome} player=[{string.Join(" ",playerHand)}] total={Total(playerHand)} banker=[{string.Join(" ",bankerHand)}] total={Total(bankerHand)} scores=[{string.Join(",",scores)}]":$"bets_placed={bets.Count(value=>value!=null)}/{Players} your_bet={bets[player??CurrentPlayer]??"-"}";
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("baccarat","バカラ",1,8,"banking","Punto Bancoの第三札表でプレイヤー・バンカー・タイの固定額ベットを決着する。","Pagat Baccarat"),(p,r,o)=>new BaccaratGame(p,r));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("baccarat","バカラ",1,8,"banking","Punto Bancoの第三札表でプレイヤー・バンカー・タイの固定額ベットを決着する。","Pagat Punto Banco"),(p,r,o)=>new BaccaratGame(p,r));
     }
 }

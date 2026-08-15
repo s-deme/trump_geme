@@ -46,7 +46,7 @@ namespace TrumpLab.Games
             return $"hands=[{string.Join(",",hands.Select(h=>h.Count))}] next target=P{Target(CurrentPlayer)}\n"+
                 $"your hand: {string.Join(" ",hands[viewer])}";}
         public static void Register(GameRegistry registry)=>registry.Register(
-            new GameInfo("old_maid","ババ抜き",2,6,"matching","同ランクのペアを捨て、最後の1枚を持つプレイヤーが負ける。","traditional",
+            new GameInfo("old_maid","ババ抜き",2,6,"matching","Bicycle版。Qを1枚除く51枚を配り切り、同rank pairを伏せて捨てる。左隣の残存playerの伏せ手札から1枚引き、最後にodd queenを持つplayerが負ける。","Bicycle/Old Maid",
                 new Dictionary<string,string>{{"omitted_queen_suit","除外するQのスート C/D/H/S（既定C）"}}),
             (players,rng,options)=>new OldMaidGame(players,rng,options));
     }

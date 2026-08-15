@@ -364,6 +364,7 @@ namespace TrumpLab.Games
         private int dealer = 2;
         private int dealsPlayed;
         private bool trumpRevealed;
+        private string revealedRoles = "none";
         private string phase = "choose_roles";
         private bool finished;
 
@@ -436,6 +437,8 @@ namespace TrumpLab.Games
 
         private void FinishDeal()
         {
+            revealedRoles = $"deal={dealsPlayed + 1},trump=P{TrumpPlayer}:{Card.SuitCode(TrumpSuit)}," +
+                $"minus=P{MinusPlayer}:{Card.SuitCode(MinusSuit)},plus=P{PlusPlayer}:{Card.SuitCode(PlusSuit)}";
             for (int player = 0; player < 3; player++)
             {
                 if (PlusSuit == MinusSuit)
@@ -481,6 +484,7 @@ namespace TrumpLab.Games
             return $"phase={phase} deal={dealsPlayed + 1}/9 follow={(dealsPlayed >= 3 && dealsPlayed < 6 ? "must" : "may")} " +
                 $"trump={(trumpRevealed ? Card.SuitCode(TrumpSuit) : "?")} trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] " +
                 $"scores=[{string.Join(",", scores)}] hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}] " +
+                $"revealed_roles=[{revealedRoles}] " +
                 $"your_role={Role(viewer)} your_suit={(choices[viewer].HasValue ? Card.SuitCode(choices[viewer]!.Value) : "-")}\n" +
                 $"your hand: {string.Join(" ", hands[viewer])}";
         }

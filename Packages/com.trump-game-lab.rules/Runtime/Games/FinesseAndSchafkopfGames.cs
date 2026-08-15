@@ -78,12 +78,7 @@ namespace TrumpLab.Games
         private void AddLeadActions(List<Action> actions, string kind, FCard card, int owner)
         {
             string value = owner + ":" + card.Id;
-            if (firstLead && card.Card.Rank == 1)
-            {
-                actions.Add(new Action(kind + "_trump", card.Card, value: value));
-                actions.Add(new Action(kind + "_no_trump", card.Card, value: value));
-            }
-            else actions.Add(new Action(kind, card.Card, value: value));
+            actions.Add(new Action(kind, card.Card, value: value));
         }
 
         public override void Apply(Action action)
@@ -105,7 +100,7 @@ namespace TrumpLab.Games
                 if (owner == player) hands[player].Remove(card); else { tableCards[owner].Remove(card); refillOwners.Enqueue(owner); }
                 if (firstLead)
                 {
-                    trump = action.Kind.EndsWith("_no_trump", StringComparison.Ordinal) ? (Suit?)null : card.Card.Suit;
+                    trump = card.Card.Suit;
                     firstLead = false;
                 }
                 trick.Add(Tuple.Create(owner, card)); CurrentPlayer = NextUnplayed(owner); return;
@@ -138,14 +133,14 @@ namespace TrumpLab.Games
             int lastTeam = pendingLeader % 2;
             for (int team = 0; team < 2; team++)
             {
-                int dealScore = team == lastTeam ? 4 : 0; int won = pairTricks[team];
-                if (won >= 7) dealScore += won == 7 ? 2 : won == 8 ? 5 : won == 9 ? 10 : won == 10 ? 20 : won == 11 ? 10 : won == 12 ? 5 : 2;
+                int won = pairTricks[team]; int trickScore = 0;
+                if (won >= 7) trickScore = won == 7 ? 2 : won == 8 ? 5 : won == 9 ? 10 : won == 10 ? 20 : won == 11 ? 10 : won == 12 ? 5 : 2;
                 int penalty = Enumerable.Range(0, 4).Where(player => player % 2 == team).Sum(player =>
-                    tableCards[player].Count(card => trump.HasValue ? card.Card.Suit == trump.Value : card.Card.Rank >= 11)) * 3;
-                scores[team] += Math.Max(0, dealScore - penalty);
+                    tableCards[player].Count(card => card.Card.Suit == trump!.Value)) * 3;
+                scores[team] += Math.Max(0, trickScore - penalty) + (team == lastTeam ? 4 : 0);
             }
             int high = scores.Max(), low = scores.Min();
-            if (high >= 60 || high >= 42 && high - low >= 5) finished = true; else StartDeal();
+            if (high >= 42 && high != low) finished = true; else StartDeal();
         }
 
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
@@ -172,8 +167,8 @@ namespace TrumpLab.Games
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("finesse", "フィネス", 4, 4, "team open-table trick-taking",
-                "52枚＋J/Q/K複製12枚を、各13枚手札＋公開table3枚に分ける。lead時は自分の手札かpartnerのtable札を指定でき、初lead suitが切り札（Aならno-trump可）。table使用後は所有者が手札から補充し、勝数曲線・最終4点・残table罰点で42点差5または60点を争う。",
-                "gokurakism/Finesse"),
+                "52枚＋J/Q/K複製12枚を、各13枚手札＋公開table3枚に分ける。lead時は自分の手札かpartnerのtable札を指定でき、初lead suitを切り札とする。table使用後は所有者が手札から補充し、勝数曲線から残table切り札を減点（下限0）した後に最終trick4点を加え、42点到達時の高得点teamを勝者とする。",
+                "ゲームファーム/フィネス"),
             (players, random, options) => new FinesseGame(players, random));
     }
 
@@ -193,11 +188,13 @@ namespace TrumpLab.Games
         private readonly List<List<Card>> hands = Enumerable.Range(0, 4).Select(_ => new List<Card>()).ToList();
         private readonly List<List<Card>> captured = Enumerable.Range(0, 4).Select(_ => new List<Card>()).ToList();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
-        private readonly List<Bid> bids = new List<Bid>();
         private readonly int[] tricks = new int[4];
         private readonly int[] scores = new int[4];
         private int dealer = 3;
-        private int bidsMade;
+        private Bid? highBid;
+        private int consecutivePasses;
+        private int stossLevel;
+        private int stakeMultiplier=1;
         private int dealsPlayed;
         private int declarer = -1;
         private int partner = -1;
@@ -215,10 +212,10 @@ namespace TrumpLab.Games
         private void StartDeal()
         {
             foreach (List<Card> hand in hands) hand.Clear(); foreach (List<Card> pile in captured) pile.Clear();
-            trick.Clear(); bids.Clear(); Array.Clear(tricks, 0, 4);
+            trick.Clear(); Array.Clear(tricks, 0, 4);
             List<Card> deck = Cards.Shuffled(Cards.StandardDeck(new[] { 1, 7, 8, 9, 10, 11, 12, 13 }), rng); dealer = (dealer + 1) % 4;
             for (int round = 0; round < 8; round++) for (int offset = 1; offset <= 4; offset++) hands[(dealer + offset) % 4].Add(Pop(deck));
-            bidsMade = 0; declarer = partner = -1; contract = "partner"; soloSuit = null; calledAce = null; phase = "bid"; CurrentPlayer = (dealer + 1) % 4;
+            highBid=null;consecutivePasses=0;stossLevel=0;stakeMultiplier=1;declarer = partner = -1; contract = "partner"; soloSuit = null; calledAce = null; phase = "bid"; CurrentPlayer = (dealer + 1) % 4;
         }
 
         public override IReadOnlyList<Action> LegalActions(int? player = null)
@@ -227,13 +224,17 @@ namespace TrumpLab.Games
             if (phase == "bid")
             {
                 var actions = new List<Action> { new Action("pass") };
-                if (CallableSuits(actual).Any()) actions.Add(new Action("bid", value: "partner"));
-                actions.Add(new Action("bid", value: "wenz")); actions.Add(new Action("bid", value: "wenz_tout"));
+                int minimum=highBid?.Rank??0;
+                if (minimum<1&&CallableSuits(actual).Any()) actions.Add(new Action("bid", value: "partner"));
+                if(minimum<2)actions.Add(new Action("bid", value: "wenz"));if(minimum<4)actions.Add(new Action("bid", value: "wenz_tout"));
                 foreach (Suit suit in Enum.GetValues(typeof(Suit)))
-                { actions.Add(new Action("bid", value: "solo:" + Card.SuitCode(suit))); actions.Add(new Action("bid", value: "solo_tout:" + Card.SuitCode(suit))); }
+                {if(minimum<3)actions.Add(new Action("bid", value: "solo:" + Card.SuitCode(suit)));if(minimum<5)actions.Add(new Action("bid", value: "solo_tout:" + Card.SuitCode(suit)));}
+                if(minimum<6&&hands[actual].All(card=>card.Rank==11||card.Rank==12))actions.Add(new Action("bid",value:"sie"));
                 return actions;
             }
             if (phase == "call_ace") return CallableSuits(actual).Select(suit => new Action("call_ace", value: Card.SuitCode(suit))).ToArray();
+            if(phase=="stoss")
+            {string kind=stossLevel==0?"stoss":stossLevel==1?"gegenstoss":stossLevel==2?"supra":"resupra";return new[]{new Action("decline_"+kind),new Action(kind)};}
             IEnumerable<Card> cards = hands[actual];
             if (trick.Count == 0)
             {
@@ -259,20 +260,22 @@ namespace TrumpLab.Games
             int player = ValidateTurn(null); Guard.Legal(action, LegalActions(player)); TurnCount++;
             if (phase == "bid")
             {
-                bidsMade++;
-                if (action.Kind == "bid") bids.Add(ParseBid(player, action.Value!));
-                if (bidsMade < 4) { CurrentPlayer = (player + 1) % 4; return; }
-                if (bids.Count == 0) { StartDeal(); return; }
-                Bid winner = bids.OrderByDescending(bid => bid.Rank).First(); declarer = winner.Player; contract = winner.Contract; soloSuit = winner.Suit;
-                if (contract == "partner") { phase = "call_ace"; CurrentPlayer = declarer; }
-                else { phase = "play"; CurrentPlayer = (dealer + 1) % 4; }
+                if(action.Kind=="pass")consecutivePasses++;else{highBid=ParseBid(player,action.Value!);consecutivePasses=0;}
+                if(highBid==null&&consecutivePasses>=4){StartDeal();return;}
+                if(highBid!=null&&consecutivePasses>=3){FinishAuction();return;}
+                CurrentPlayer=(player+1)%4;
                 return;
             }
             if (phase == "call_ace")
             {
                 calledAce = new Card(Card.ParseSuit(action.Value!), 1);
                 partner = Enumerable.Range(0, 4).Single(p => hands[p].Contains(calledAce.Value));
-                phase = "play"; CurrentPlayer = (dealer + 1) % 4; return;
+                BeginStoss();return;
+            }
+            if(phase=="stoss")
+            {
+                if(action.Kind.StartsWith("decline_",StringComparison.Ordinal)){BeginPlay();return;}
+                stakeMultiplier*=2;stossLevel++;if(stossLevel>=4){BeginPlay();return;}CurrentPlayer=StossRepresentative(stossLevel%2==0?false:true);return;
             }
             Card card = action.Card!.Value; hands[player].Remove(card); trick.Add(Tuple.Create(player, card));
             if (trick.Count < 4) { CurrentPlayer = (player + 1) % 4; return; }
@@ -283,9 +286,20 @@ namespace TrumpLab.Games
         private Bid ParseBid(int player, string value)
         {
             string[] parts = value.Split(':'); string name = parts[0]; Suit? suit = parts.Length > 1 ? Card.ParseSuit(parts[1]) : (Suit?)null;
-            int rank = name == "partner" ? 1 : name == "wenz" ? 2 : name == "solo" ? 3 : name == "wenz_tout" ? 4 : 5;
+            int rank = name == "partner" ? 1 : name == "wenz" ? 2 : name == "solo" ? 3 : name == "wenz_tout" ? 4 : name=="solo_tout"?5:6;
             return new Bid(player, name, rank, suit);
         }
+        private void FinishAuction()
+        {
+            Bid winner=highBid!;declarer=winner.Player;contract=winner.Contract;soloSuit=winner.Suit;
+            if(contract=="sie")
+            {int stake=540;scores[declarer]+=3*stake;for(int player=0;player<4;player++)if(player!=declarer)scores[player]-=stake;dealsPlayed++;if(dealsPlayed>=sessionDeals)finished=true;else StartDeal();return;}
+            if(contract=="partner"){phase="call_ace";CurrentPlayer=declarer;}else BeginStoss();
+        }
+        private void BeginStoss(){stossLevel=0;stakeMultiplier=1;phase="stoss";CurrentPlayer=StossRepresentative(false);}
+        private void BeginPlay(){phase="play";CurrentPlayer=(dealer+1)%4;}
+        private int StossRepresentative(bool declarerSide)
+        {var team=new HashSet<int>{declarer};if(contract=="partner"&&partner>=0)team.Add(partner);return Enumerable.Range(1,4).Select(offset=>(dealer+offset)%4).First(player=>team.Contains(player)==declarerSide);}
         private IEnumerable<Suit> CallableSuits(int player) => new[] { Suit.Clubs, Suit.Spades, Suit.Diamonds }
             .Where(suit => !hands[player].Contains(new Card(suit, 1)));
         private bool IsTrump(Card card)
@@ -313,18 +327,19 @@ namespace TrumpLab.Games
             var team = new HashSet<int> { declarer }; if (contract == "partner") team.Add(partner);
             int points = team.Sum(player => captured[player].Sum(CardPoints)); int teamTricks = team.Sum(player => tricks[player]);
             bool tout = contract.EndsWith("tout", StringComparison.Ordinal); bool success = tout ? teamTricks == 8 : points >= 61;
-            int stake = contract == "partner" ? 10 : tout ? 180 : 50;
+            int stake = (contract == "partner" ? 10 : tout ? 180 : 50)*stakeMultiplier;
             int losingPoints = success ? 120 - points : points; int losingTricks = success ? 8 - teamTricks : teamTricks;
             if (losingPoints <= 30) stake += 10; if (losingTricks == 0) stake += 10;
-            for (int player = 0; player < 4; player++) scores[player] += (team.Contains(player) == success ? stake : -stake);
+            if(team.Count==1){scores[declarer]+=success?3*stake:-3*stake;for(int player=0;player<4;player++)if(player!=declarer)scores[player]+=success?-stake:stake;}
+            else for (int player = 0; player < 4; player++) scores[player] += (team.Contains(player) == success ? stake : -stake);
             dealsPlayed++; if (dealsPlayed >= sessionDeals) finished = true; else StartDeal();
         }
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
-            if (phase == "bid") return actions.FirstOrDefault(action => action.Value == "partner").Value == "partner"
-                ? actions.First(action => action.Value == "partner") : actions.First(action => action.Value == "wenz");
+            if (phase == "bid") return highBid==null&&actions.Any(action=>action.Value=="partner")?actions.First(action=>action.Value=="partner"):actions.First(action=>action.Kind=="pass");
             if (phase == "call_ace") return actions[0];
+            if(phase=="stoss")return actions[0];
             return actions.OrderBy(action => IsTrump(action.Card.GetValueOrDefault())
                 ? TrumpStrength(action.Card.GetValueOrDefault()) : PlainStrength(action.Card.GetValueOrDefault())).First();
         }
@@ -342,13 +357,13 @@ namespace TrumpLab.Games
             int viewer = player ?? CurrentPlayer; bool partnerPublic = calledAce.HasValue && captured.Any(pile => pile.Contains(calledAce.Value));
             string role = viewer == declarer ? "declarer" : viewer == partner ? "partner" : "defender";
             return $"phase={phase} deal={dealsPlayed + 1}/{sessionDeals} dealer=P{dealer} contract={contract} declarer={(declarer < 0 ? "-" : "P" + declarer)} " +
-                $"partner={(partnerPublic ? "P" + partner : "hidden")} your_role={role} called_ace={(calledAce.HasValue ? calledAce.Value.ToString() : "-")} " +
+                $"partner={(partnerPublic ? "P" + partner : "hidden")} your_role={role} called_ace={(calledAce.HasValue ? calledAce.Value.ToString() : "-")} multiplier=x{stakeMultiplier} " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] scores=[{string.Join(",", scores)}] " +
                 $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("schafkopf", "シャーフコップ", 4, 4, "contract team point-trick",
-                "7～Aの32枚でPartner、Wenz、Suit Soloと各Toutをauctionする。PartnerはQ/J＋heart固定切り札と非切り札A指名、SoloはQ/J＋指定suit、WenzはJのみ。A/10/K/Q/J点の61、Tout全勝、Schneider/Schwarzを基礎stake（Stossなし）で8deal精算する。",
+                "7～Aの32枚で勝ち抜きauctionによりPartner、Wenz、Suit Solo、各Tout、Sieを選ぶ。非切り札A指名、Stoss～Resupraの最大16倍、61点、Schneider/Schwarzを8deal精算する。",
                 "gokurakism/Bavarian Schafkopf", new Dictionary<string, string> { { "deals", "8" } }),
             (players, random, options) => new SchafkopfGame(players, random, options));
     }
