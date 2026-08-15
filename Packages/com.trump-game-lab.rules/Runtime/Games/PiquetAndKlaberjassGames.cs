@@ -32,8 +32,14 @@ namespace TrumpLab.Games
         private int dealLimit = 6;
         private int elder;
         private int currentLeader;
+        private readonly bool[,] declared=new bool[2,3];
+        private readonly bool[] carteBlanche=new bool[2];
+        private int carteOffers;
+        private int declarationCategory;
+        private int declarationSpeaker;
         private string phase = "elder_exchange";
         private bool repique;
+        private bool piqueAwarded;
         private bool finished;
 
         public override string GameId => "piquet";
@@ -56,19 +62,21 @@ namespace TrumpLab.Games
             for (int packet = 0; packet < 6; packet++)
                 for (int offset = 1; offset <= 2; offset++)
                     for (int card = 0; card < 2; card++) hands[(dealer + offset) % 2].Add(Pop(talon));
-            for (int player = 0; player < 2; player++)
-                if (!hands[player].Any(card => card.Rank == 11 || card.Rank == 12 || card.Rank == 13))
-                    dealPoints[player] += 10;
-            phase = "elder_exchange";
+            for(int player=0;player<2;player++){carteBlanche[player]=!hands[player].Any(card=>card.Rank==11||card.Rank==12||card.Rank==13);for(int category=0;category<3;category++)declared[player,category]=false;}
+            carteOffers=0;phase = "carte_blanche";
             CurrentPlayer = elder;
-            repique = false;
+            repique = false;piqueAwarded=false;
         }
 
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
             int actual = ValidateTurn(player);
+            if(phase=="carte_blanche")
+            {var actions=new List<Action>{new Action("sink_carte_blanche")};if(carteBlanche[actual])actions.Add(new Action("declare_carte_blanche"));return actions;}
             if (phase == "elder_exchange") return ExchangeActions(hands[actual], 1, Math.Min(5, talon.Count));
             if (phase == "younger_exchange") return ExchangeActions(hands[actual], 1, talon.Count);
+            if(phase=="declaration")
+            {var actions=new List<Action>{new Action("sink_declaration",value:CategoryName(declarationCategory))};if(HasDeclaration(actual,declarationCategory))actions.Add(new Action("declare",value:CategoryName(declarationCategory)));return actions;}
             IEnumerable<Card> cards = hands[actual];
             if (trick.Count > 0)
             {
@@ -99,6 +107,8 @@ namespace TrumpLab.Games
             int player = ValidateTurn(null);
             Guard.Legal(action, LegalActions(player));
             TurnCount++;
+            if(phase=="carte_blanche")
+            {if(action.Kind=="declare_carte_blanche")dealPoints[player]+=10;carteOffers++;if(carteOffers<2)CurrentPlayer=dealer;else{phase="elder_exchange";CurrentPlayer=elder;}return;}
             if (phase == "elder_exchange" || phase == "younger_exchange")
             {
                 Card[] discards = Decode(action.Value!);
@@ -108,13 +118,14 @@ namespace TrumpLab.Games
                 else BeginDeclarations();
                 return;
             }
+            if(phase=="declaration"){ApplyDeclaration(player,action);return;}
             Card played = action.Card!.Value;
             hands[player].Remove(played);
             trick.Add(Tuple.Create(player, played));
             if (trick.Count == 1) { CurrentPlayer = 1 - player; return; }
             int winner = trick[1].Item2.Suit == trick[0].Item2.Suit &&
                 Strength(trick[1].Item2) > Strength(trick[0].Item2) ? trick[1].Item1 : trick[0].Item1;
-            dealPoints[winner] += winner == currentLeader ? 1 : 2;
+            AddPlayPoints(winner,winner == currentLeader ? 1 : 2);
             tricks[winner]++;
             trick.Clear();
             currentLeader = winner;
@@ -124,16 +135,15 @@ namespace TrumpLab.Games
 
         private void BeginDeclarations()
         {
-            ResolvePoint();
-            ResolveSequences();
-            ResolveSets();
-            int declarer = dealPoints[0] >= 30 && dealPoints[1] == 0 ? 0 :
-                dealPoints[1] >= 30 && dealPoints[0] == 0 ? 1 : -1;
-            if (declarer >= 0) { dealPoints[declarer] += 60; repique = true; }
-            phase = "play";
-            currentLeader = elder;
-            CurrentPlayer = elder;
-            dealPoints[elder]++;
+            phase="declaration";declarationCategory=0;declarationSpeaker=elder;CurrentPlayer=elder;
+        }
+        private void ApplyDeclaration(int player,Action action)
+        {
+            declared[player,declarationCategory]=action.Kind=="declare";
+            if(declarationSpeaker==elder){declarationSpeaker=dealer;CurrentPlayer=dealer;return;}
+            ResolveDeclaration(declarationCategory);CheckRepique();declarationCategory++;
+            if(declarationCategory<3){declarationSpeaker=elder;CurrentPlayer=elder;return;}
+            phase="play";currentLeader=elder;CurrentPlayer=elder;AddPlayPoints(elder,1);
         }
 
         private void ResolvePoint()
@@ -164,6 +174,29 @@ namespace TrumpLab.Games
             int winner = CompareNullable(left, right);
             if (winner >= 0) dealPoints[winner] += sets[winner].Sum(set => set.Item1 == 4 ? 14 : 3);
         }
+        private void ResolveDeclaration(int category)
+        {
+            if(!declared[0,category]&&!declared[1,category])return;
+            if(category==0)
+            {
+                Tuple<int,int>[] values=hands.Select(PointValue).ToArray();int winner=DeclaredWinner(category,values[0],values[1]);if(winner>=0)dealPoints[winner]+=values[winner].Item1;return;
+            }
+            if(category==1)
+            {
+                List<Tuple<int,int>>[] runs=hands.Select(AllRuns).ToArray();Tuple<int,int>? left=runs[0].OrderByDescending(run=>run.Item1).ThenByDescending(run=>run.Item2).FirstOrDefault();Tuple<int,int>? right=runs[1].OrderByDescending(run=>run.Item1).ThenByDescending(run=>run.Item2).FirstOrDefault();int winner=DeclaredWinner(category,left,right);if(winner>=0)dealPoints[winner]+=runs[winner].Sum(run=>SequenceScore(run.Item1));return;
+            }
+            List<Tuple<int,int>>[] sets=hands.Select(SetValues).ToArray();Tuple<int,int>? bestLeft=sets[0].OrderByDescending(set=>set.Item1).ThenByDescending(set=>set.Item2).FirstOrDefault();Tuple<int,int>? bestRight=sets[1].OrderByDescending(set=>set.Item1).ThenByDescending(set=>set.Item2).FirstOrDefault();int setWinner=DeclaredWinner(category,bestLeft,bestRight);if(setWinner>=0)dealPoints[setWinner]+=sets[setWinner].Sum(set=>set.Item1==4?14:3);
+        }
+        private int DeclaredWinner(int category,Tuple<int,int>? left,Tuple<int,int>? right)
+        {if(declared[0,category]&&!declared[1,category])return 0;if(declared[1,category]&&!declared[0,category])return 1;return CompareNullable(left,right);}
+        private static Tuple<int,int> PointValue(List<Card> hand)=>hand.GroupBy(card=>card.Suit).Select(group=>Tuple.Create(group.Count(),group.Sum(PipValue))).OrderByDescending(value=>value.Item1).ThenByDescending(value=>value.Item2).First();
+        private static List<Tuple<int,int>> SetValues(List<Card> hand)=>hand.Where(card=>card.Rank==1||card.Rank>=10).GroupBy(card=>Strength(card)).Where(group=>group.Count()>=3).Select(group=>Tuple.Create(group.Count(),group.Key)).ToList();
+        private bool HasDeclaration(int player,int category)=>category==0||category==1?AllRuns(hands[player]).Count>0:SetValues(hands[player]).Count>0;
+        private static string CategoryName(int category)=>category==0?"point":category==1?"sequence":"set";
+        private void CheckRepique()
+        {if(repique)return;int player=dealPoints[0]>=30&&dealPoints[1]==0?0:dealPoints[1]>=30&&dealPoints[0]==0?1:-1;if(player>=0){dealPoints[player]+=60;repique=true;}}
+        private void AddPlayPoints(int player,int points)
+        {dealPoints[player]+=points;if(!repique&&!piqueAwarded&&dealPoints[player]>=30&&dealPoints[1-player]==0){dealPoints[player]+=30;piqueAwarded=true;}}
 
         private static List<Tuple<int, int>> AllRuns(List<Card> hand)
         {
@@ -188,12 +221,6 @@ namespace TrumpLab.Games
         {
             int trickWinner = tricks[0] > tricks[1] ? 0 : 1;
             dealPoints[trickWinner] += tricks[trickWinner] == 12 ? 40 : tricks[trickWinner] >= 7 ? 10 : 0;
-            if (!repique)
-            {
-                int pique = dealPoints[0] >= 30 && dealPoints[1] == 0 ? 0 :
-                    dealPoints[1] >= 30 && dealPoints[0] == 0 ? 1 : -1;
-                if (pique >= 0) dealPoints[pique] += 30;
-            }
             totalPoints[0] += dealPoints[0]; totalPoints[1] += dealPoints[1];
             dealsPlayed++;
             if (dealsPlayed >= dealLimit)
@@ -218,6 +245,8 @@ namespace TrumpLab.Games
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
+            if(phase=="carte_blanche")return actions.Last();
+            if(phase=="declaration")return actions.Last();
             if (phase == "elder_exchange" || phase == "younger_exchange")
                 return actions.OrderBy(action => Decode(action.Value!).Length)
                     .ThenBy(action => Decode(action.Value!).Sum(PipValue)).First();
@@ -238,7 +267,7 @@ namespace TrumpLab.Games
         public override string View(int? player = null)
         {
             int viewer = player ?? CurrentPlayer;
-            return $"phase={phase} deal={dealsPlayed + 1}/{dealLimit} elder=P{elder} talon={talon.Count} " +
+            return $"phase={phase} deal={dealsPlayed + 1}/{dealLimit} elder=P{elder} talon={talon.Count} declaration={(phase=="declaration"?CategoryName(declarationCategory):"-")} " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] " +
                 $"deal_points=[{string.Join(",", dealPoints)}] totals=[{string.Join(",", totalPoints)}] tricks=[{string.Join(",", tricks)}] " +
                 $"hand_counts=[{hands[0].Count},{hands[1].Count}]\nyour hand: {string.Join(" ", hands[viewer])}";

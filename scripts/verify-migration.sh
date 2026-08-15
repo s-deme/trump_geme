@@ -16,12 +16,11 @@ if rg -n '\bUnityEngine\b' Packages/com.trump-game-lab.rules/Runtime; then
 fi
 
 test "$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue | tail -1)" = "合計 92 件"
-test "$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue --pending | tail -1)" = "合計 26 件"
+test "$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue --pending | tail -1)" = "合計 0 件"
 
-expected_verified=$'agony_aunt\nbaccarat\nbaohuang\nbig_two\nblack_lady\nbohemian_schneider\nbriscola\nbriscola_chiamata\ncard_capture\ncollusion\nconcentration\nconfirmation\ncorpo\ncribbage\ncrisp\ndaifugo_two\ndubito\ndurak\neuchre\nfarbwechsel\nfinesse\nfour_tricks\ngerman_whist\ngin_rummy\ngo_fish\ngoldmine\ngolf\ngops\ngosankyo\nguillotine\nhamlet\nkaedama_trick\nklaberjass\nknave\nmini_misere\nminimo\nmizerka\nmulti_stack\nnapoleon\nninety_nine\nnorwegian_whist\nofficer_skat\noh_hell\nold_maid\npage_one\npass_cut_run\nportland\nrummy_500\nschmear\nschnapsen\nscoundrel\nsevens\nsheriff\nsono\nspite_and_malice\nsuper_trump\ntanuki\nthe_trick\nthree_tricks\ntrick_of_the_dead\ntriple_crown\ntruf\ntrump_crew\nwhos_who\nwuxing_xiangke\nyaniv'
 actual_verified="$(dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue |
     awk '$2 == "Verified" { sub(/^implemented:/, "", $1); print $1 }' | sort)"
-test "$actual_verified" = "$expected_verified"
+test "$(printf '%s\n' "$actual_verified" | awk 'NF { count++ } END { print count+0 }')" = "92"
 
 for audit in \
     'trump_crew:trump-crew' 'baohuang:baohuang' 'napoleon:napoleon' \
@@ -39,7 +38,13 @@ for audit in \
     'schmear:schmear' 'briscola_chiamata:briscola_chiamata' 'portland:portland' \
     'go_fish:go_fish' 'old_maid:old_maid' 'gops:gops' 'spite_and_malice:spite_and_malice' \
     'golf:golf' 'sevens:sevens' 'concentration:concentration' 'page_one:page_one' 'rummy_500:rummy_500' \
-    'euchre:euchre' 'oh_hell:oh_hell' 'baccarat:baccarat' 'black_lady:black_lady' 'four_tricks:four_tricks'; do
+    'euchre:euchre' 'oh_hell:oh_hell' 'baccarat:baccarat' 'black_lady:black_lady' 'four_tricks:four_tricks' \
+    'italian_whist:italian_whist' 'gooseberry_fool:gooseberry_fool' 'briscola_bugiarda:briscola_bugiarda' \
+    'sasaki_44a:sasaki_44a' 'toepen:toepen' 'war:war' 'blackjack:blackjack' 'crazy_eights:crazy_eights' \
+    'cheat:cheat' 'hearts:hearts' 'spades:spades' 'twenty_four:twenty_four' \
+    'piquet:piquet' 'five_hundred:five_hundred' 'skat:skat' 'ulti:ulti' 'doppelkopf:doppelkopf' \
+    'schafkopf:schafkopf' 'goninkan:goninkan' 'speed:speed' 'casino:casino' 'seven_bridge:seven_bridge' \
+    'canasta:canasta' 'pinochle:pinochle' 'texas_holdem:texas_holdem' 'five_card_draw:five_card_draw'; do
     id="${audit%%:*}"
     document="${audit#*:}"
     test -f "docs/rules/$document.md"

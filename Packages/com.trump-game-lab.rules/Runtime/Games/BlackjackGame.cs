@@ -12,7 +12,6 @@ namespace TrumpLab.Games
             public double Bet { get; set; } = 1;
             public bool Stood { get; set; }
             public bool FromSplit { get; set; }
-            public bool SplitAces { get; set; }
         }
 
         private readonly List<Card> deck;
@@ -39,7 +38,7 @@ namespace TrumpLab.Games
             allowDouble = options.Boolean("allow_double", true);
             allowSplit = options.Boolean("allow_split", true);
             allowInsurance = options.Boolean("allow_insurance", true);
-            maxSplitHands = options.Integer("max_split_hands", 4);
+            maxSplitHands = options.Integer("max_split_hands", int.MaxValue);
             if (maxSplitHands < 1) throw new ArgumentOutOfRangeException("max_split_hands");
             deck = Cards.Shuffled(Cards.StandardDeck(copies: options.Integer("decks", 1)), rng);
             playerHands = Enumerable.Range(0, players)
@@ -91,10 +90,9 @@ namespace TrumpLab.Games
 
             PlayerHand hand = playerHands[actual][activeHand];
             var actions = new List<Action>();
-            if (HandValue(hand.Cards) < 21 && !hand.SplitAces) actions.Add(new Action("hit"));
+            if (HandValue(hand.Cards) < 21) actions.Add(new Action("hit"));
             actions.Add(new Action("stand"));
-            if (allowDouble && hand.Cards.Count == 2 && hand.Bet == 1 &&
-                HandValue(hand.Cards) >= 9 && HandValue(hand.Cards) <= 11 && !hand.SplitAces)
+            if (allowDouble && hand.Cards.Count == 2 && hand.Bet == 1)
                 actions.Add(new Action("double"));
             if (allowSplit && hand.Cards.Count == 2 &&
                 hand.Cards[0].Rank == hand.Cards[1].Rank &&
@@ -152,10 +150,7 @@ namespace TrumpLab.Games
             var right = new PlayerHand { FromSplit = true };
             left.FromSplit = true;
             right.Cards.Add(moved);
-            bool aces = left.Cards[0].Rank == 1;
-            left.SplitAces = aces; right.SplitAces = aces;
             left.Cards.Add(Pop(deck)); right.Cards.Add(Pop(deck));
-            if (aces) { left.Stood = true; right.Stood = true; }
             playerHands[player].Insert(activeHand + 1, right);
         }
 
@@ -256,7 +251,7 @@ namespace TrumpLab.Games
                     ["allow_double"] = "ダブルダウンを許可する（既定true）",
                     ["allow_split"] = "ペアのスプリットを許可する（既定true）",
                     ["allow_insurance"] = "保険を許可する（既定true）",
-                    ["max_split_hands"] = "1人の最大ハンド数（既定4）"
+                    ["max_split_hands"] = "明示時だけ使う1人の最大ハンド数（既定は制限なし）"
                 }),
             (players, rng, options) => new BlackjackGame(players, rng, options));
     }

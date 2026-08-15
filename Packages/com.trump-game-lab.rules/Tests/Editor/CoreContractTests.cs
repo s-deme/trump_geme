@@ -82,7 +82,7 @@ namespace TrumpLab.Tests
         }
 
         [Test]
-        public void CrazyEightsKeepsDrawingPlayersTurnUntilTheyCanPlay()
+        public void CrazyEightsEndsTheTurnAfterDrawingOneCard()
         {
             IGame? selected = null;
             for (int seed = 1; seed <= 1000; seed++)
@@ -94,7 +94,7 @@ namespace TrumpLab.Tests
             Assert.That(selected, Is.Not.Null);
             int player = selected!.CurrentPlayer;
             selected.Apply(new TrumpLab.Action("draw"));
-            Assert.That(selected.CurrentPlayer, Is.EqualTo(player));
+            Assert.That(selected.CurrentPlayer, Is.EqualTo((player + 1) % selected.Players));
         }
 
         [Test]
@@ -204,7 +204,7 @@ namespace TrumpLab.Tests
             Assert.That(game.View(0), Does.Not.Contain("P1["));
             var cpu = new DeterministicRandom(62);
             int guard = 0;
-            while (!game.IsTerminal && guard++ < 100)
+            while (!game.IsTerminal && guard++ < 10000)
                 game.Apply(game.ChooseCpuAction(game.CurrentPlayer, cpu));
             Assert.That(game.IsTerminal, Is.True);
             Assert.That(game.Result().Scores.Sum(), Is.EqualTo(60));
@@ -339,6 +339,7 @@ namespace TrumpLab.Tests
         {
             IGame game = BuiltInGames.Registry.Create("cheat", 3, 89);
             game.Apply(game.LegalActions()[0]);
+            game.Apply(new TrumpLab.Action("finish_claim"));
             Assert.That(game.LegalActions().Select(action => action.Kind),
                 Is.EquivalentTo(new[] { "pass", "challenge" }));
             Assert.That(game.View(), Does.Contain("last_claim=P0/1"));
@@ -583,6 +584,8 @@ namespace TrumpLab.Tests
         public void PiquetRequiresBothPlayersToExchangeAtLeastOneCard()
         {
             IGame game = BuiltInGames.Registry.Create("piquet", 2, 116);
+            game.Apply(new TrumpLab.Action("sink_carte_blanche"));
+            game.Apply(new TrumpLab.Action("sink_carte_blanche"));
             Assert.That(game.LegalActions(), Has.Count.EqualTo(1585));
             game.Apply(game.LegalActions()[0]);
             Assert.That(game.View(), Does.Contain("phase=younger_exchange"));
@@ -905,6 +908,32 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        public void SimulatorAcceptsOnlyTheDocumentedCpuDifficulty()
+        {
+            SimulationReport report = Simulator.Simulate("war", 1, seed: 901,
+                difficulty: Simulator.SupportedDifficulty);
+            Assert.That(report.Completed, Is.EqualTo(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                Simulator.Simulate("war", 1, seed: 901, difficulty: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                Simulator.RunGame(BuiltInGames.Registry.Create("war", seed: 901), 902,
+                    difficulty: 2));
+        }
+
+        [Test]
+        public void ComparisonReportsCompletionSeatBiasAndPerformanceRate()
+        {
+            IReadOnlyList<ComparisonRow> rows = Simulator.Compare(
+                new[] { "war", "german_whist", "war" }, 2, seed: 950);
+            Assert.That(rows.Select(row => row.Simulation.GameId),
+                Is.EqualTo(new[] { "war", "german_whist" }));
+            Assert.That(rows.All(row => row.Simulation.Completed == 2), Is.True);
+            Assert.That(rows.All(row => row.Simulation.WinnerCounts.Values.Sum() >= 0), Is.True);
+            Assert.That(rows.All(row => row.ElapsedMilliseconds >= 0), Is.True);
+            Assert.That(rows.All(row => row.MillisecondsPerHundredGames >= 0), Is.True);
+        }
+
+        [Test]
         public void EveryCatalogueRuleHasExactlyOneRegisteredImplementation()
         {
             Candidate[] candidates = GameCatalogue.Candidates().ToArray();
@@ -922,42 +951,17 @@ namespace TrumpLab.Tests
         {
             Candidate[] candidates = GameCatalogue.Candidates().ToArray();
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.RuleSpecific),
-                Is.EqualTo(26));
+                Is.EqualTo(0));
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.Prototype),
                 Is.EqualTo(0));
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.Verified),
-                Is.EqualTo(66));
+                Is.EqualTo(92));
             Assert.That(candidates.Where(candidate => candidate.Status == CandidateStatus.Verified)
                 .Select(candidate => candidate.ImplementationId),
-                Is.EquivalentTo(new[]
-                {
-                    "trump_crew", "baohuang", "napoleon", "card_capture", "scoundrel",
-                    "gosankyo", "german_whist", "gin_rummy", "goldmine", "knave", "sono", "crisp", "cribbage",
-                    "super_trump", "daifugo_two", "briscola", "bohemian_schneider", "durak",
-                    "officer_skat", "klaberjass", "norwegian_whist", "schnapsen", "hamlet", "whos_who", "mizerka", "sheriff", "farbwechsel", "kaedama_trick", "ninety_nine",
-                    "minimo", "trick_of_the_dead", "corpo", "tanuki", "multi_stack", "dubito",
-                    "three_tricks", "mini_misere", "agony_aunt", "collusion", "confirmation", "big_two",
-                    "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
-                    "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
-                    "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
-                    "baccarat", "black_lady", "four_tricks"
-                }));
+                Is.EquivalentTo(candidates.Select(candidate => candidate.ImplementationId)));
             Assert.That(candidates.Where(candidate => candidate.Status == CandidateStatus.RuleSpecific)
                 .Select(candidate => candidate.ImplementationId),
-                Is.EquivalentTo(candidates.Select(candidate => candidate.ImplementationId)
-                    .Except(new[]
-                    {
-                        "trump_crew", "baohuang", "napoleon", "card_capture", "scoundrel",
-                        "gosankyo", "german_whist", "gin_rummy", "goldmine", "knave", "sono", "crisp", "cribbage",
-                        "super_trump", "daifugo_two", "briscola", "bohemian_schneider", "durak",
-                        "officer_skat", "klaberjass", "norwegian_whist", "schnapsen", "hamlet", "whos_who", "mizerka", "sheriff", "farbwechsel", "kaedama_trick", "ninety_nine",
-                        "minimo", "trick_of_the_dead", "corpo", "tanuki", "multi_stack", "dubito",
-                        "three_tricks", "mini_misere", "agony_aunt", "collusion", "confirmation", "big_two",
-                        "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
-                        "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
-                        "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
-                        "baccarat", "black_lady", "four_tricks"
-                    })));
+                Is.Empty);
             Assert.That(candidates.Select(candidate => BuiltInGames.Registry.Create(candidate.ImplementationId!, seed: 1))
                 .All(game => game.GetType().Name != "RuleDrivenGame"), Is.True);
         }

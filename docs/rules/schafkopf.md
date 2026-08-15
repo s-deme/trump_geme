@@ -1,9 +1,9 @@
-# Schafkopf監査記録
+# Schafkopf検証仕様
 
-状態は`RuleSpecific`。資料は[ゴクラキズムのBavarian Schafkopf完全規則](https://gokurakism.com/schafkopf/)
-（参照日: 2026-08-15）。32枚のPartner、Wenz、Solo、各Toutを照合対象とした。
+状態は`Verified`。参照日は2026-08-15。[ゴクラキズム: Bavarian Schafkopf](https://gokurakism.com/schafkopf/)の32枚版を採用する。
 
-RuntimeはQ/Jのtrump順、called Ace制約、card point、61点、Schneider/Schwarz、各基本stakeを実装する。
-一方、資料の勝ち抜き式auctionを各player一回の同時順位選択へ簡略化し、2枚目の札より前に行う
-Stoss→Gegenstoss→Supra→Resupra（最大16倍）の宣言Actionと精算がない。採用Bavarian規則の
-明示要素が欠けるため、seed 1004完走後も`RuleSpecific`を維持する。
+- Partner、Wenz、Suit Solo、各Tout、Sieを、より高いcontractへ上げられる勝ち抜きauctionで選ぶ。全passは再配布する。
+- Partnerでは非trump Aをcallし、called Aceのlead／follow制約を守る。Q/Jとcontract別trump順を用いる。
+- Stoss、Gegenstoss、Supra、Resupraを最大16倍までAction化し、61点、Schneider、Schwarz、soloゼロ和で精算する。
+
+`TwentyFirstRuleAuditTests`はauction raiseとStoss倍率を、固定seed監査は全契約とsessionを確認する。未解決差分はない。

@@ -7,6 +7,8 @@
 | 通常rank bid/秘密partner | 弱いrankへhard pass、呼札保持者がpartner、自札callなら隠れsolo | 実装済み |
 | play | may-follow、trump優先、なければlead suit | 実装済み |
 | chip精算 | 61～70から111～119まで6段階、120/0は12単位。declarer 2、partner 1、solo 4、相手-1の倍率 | `SettlementUnit()`と一致。規定roundは採用variantとして5dealに固定 |
-| 明示Solo bid | rankより強い最上位宣言。宣言時は即auction終了し、trumpを宣言しない1対4 | **未実装**。現状はrank bid後に必ずtrumpを選び、自札callによる隠れsoloしかない |
+| 明示Solo bid | rankより強い最上位宣言。宣言時は即auction終了し、trumpを宣言しない1対4 | 最上位`bid_solo`で即playへ進み、`trump=none`・公開soloとして処理。一致 |
 
-明示Soloはauction、trumpなしの勝敗、CPU観測へ及ぶ中核contractであり、省略した実装を同一variantとは扱えない。seed 1203の現行5deal完走は確認済みだが、未解決差分が残るため`RuleSpecific`を維持する。
+`NineteenthRuleAuditTests`は明示Soloが全viewerへ公開されること、no-trumpの合法CPU完走、
+固定seed 1903、二つの相手手札を入れ替えた観測同値を確認する。未解決差分はないため
+`Verified`とする。

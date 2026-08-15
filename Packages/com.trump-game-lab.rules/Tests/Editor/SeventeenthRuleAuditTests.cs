@@ -13,7 +13,7 @@ namespace TrumpLab.Tests
             1701, "spades", "euchre", "oh_hell", "texas_holdem", "five_card_draw");
 
         [Test]
-        public void SpadesUsesZeroForABrokenContractAndExtendsATiedTarget()
+        public void SpadesPenalizesABrokenContractAndExtendsATiedTarget()
         {
             IGame failedContract = BuiltInGames.Registry.Create("spades", players: 4, seed: 1710,
                 options: new Dictionary<string, string> { { "target_score", "1" } });
@@ -23,7 +23,7 @@ namespace TrumpLab.Tests
             bids[1] = 6; bids[3] = 7;
             tricks[1] = 13;
             Invoke(failedContract, "ScoreHand");
-            Assert.That(failedContract.Result().Scores, Is.EqualTo(new[] { 0d, 130d, 0d, 130d }));
+            Assert.That(failedContract.Result().Scores, Is.EqualTo(new[] { -140d, 130d, -140d, 130d }));
 
             IGame tiedTarget = BuiltInGames.Registry.Create("spades", players: 4, seed: 1711,
                 options: new Dictionary<string, string> { { "target_score", "1" } });

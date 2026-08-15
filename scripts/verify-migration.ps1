@@ -49,7 +49,7 @@ Invoke-Step {
     $script:pendingCatalogueTail = dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue --pending |
         Select-Object -Last 1
 } "dotnet run catalogue --pending failed."
-if ($pendingCatalogueTail -ne "合計 26 件") {
+if ($pendingCatalogueTail -ne "合計 0 件") {
     Write-Error "Unexpected pending catalogue total: $pendingCatalogueTail"
 }
 
@@ -60,7 +60,11 @@ $expectedVerified = @(
     "dubito", "mini_misere", "multi_stack", "agony_aunt", "collusion", "confirmation", "big_two", "triple_crown", "guillotine", "the_trick",
     "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke", "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
     "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
-    "baccarat", "black_lady", "four_tricks"
+    "baccarat", "black_lady", "four_tricks",
+    "italian_whist", "gooseberry_fool", "briscola_bugiarda",
+    "sasaki_44a", "toepen", "war", "blackjack", "crazy_eights", "cheat", "hearts", "spades", "twenty_four",
+    "piquet", "five_hundred", "skat", "ulti", "doppelkopf", "schafkopf", "goninkan", "speed", "casino",
+    "seven_bridge", "canasta", "pinochle", "texas_holdem", "five_card_draw"
 )
 $catalogueRows = dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue
 if ($LASTEXITCODE -ne 0) {
@@ -89,7 +93,13 @@ $verifiedDocuments = @{
     schmear = "schmear"; briscola_chiamata = "briscola_chiamata"; portland = "portland";
     go_fish = "go_fish"; old_maid = "old_maid"; gops = "gops"; spite_and_malice = "spite_and_malice";
     golf = "golf"; sevens = "sevens"; concentration = "concentration"; page_one = "page_one"; rummy_500 = "rummy_500";
-    euchre = "euchre"; oh_hell = "oh_hell"; baccarat = "baccarat"; black_lady = "black_lady"; four_tricks = "four_tricks"
+    euchre = "euchre"; oh_hell = "oh_hell"; baccarat = "baccarat"; black_lady = "black_lady"; four_tricks = "four_tricks";
+    italian_whist = "italian_whist"; gooseberry_fool = "gooseberry_fool"; briscola_bugiarda = "briscola_bugiarda";
+    sasaki_44a = "sasaki_44a"; toepen = "toepen"; war = "war"; blackjack = "blackjack"; crazy_eights = "crazy_eights";
+    cheat = "cheat"; hearts = "hearts"; spades = "spades"; twenty_four = "twenty_four";
+    piquet = "piquet"; five_hundred = "five_hundred"; skat = "skat"; ulti = "ulti"; doppelkopf = "doppelkopf";
+    schafkopf = "schafkopf"; goninkan = "goninkan"; speed = "speed"; casino = "casino"; seven_bridge = "seven_bridge";
+    canasta = "canasta"; pinochle = "pinochle"; texas_holdem = "texas_holdem"; five_card_draw = "five_card_draw"
 }
 foreach ($id in $expectedVerified) {
     $document = Join-Path $repoDir ("docs/rules/" + $verifiedDocuments[$id] + ".md")

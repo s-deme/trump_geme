@@ -2,6 +2,11 @@
 
 ## 状態と昇格規律
 
+第19～21単位で残る26件を再監査し、個別照合書、採用variant、実装差分、固定seed試験を
+そろえた。現在は92件すべて`Verified`、`RuleSpecific` 0件、`Prototype` 0件である。
+以下の66件到達までの件数と「維持」は各時点の履歴であり、現行状態はこの最終記録と
+`GameCatalogue`、[正式照合記録](candidate-rules.md)を正本とする。
+
 取消し完了時点では`Verified`を`trump_crew`、`baohuang`、`napoleon`の3件へ戻した。
 第3単位の個別監査後、現在の`Verified`はこれらと`card_capture`、`scoundrel`、`gosankyo`、
 `german_whist`、`gin_rummy`、`sono`、`crisp`、`cribbage`、`super_trump`、`daifugo_two`、
@@ -260,6 +265,14 @@ PowerShell migration成功である。
 | 昇格 | `black_lady` | [ゴクラキズム](https://gokurakism.com/black_lady/)、[ゲームファーム](https://gamefarm.jp/rule/blacklady.html) | 規則上表向きのtable札をViewへ公開 | 5人kitty、clear/carry、観測同値 | なし |
 | 昇格 | `four_tricks` | [ゴクラキズム](https://gokurakism.com/fourtricks/) | 根拠名を完全規則ページへ明確化 | 36枚、最終二重、得点表、観測同値 | なし |
 
+### 第19～21単位 残件完了
+
+第19単位はItalian WhistのJoker宣言、Gooseberry Foolのtie精算、Briscola Bugiardaの明示Solo/no-trumpを
+補強した。第20単位は9件の中規模差を、`TwentiethRuleAuditTests`の固定seedと個別境界で閉じた。
+第21単位は残る14件について契約体系、同時入力、meld/build、継続session、main/side potまで補強し、
+`TwentyFirstRuleAuditTests`で個別境界と全件決定性を固定した。各採用variantと出典は個別照合書を正本とし、
+26件すべて未解決差分なしで昇格した。
+
 ## 必須検証記録（2026-08-15）
 
 各単位の最後に、`dotnet build TrumpGameLab.sln -m:1`、`dotnet test tests/TrumpLab.Tests`、
@@ -284,6 +297,7 @@ Windows環境ではGit for Windows Bashからshell scriptを起動した。test�
 | 16 | 成功 | 199/199 | 成功 | 成功 |
 | 17 | 成功 | 203/203 | 成功 | 成功 |
 | 18 | 成功 | 207/207 | 成功 | 成功 |
+| 19～21 | 成功（0 warning / 0 error） | 234/234 | 成功 | 成功 |
 
 第12単位の補強後に指定順で再実行した実測は、build 0 warning/0 error、test 183/183、
 Bash migration成功、PowerShell migration成功である。
@@ -341,6 +355,9 @@ PowerShell migration成功である。
 | 16 | `seven_bridge`, `rummy_500`, `canasta`, `pinochle`, `hearts` | 完了（`rummy_500`昇格、4件RuleSpecific維持） |
 | 17 | `spades`, `euchre`, `oh_hell`, `texas_holdem`, `five_card_draw` | 完了（`euchre`、`oh_hell`昇格、3件RuleSpecific維持） |
 | 18 | `baccarat`, `twenty_four`, `black_lady`, `four_tricks` | 完了（3件昇格、`twenty_four`はRuleSpecific維持） |
+| 19 | `italian_whist`, `gooseberry_fool`, `briscola_bugiarda` | 完了（3件昇格） |
+| 20 | `sasaki_44a`, `toepen`, `war`, `blackjack`, `crazy_eights`, `cheat`, `hearts`, `spades`, `twenty_four` | 完了（9件昇格） |
+| 21 | `piquet`, `five_hundred`, `skat`, `ulti`, `doppelkopf`, `schafkopf`, `goninkan`, `speed`, `casino`, `seven_bridge`, `canasta`, `pinochle`, `texas_holdem`, `five_card_draw` | 完了（14件昇格） |
 
-この並びは台帳の候補順を保ち、1単位は最大5ゲームである。監査結果によって実装差分が大きい
-場合は、その単位内であっても未解決IDを残し、別のIDだけを昇格させない。
+第1～18単位は台帳順・最大5ゲームで行った。第19～21単位は残件を実装規模別に再編し、
+短・中・大の3群で横断監査した。

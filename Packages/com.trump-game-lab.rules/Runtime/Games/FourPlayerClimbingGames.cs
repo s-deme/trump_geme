@@ -196,6 +196,8 @@ namespace TrumpLab.Games
         }
 
         private readonly bool night;
+        private readonly DeterministicRandom rng;
+        private readonly int targetScore;
         private readonly List<List<Card>> hands = Enumerable.Range(0, 4).Select(_ => new List<Card>()).ToList();
         private readonly HashSet<int> redTeam = new HashSet<int>();
         private readonly List<int> finishOrder = new List<int>();
@@ -220,7 +222,13 @@ namespace TrumpLab.Games
 
         public Sasaki44AGame(int players, DeterministicRandom rng, IReadOnlyDictionary<string, string> options)
         {
-            Players = 4; night = options.Boolean("night", false);
+            Players = 4;this.rng=rng; night = options.Boolean("night", false);targetScore=Math.Max(1,options.Integer("target_score",10));StartRound();
+        }
+
+        private void StartRound()
+        {
+            foreach(List<Card> hand in hands)hand.Clear();redTeam.Clear();finishOrder.Clear();Array.Clear(outPlayers,0,outPlayers.Length);
+            table=null;lastPlayer=-1;passes=offers=0;kickPlayer=-1;kickRank=stabPasses=0;opening=true;run=stopped=teamsPublic=false;phase="run_offer";
             List<Card> deck = Cards.Shuffled(Cards.StandardDeck().Where(card => card.Rank != 2), rng);
             for (int round = 0; round < 12; round++) for (int player = 0; player < 4; player++) hands[player].Add(Pop(deck));
             Card redDiamond = new Card(Suit.Diamonds, 10), redHeart = new Card(Suit.Hearts, 10);
@@ -264,7 +272,7 @@ namespace TrumpLab.Games
             int player = ValidateTurn(null); Guard.Legal(action, LegalActions(player)); TurnCount++;
             if (phase == "run_offer")
             {
-                offers++; if (action.Kind == "run") { run = true; teamsPublic = true; phase = "stop_offer"; offers = 0; CurrentPlayer = Next(player); return; }
+                offers++; if (action.Kind == "run") { run = true; teamsPublic = true; ExchangeRedTens();phase = "stop_offer"; offers = 0; CurrentPlayer = Next(player); return; }
                 if (offers >= 4) BeginPlay(); else CurrentPlayer = Next(player); return;
             }
             if (phase == "stop_offer")
@@ -311,6 +319,14 @@ namespace TrumpLab.Games
             Card starter = new Card(night ? Suit.Spades : Suit.Hearts, 3);
             CurrentPlayer = Enumerable.Range(0, 4).Single(player => hands[player].Contains(starter));
         }
+        private void ExchangeRedTens()
+        {
+            Card diamond=new Card(Suit.Diamonds,10),heart=new Card(Suit.Hearts,10);
+            int diamondOwner=hands.FindIndex(hand=>hand.Contains(diamond)),heartOwner=hands.FindIndex(hand=>hand.Contains(heart));
+            if(diamondOwner==heartOwner)return;
+            hands[diamondOwner].Remove(diamond);hands[heartOwner].Remove(heart);
+            hands[diamondOwner].Add(heart);hands[heartOwner].Add(diamond);
+        }
 
         private void RecordOut(int player)
         {
@@ -327,17 +343,17 @@ namespace TrumpLab.Games
             if (redTeam.Count == 1)
             {
                 int solo = redTeam.Single(), position = finishOrder.IndexOf(solo) + 1;
-                if (position == 1) { scores[solo] = 6 * multiplier; for (int p = 0; p < 4; p++) if (p != solo) scores[p] = -2 * multiplier; }
-                else if (position == 4) { scores[solo] = -3 * multiplier; for (int p = 0; p < 4; p++) if (p != solo) scores[p] = multiplier; }
+                if (position == 1) { scores[solo] += 6 * multiplier; for (int p = 0; p < 4; p++) if (p != solo) scores[p] -= 2 * multiplier; }
+                else if (position == 4) { scores[solo] -= 3 * multiplier; for (int p = 0; p < 4; p++) if (p != solo) scores[p] += multiplier; }
             }
             else
             {
                 int[] positions = redTeam.Select(player => finishOrder.IndexOf(player) + 1).OrderBy(value => value).ToArray();
                 int amount = positions.SequenceEqual(new[] { 1, 2 }) ? 2 : positions.SequenceEqual(new[] { 1, 3 }) ? 1 :
                     positions.SequenceEqual(new[] { 2, 4 }) ? -1 : positions.SequenceEqual(new[] { 3, 4 }) ? -2 : 0;
-                for (int player = 0; player < 4; player++) scores[player] = (redTeam.Contains(player) ? amount : -amount) * multiplier;
+                for (int player = 0; player < 4; player++) scores[player] += (redTeam.Contains(player) ? amount : -amount) * multiplier;
             }
-            finished = true;
+            if(scores.Max()>=targetScore)finished=true;else StartRound();
         }
 
         private static IEnumerable<Combo> ValidCombos(IReadOnlyList<Card> hand)
@@ -382,7 +398,7 @@ namespace TrumpLab.Games
         }
         private int ActiveCount() => outPlayers.Count(value => !value);
         private int RequiredResponses(int leader) => ActiveCount() - (outPlayers[leader] ? 0 : 1);
-        private int Next(int player) => (player + 3) % 4;
+        private int Next(int player) => (player + 1) % 4;
         private int NextActive(int player) { int next = Next(player); while (outPlayers[next]) next = Next(next); return next; }
         private static int Strength(Card card) => card.Rank == 1 ? 14 : card.Rank;
         private static Card Pop(List<Card> cards) { Card card = cards[cards.Count - 1]; cards.RemoveAt(cards.Count - 1); return card; }
@@ -411,7 +427,7 @@ namespace TrumpLab.Games
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("sasaki_44a", "44A（ササキ）", 4, 4, "hidden-team climbing",
                 "2を除く48枚で、赤10保持側対他方を隠して単枚・pair・3枚以上straightを競る。triple、4+4+A、four、赤豚、黒豚の特殊役、単枚への『ける』と応答『さす』、走る／止まれ倍率、上がり順の2対2・1対3精算を扱う。",
-                "gokurakism/44A", new Dictionary<string, string> { { "night", "夜ならtrue（既定false）" } }),
+                "gokurakism/44A", new Dictionary<string, string> { { "night", "夜ならtrue（既定false）" }, { "target_score", "終了点（既定10）" } }),
             (players, random, options) => new Sasaki44AGame(players, random, options));
     }
 }

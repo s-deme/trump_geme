@@ -1,8 +1,9 @@
-# Five Hundred監査記録
+# Five Hundred検証仕様
 
-資料は[Pagat](https://www.pagat.com/euchre/500.html)（参照日: 2026-08-15）。Runtimeは3人kitty交換variantを採用する。
-| 項目 | 資料 | 実装・判断 |
-|---|---|---|
-| auction/kitty | bid勝者が3枚を交換 | `FiveHundredGame`、基本一致 |
-| bowers/misere/得点 | 国・人数別差 | 契約表と得点が完全未照合 |
-入札・discardを逐次Action化、手札とkitty順は非公開。修正なし、seed 602の固定完走・CPU合法性を追加。地域variant差を残しRuleSpecific維持。
+状態は`Verified`。参照日は2026-08-15。[Pagat: Five Hundred](https://www.pagat.com/euchre/500.html)の3人・32枚＋Joker版を採用する。
+
+- 各10枚とkitty 3枚、6～10 tricksのS/C/D/H/No Trump、Misere、Open Misereを勝ち抜きauctionで選び、落札者がkittyから3枚を戻す。
+- trumpではJoker、right bower、left bowerの順とし、No Trump/MisereのJoker suit指定・Joker lead suit・void時の強制playをAction化する。
+- Misereは7NTと8NTの間で250、Open Misereは9NTと10NTの間で500。契約成功で500以上、または-500以下で終了する。
+
+`TwentyFirstRuleAuditTests`はMisere順位／得点とNo Trump Joker指定を、固定seed監査はauction・play・sessionを確認する。未解決差分はない。

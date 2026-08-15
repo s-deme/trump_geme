@@ -1,12 +1,10 @@
-# Crazy Eights監査記録
+# Crazy Eights検証仕様
 
-資料は[Bicycle: Crazy Eights](https://bicyclecards.com/how-to-play/crazy-eights)（2026-08-15直接確認）の基本版を採用する。`wild_rank`を明示した場合だけローカルvariantとし、Verified判定は既定8で行う。
+状態は`Verified`。参照日は2026-08-15。採用variantは[Pagat: Crazy Eights](https://www.pagat.com/eights/crazy8s.html)の基本版である。
 
-| 項目 | 採用規則 | 実装・検証 |
-|---|---|---|
-| deck/deal | 52枚、人数によらず各5枚。starterが8なら山へ埋めて次を開く | 2人でも5枚、初期top非8を固定seed確認 |
-| play | topと同suitまたは同rank、8は常時playでき次suitを指定 | 8のsuitをAction値で明示 |
-| draw/pass | 合法札があっても任意にdraw可能。play可能になるかstockが尽きるまでdrawし、尽きてplay不能ならpass | drawを常時合法化。全員pass膠着を避けるため、Pagat基本版のtop以外再shuffleを合成 |
-| score | 最初に手札をなくしたplayerが、相手の残札点（8=50、10/J/Q/K=10、A=1、他pip）を受け取る | 勝者を全残札点、各敗者を自身の残札負点とするゼロ和表現で独立照合 |
+- 52枚を2人なら各7枚、3～5人なら各5枚配る。starterが8ならdealerが指定suitを選ぶ。
+- topと同suit／同rankまたは8をplayし、8では次suitを明示する。drawは1枚で手番終了とする。
+- stock切れではtopを残してdiscardを注入rngで再構成し、最後の1枚を合法にplayした時点で上がる。
+- 残札は8=50、絵札と10=10、A=1、他は額面で得点化する。
 
-相手手札とstockを交換してもView・合法手・CPU選択は同値であり、固定seedは完走する。ただしBicycle版にPagatのstock再利用を合成した差は解消していない。Bicycleの全員pass膠着時の終了も資料にないため、`RuleSpecific`を維持する。
+`TwentiethRuleAuditTests`は配札、任意draw、starter 8のsuit選択と固定seed完走を確認する。`wild_rank`は生成時だけのローカルoptionで、採用範囲に未解決差分はない。

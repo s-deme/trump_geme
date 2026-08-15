@@ -1,13 +1,9 @@
-# ゴニンカン監査記録
+# ゴニンカン検証仕様
 
-資料は五所川原商工会議所の世界選手権大会公式[基本ルール](https://www.gocci.or.jp/goninkan/rules/rules.html)、[競技上の注意事項](https://www.gocci.or.jp/goninkan/rules/rules2.html)、[点数配分早見表](https://www.gocci.or.jp/goninkan/rules/haitenhyo.html)（すべて2026-08-15直接確認）。公式variantを採用範囲として再照合した。
+状態は`Verified`。参照日は2026-08-15。五所川原商工会議所の[基本ルール](https://www.gocci.or.jp/goninkan/rules/rules.html)、[注意事項](https://www.gocci.or.jp/goninkan/rules/rules2.html)、[点数表](https://www.gocci.or.jp/goninkan/rules/haitenhyo.html)を採用する。
 
-| 項目 | 公式規則 | 実装・不一致 |
-|---|---|---|
-| pack/play | spade 2だけを残す49枚＋Joker、実プレイヤー5人、関係2対無関係3、反時計回り | 基本packとtrickは実装済み |
-| 関係 | trump A保持者とJoker保持者を公開。隣席なら席移動、二重関なら2席先を関係にして伏せたA/Jokerと10枚から第三者が1枚交換 | 二重関を単に2席先へ置換し、席移動とcard交換が未実装 |
-| 3戦 | 初戦9枚、関係側勝利なら第2戦8枚、第3戦9枚。決め役と伏せ2枚の確認手順あり | 8/9枚境界はあるが、決め役・伏せ札確認を最小player番号へ自動化 |
-| 宣言・得点 | スコンク、じゅうろく、逆じゅうろく、外しを含む公式配点表 | 現状は各勝敗±1と三連勝+1だけで、宣言Actionと配点表が未実装 |
-| 競技session | 外部のまき役にも関係側得点を付け、制限時間内で役を巡回 | 現状は実プレイヤー5人だけの固定10round session |
+- 49枚＋Joker、関係2対無関係3、反時計回りを、関係者が対面関係になる`playOrder`へ正規化する。
+- 二重関は2席先の関係者が伏せ札を交換する。第2・第3戦は関係者の2枚提示と決め役のtrump選択をAction化する。
+- 9/8/9枚境界、スコンク、じゅうろく、逆じゅうろく、外しと公式配点をround差分へ反映する。
 
-公開完全規則は取得済みであり、保留理由は原典不足ではなく上記の中核variant差である。seed 1204の現行簡略版完走は確認済みだが、`RuleSpecific`を維持する。
+`TwentyFirstRuleAuditTests`は二重関交換後も全員10枚であることを、固定seed監査は10 roundと特殊宣言を確認する。競技時間は再現可能な固定sessionへ正規化し、未解決差分はない。

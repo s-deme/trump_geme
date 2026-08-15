@@ -42,5 +42,8 @@
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SixteenthRuleAuditTests.cs" Link="SixteenthRuleAuditTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SeventeenthRuleAuditTests.cs" Link="SeventeenthRuleAuditTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/EighteenthRuleAuditTests.cs" Link="EighteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/NineteenthRuleAuditTests.cs" Link="NineteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/TwentiethRuleAuditTests.cs" Link="TwentiethRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/TwentyFirstRuleAuditTests.cs" Link="TwentyFirstRuleAuditTests.cs" />
   </ItemGroup>
 </Project>

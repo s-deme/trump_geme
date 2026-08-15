@@ -11,13 +11,13 @@ namespace TrumpLab.Tests
             1301, "toepen", "war", "blackjack", "crazy_eights", "go_fish");
 
         [Test]
-        public void CrazyEightsUsesFiveCardBicycleDealAndVoluntaryDraw()
+        public void CrazyEightsUsesTheTwoPlayerPagatDealAndVoluntaryDraw()
         {
             bool exercised = false;
             for (int seed = 1310; seed < 1340 && !exercised; seed++)
             {
                 IGame game = BuiltInGames.Registry.Create("crazy_eights", players: 2, seed: seed);
-                Assert.That(ParseInts(Between(game.View(0), "hands=[", "]")), Is.EqualTo(new[] { 5, 5 }));
+                Assert.That(ParseInts(Between(game.View(0), "hands=[", "]")), Is.EqualTo(new[] { 7, 7 }));
                 Assert.That(Card.Parse(Between(game.View(0), "top=", " ")).Rank, Is.Not.EqualTo(8));
                 if (!game.LegalActions().Any(action => action.Kind == "play")) continue;
                 Assert.That(game.LegalActions().Select(action => action.Kind), Does.Contain("draw"));

@@ -302,6 +302,10 @@ namespace TrumpLab.Games
         private bool pendingExchangeHonest;
         private int knockResponses;
         private int resumePlayer;
+        private List<int> exchangeChallengers = new List<int>();
+        private int exchangeChallengeIndex;
+        private List<int> knockOfferPlayers = new List<int>();
+        private int knockOfferIndex;
         private string phase = "exchange";
         private bool finished;
         public override string GameId => "toepen";
@@ -320,12 +324,16 @@ namespace TrumpLab.Games
             int actual = ValidateTurn(player);
             if (phase == "exchange") return stock.Count >= 4 ? new[] { new Action("keep_hand"), new Action("exchange_hand") } : new[] { new Action("keep_hand") };
             if (phase == "challenge") return new[] { new Action("accept_exchange"), new Action("challenge_exchange") };
+            if (phase == "knock_offer")
+            {
+                var actions=new List<Action>{new Action("decline_knock")};
+                if(actual!=lastKnocker&&losses[actual]+stake<10)actions.Add(new Action("knock"));
+                return actions;
+            }
             if (phase == "knock_response") return new[] { new Action("stay"), new Action("fold") };
             IEnumerable<Card> cards = hands[actual];
             if (trick.Count > 0) { Suit led = trick[0].Item2.Suit; Card[] follow = cards.Where(card => card.Suit == led).ToArray(); if (follow.Length > 0) cards = follow; }
-            var actions = cards.Select(card => new Action("play", card)).ToList();
-            if (actual != lastKnocker && stake < Math.Max(2, 10 - losses[actual])) actions.Add(new Action("knock"));
-            return actions;
+            return cards.Select(card => new Action("play", card)).ToArray();
         }
         public override void Apply(Action action)
         {
@@ -337,7 +345,8 @@ namespace TrumpLab.Games
                 {
                     pendingExchanger = player; pendingExchangeHonest = hands[player].All(card => card.Rank == 1 || card.Rank >= 11);
                     hands[player].Clear(); for (int i = 0; i < 4; i++) hands[player].Add(Pop(stock));
-                    phase = "challenge"; CurrentPlayer = (player + 1) % Players; return;
+                    exchangeChallengers=Enumerable.Range(1,Players-1).Select(offset=>(player+offset)%Players).ToList();
+                    exchangeChallengeIndex=0;phase = "challenge"; CurrentPlayer = exchangeChallengers[0]; return;
                 }
                 AdvanceExchange(player); return;
             }
@@ -346,32 +355,55 @@ namespace TrumpLab.Games
                 if (action.Kind == "challenge_exchange")
                 {
                     losses[pendingExchangeHonest ? player : pendingExchanger]++;
+                    AdvanceExchange(pendingExchanger);return;
                 }
+                exchangeChallengeIndex++;
+                if(exchangeChallengeIndex<exchangeChallengers.Count){CurrentPlayer=exchangeChallengers[exchangeChallengeIndex];return;}
                 AdvanceExchange(pendingExchanger); return;
+            }
+            if(phase=="knock_offer")
+            {
+                if(action.Kind=="decline_knock")
+                {knockOfferIndex++;if(knockOfferIndex<knockOfferPlayers.Count)CurrentPlayer=knockOfferPlayers[knockOfferIndex];else{phase="play";CurrentPlayer=resumePlayer;}return;}
+                lastKnocker=player;knockResponses=ActivePlayers().Count()-1;phase="knock_response";CurrentPlayer=NextActive(player);return;
             }
             if (phase == "knock_response")
             {
                 if (action.Kind == "fold") { folded[player] = true; losses[player] += stake; }
                 knockResponses--;
                 if (ActivePlayers().Count() <= 1) { FinishDeal(ActivePlayers().First()); return; }
-                if (knockResponses <= 0) { stake++; phase = "play"; CurrentPlayer = folded[resumePlayer] ? NextActive(resumePlayer) : resumePlayer; }
+                if (knockResponses <= 0) { stake++; ResumeAfterKnock(); }
                 else CurrentPlayer = NextActive(player);
                 return;
             }
-            if (action.Kind == "knock")
-            {
-                lastKnocker = player; resumePlayer = player; knockResponses = ActivePlayers().Count() - 1; phase = "knock_response"; CurrentPlayer = NextActive(player); return;
-            }
             Card card = action.Card!.Value; hands[player].Remove(card); trick.Add(Tuple.Create(player, card));
-            if (trick.Count < ActivePlayers().Count()) { CurrentPlayer = NextActive(player); return; }
-            Suit ledSuit = trick[0].Item2.Suit; int winner = trick.Where(item => item.Item2.Suit == ledSuit).OrderByDescending(item => Strength(item.Item2)).First().Item1;
-            trick.Clear(); trickNumber++;
-            if (trickNumber >= 4) FinishDeal(winner); else CurrentPlayer = winner;
+            if(ActivePlayers().All(active=>trick.Any(item=>item.Item1==active)))ResolveTrick();
+            else BeginKnockOffers(NextActiveWithoutCard(player));
         }
         private void AdvanceExchange(int previous)
         {
-            if (exchangeCount >= Players) { phase = "play"; CurrentPlayer = (dealer + 1) % Players; }
+            if (exchangeCount >= Players) BeginKnockOffers((dealer + 1) % Players);
             else { phase = "exchange"; CurrentPlayer = (previous + 1) % Players; }
+        }
+        private void BeginKnockOffers(int resume)
+        {
+            resumePlayer=folded[resume]?NextActive(resume):resume;
+            knockOfferPlayers=Enumerable.Range(0,Players).Select(offset=>(resumePlayer+offset)%Players)
+                .Where(player=>!folded[player]).ToList();knockOfferIndex=0;phase="knock_offer";CurrentPlayer=knockOfferPlayers[0];
+        }
+        private void ResumeAfterKnock()
+        {
+            if(ActivePlayers().Count()<=1){FinishDeal(ActivePlayers().First());return;}
+            if(trick.Count>0&&ActivePlayers().All(active=>trick.Any(item=>item.Item1==active))){ResolveTrick();return;}
+            int resume=folded[resumePlayer]?NextActiveWithoutCard(resumePlayer):resumePlayer;
+            if(trick.Any(item=>item.Item1==resume))resume=NextActiveWithoutCard(resume);
+            BeginKnockOffers(resume);
+        }
+        private void ResolveTrick()
+        {
+            Suit ledSuit=trick[0].Item2.Suit;int winner=trick.Where(item=>item.Item2.Suit==ledSuit)
+                .OrderByDescending(item=>Strength(item.Item2)).First().Item1;trick.Clear();trickNumber++;
+            if(trickNumber>=4)FinishDeal(winner);else BeginKnockOffers(folded[winner]?NextActive(winner):winner);
         }
         private void FinishDeal(int winner)
         {
@@ -380,11 +412,13 @@ namespace TrumpLab.Games
         }
         private IEnumerable<int> ActivePlayers() => Enumerable.Range(0, Players).Where(player => !folded[player]);
         private int NextActive(int player) { int next = (player + 1) % Players; while (folded[next]) next = (next + 1) % Players; return next; }
+        private int NextActiveWithoutCard(int player){int next=NextActive(player);while(trick.Any(item=>item.Item1==next))next=NextActive(next);return next;}
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
             if (phase == "exchange") return hands[player].All(card => card.Rank == 1 || card.Rank >= 11) && actions.Count > 1 ? actions[1] : actions[0];
             if (phase == "challenge") return actions[0];
+            if (phase == "knock_offer") return actions[0];
             if (phase == "knock_response") return losses[player] + stake >= 10 ? actions[1] : actions[0];
             return actions.Where(action => action.Kind == "play").OrderBy(action => Strength(action.Card!.Value)).First();
         }

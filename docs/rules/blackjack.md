@@ -1,9 +1,9 @@
-# Blackjack監査記録
-資料は[Bicycle: Blackjack](https://bicyclecards.com/how-to-play/blackjack)（2026-08-15直接確認）。
-|項目|資料|実装・判断|
-|---|---|---|
-|hit/stand/double/split/insurance|標準規則|`BlackjackGame`確認|
-|dealer/payout|17以上stand、通常1:1、natural 3:2、push返却、insurance 2:1|既定S17と精算は一致|
-|double|最初の2枚から倍賭けし1枚だけ引く|現状はhard/soft合計9～11に限定する出典外制約|
-|split|同rank pairを同額追加で2handへ|split Aceを常に1枚で強制stand、最大4handなど採用house ruleの完全根拠が未確定|
-dealer hole cardとdeck順の非公開は確認済みだが、double/splitのhouse境界が残るため`RuleSpecific`を維持する。
+# Blackjack検証仕様
+
+状態は`Verified`。参照日は2026-08-15。採用variantは[Bicycle: Blackjack](https://bicyclecards.com/how-to-play/blackjack)のS17基本版である。
+
+- dealerは17以上でstandし、通常1:1、natural 3:2、insurance 2:1、pushは賭金返却とする。
+- 最初の任意の2枚からdoubleでき、同rank pairは資金と上限が許す限りsplitできる。split Aceにも通常のhit/doubleを認める。
+- dealer hole card、shoe順、他playerのhandはViewとCPUから隔離する。
+
+`TwentiethRuleAuditTests`は任意2枚doubleとsplit Ace継続を固定seedで確認する。採用house境界は生成時optionに閉じ、未解決差分はない。

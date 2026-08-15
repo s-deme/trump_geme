@@ -20,12 +20,9 @@ Gitパッケージとして参照します。RuntimeアセンブリはUnity 2021
 
 候補台帳92件はすべてゲームIDから生成でき、全件がゲーム固有の状態機械を使用します。
 CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU同士で完走できます。
-ただし、これはすべての地域差・任意ルールまで正式照合済みという意味ではありません。
 会話、身体動作、同時操作などは列挙アクションまたは決定論的な入力順へ正規化し、採用した
-バリアントと省略範囲を候補別仕様へ明記しています。台帳上は`Verified` 66件
-（`trump_crew`、`baohuang`、`napoleon`、`card_capture`、`scoundrel`、`gosankyo`、
-`german_whist`、`gin_rummy`、`sono`、`crisp`、`cribbage`、`super_trump`、`daifugo_two`、
-`briscola`、`bohemian_schneider`、`durak`、`officer_skat`、`klaberjass`、`goldmine`、`knave`、`norwegian_whist`、`schnapsen`、`hamlet`、`whos_who`、`mizerka`、`sheriff`、`farbwechsel`、`kaedama_trick`、`ninety_nine`、`minimo`、`trick_of_the_dead`、`corpo`、`tanuki`、`multi_stack`、`dubito`、`three_tricks`、`mini_misere`、`agony_aunt`、`collusion`、`confirmation`、`big_two`、`triple_crown`、`guillotine`、`the_trick`、`truf`、`pass_cut_run`、`finesse`、`yaniv`、`wuxing_xiangke`、`schmear`、`briscola_chiamata`、`portland`、`go_fish`、`old_maid`、`gops`、`spite_and_malice`、`golf`、`sevens`、`concentration`、`page_one`、`rummy_500`、`euchre`、`oh_hell`、`baccarat`、`black_lady`、`four_tricks`）、`RuleSpecific` 26件、`Prototype` 0件です。
+バリアントと採用外の地域差を候補別仕様へ明記しています。台帳上は92件すべて`Verified`で、
+`RuleSpecific`と`Prototype`は0件です。
 
 完成判定、候補ごとの状態、採用バリアントの暫定仕様は
 [`docs/rules/candidate-rules.md`](docs/rules/candidate-rules.md)です。正式照合の進捗と監査単位は
@@ -43,6 +40,8 @@ pwsh ./scripts/verify-migration.ps1
 dotnet run --project tools/TrumpLab.Cli -- list
 dotnet run --project tools/TrumpLab.Cli -- catalogue --pending
 dotnet run --project tools/TrumpLab.Cli -- simulate german_whist --games 1000
+dotnet run --project tools/TrumpLab.Cli -- compare --game german_whist --game gin_rummy --format csv
+dotnet run --project tools/TrumpLab.Cli -- compare --format json --output verified-comparison.json
 dotnet run --project tools/TrumpLab.Cli -- play crazy_eights --players 4 --seed 10
 dotnet run --project tools/TrumpLab.Cli -- simulate crazy_eights -n 100 -o wild_rank=2
 ```

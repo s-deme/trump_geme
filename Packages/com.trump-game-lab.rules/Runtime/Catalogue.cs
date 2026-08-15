@@ -137,7 +137,11 @@ namespace TrumpLab
             "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
             "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
             "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
-            "baccarat", "black_lady", "four_tricks"
+            "baccarat", "black_lady", "four_tricks",
+            "italian_whist", "gooseberry_fool", "briscola_bugiarda",
+            "sasaki_44a", "toepen", "war", "blackjack", "crazy_eights", "cheat", "hearts", "spades", "twenty_four",
+            "piquet", "five_hundred", "skat", "ulti", "doppelkopf", "schafkopf", "goninkan", "speed", "casino",
+            "seven_bridge", "canasta", "pinochle", "texas_holdem", "five_card_draw"
         };
 
         private static Dictionary<string,string> ImplementationIds()

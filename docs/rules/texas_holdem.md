@@ -1,27 +1,9 @@
-# Texas Hold'em監査記録
+# Texas Hold'em検証仕様
 
-## 判定
+状態は`Verified`。参照日は2026-08-15。[Bicycle: Texas Hold'em](https://bicyclecards.com/how-to-play/texas-holdem-poker)と[Pagat: Poker Betting](https://www.pagat.com/poker/rules/betting.html)に基づくfixed-limit sessionを採用する。
 
-`RuleSpecific`を維持する。参照日は2026-08-15。
+- 2～10人、buttonとblind 1/2をhandごとに移動し、preflop/flopは2、turn/riverは4、各street最大3 raiseとする。
+- hole 2枚とboard 5枚から最強5枚を評価する。folded playerを各potの勝者候補から除外する。
+- partial all-inは拠出levelごとにmain／side potへ分割し、odd chipはbutton左から配る。最後の1 stackになるまでhandを継続する。
 
-## 直接確認した完全規則
-
-- [Bicycle: Texas Hold'em Poker](https://bicyclecards.com/how-to-play/texas-holdem-poker)
-- [Pagat: Poker Betting](https://www.pagat.com/poker/rules/betting.html)
-
-## 採用範囲と一致点
-
-現Runtimeは2～10人、52枚、各2枚の非公開hole cards、small/big blind、preflop・flop・turn・
-riverの4 betting street、5枚の公開board、7枚からの最強5枚評価を実装する。chips 20、blind
-1/2、preflop/flop 2、turn/river 4のfixed-limit単handを局所variantとして採用している。
-
-## 不一致項目と保留理由
-
-partial all-in時のmain pot／side pot分割とpotごとの参加資格がなく、異なる拠出額でも単一potを
-全showdown参加者で争う。Bicycleが示すbutton移動後の次handもなく、1 hand終了時のstackを
-即時結果とする。all-inと継続sessionはいずれも勝敗へ直結するため昇格しない。
-
-## 検証
-
-`SeventeenthRuleAuditTests` seed 1704で固定seed完走、4 street、hole cardと山札順の隔離、合法CPUを
-確認した。side pot、all-in参加資格、複数hand sessionは未解決である。
+`TwentyFirstRuleAuditTests`は複数人数のチップ総量保存とsession終了を、固定seed監査はside pot・決定性・秘密情報を確認する。未解決差分はない。

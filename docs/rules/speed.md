@@ -1,8 +1,9 @@
-# Speed監査記録
-資料は[Bicycle: Spit](https://bicyclecards.com/how-to-play/spit)および[Pagat: Spit / Speed](https://www.pagat.com/patience/spit.html)（ともに2026-08-15直接確認）。
-|項目|資料|実装・判断|
-|---|---|---|
-|上下rank/中央pile|標準系|`SpeedGame`確認|
-|同時操作・中央更新|両playerが同時に任意の中央pileへ競争して出す|現状はP0/P1の交互優先で、両者が同時に出せる局面の勝者を固定する|
-|stock片側枯渇時のspit|自分のdeckがないplayerは新starterを出せない|現状は相手reserveから両方のstarterを補充し得る|
-リアルタイム入力の逐次化自体は必要だが、優先権variantと片側枯渇境界が結果を変えるため`RuleSpecific`を維持する。
+# Speed／Spit検証仕様
+
+状態は`Verified`。参照日は2026-08-15。[Bicycle: Spit](https://bicyclecards.com/how-to-play/spit)と[Pagat: Spit / Speed](https://www.pagat.com/patience/spit.html)を採用する。
+
+- 各playerが独立した52枚deck、4枚layout、reserveを持ち、中央2 pileの上下1 rankへ同時に出す。
+- 同時入力は両playerの選択を同じ公開状態で受けるrace windowへ正規化し、同じpileの競合優先はseed初期値から毎window交替する。
+- 両者とも出せないとき、各中央starterはその所有者のreserveだけから補充する。片側枯渇時に相手reserveを流用しない。
+
+`TwentyFirstRuleAuditTests`は片側枯渇境界を、固定seed監査は競合・決定性・完走を確認する。未解決差分はない。

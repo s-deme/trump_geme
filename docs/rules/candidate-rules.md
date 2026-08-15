@@ -41,9 +41,8 @@
 相手の未公開手札と山札順を表示しない。秘密陣営を持つゲームは、viewer自身の役割または
 ルール上公開済みの役割だけを表示する。
 
-`CandidateStatus.RuleSpecific`は上記の専用状態機械を持つことを表す。外部ルールとの
-項目別適合確認を終えたことは表さない。現在、`Verified`は個別監査を終えた66件だけで、
-残る26件は`RuleSpecific`である。Verified個別監査書の例は[Trump Crew検証仕様](trump-crew.md)、
+`CandidateStatus.RuleSpecific`は専用状態機械を持つ中間状態、`Verified`は外部ルールとの
+項目別適合確認まで終えた状態を表す。現在は92件すべて`Verified`であり、個別監査書の例は[Trump Crew検証仕様](trump-crew.md)、
 [Baohuang検証仕様](baohuang.md)、[Napoleon検証仕様](napoleon.md)、
 [Card Capture検証仕様](card_capture.md)、[Scoundrel検証仕様](scoundrel.md)、
 [御三卿検証仕様](gosankyo.md)、[German Whist検証仕様](german_whist.md)、
@@ -53,11 +52,10 @@
 [ボヘミアン・シュナイダー検証仕様](bohemian_schneider.md)、[デュラック検証仕様](durak.md)、
 [将校スカート検証仕様](officer_skat.md)、[クラバヤス検証仕様](klaberjass.md)、[ゴールドマイン検証仕様](goldmine.md)、[ネイブ検証仕様](knave.md)、[ノルウェージャンホイスト検証仕様](norwegian_whist.md)、
 [シュナプセン検証仕様](schnapsen.md)、[ハムレット検証仕様](hamlet.md)、[WHO’S WHO検証仕様](whos_who.md)、
-[ミゼルカ検証仕様](mizerka.md)、[シェリフ検証仕様](sheriff.md)、[Farbwechsel検証仕様](farbwechsel.md)、[替え玉トリック検証仕様](kaedama_trick.md)、[Ninety-Nine検証仕様](ninety_nine.md)、[Minimo検証仕様](minimo.md)、[Trick of the Dead検証仕様](trick_of_the_dead.md)、[Corpo検証仕様](corpo.md)、[Truf検証仕様](truf.md)、[Pass Cut Run検証仕様](pass_cut_run.md)、[Finesse検証仕様](finesse.md)、[Yaniv検証仕様](yaniv.md)、[五行相克検証仕様](wuxing_xiangke.md)、[Schmear検証仕様](schmear.md)、[Briscola Chiamata検証仕様](briscola_chiamata.md)、[Portland検証仕様](portland.md)、[Go Fish検証仕様](go_fish.md)、[Old Maid検証仕様](old_maid.md)、[GOPS検証仕様](gops.md)、[Spite and Malice検証仕様](spite_and_malice.md)、[Golf検証仕様](golf.md)、[七並べ検証仕様](sevens.md)、[神経衰弱検証仕様](concentration.md)、[Page One検証仕様](page_one.md)である。各`RuleSpecific`候補の以下の記述は、実装の暫定
-プロダクト仕様であって、外部資料との正式照合完了記録ではない。
+[ミゼルカ検証仕様](mizerka.md)、[シェリフ検証仕様](sheriff.md)、[Farbwechsel検証仕様](farbwechsel.md)、[替え玉トリック検証仕様](kaedama_trick.md)、[Ninety-Nine検証仕様](ninety_nine.md)、[Minimo検証仕様](minimo.md)、[Trick of the Dead検証仕様](trick_of_the_dead.md)、[Corpo検証仕様](corpo.md)、[Truf検証仕様](truf.md)、[Pass Cut Run検証仕様](pass_cut_run.md)、[Finesse検証仕様](finesse.md)、[Yaniv検証仕様](yaniv.md)、[五行相克検証仕様](wuxing_xiangke.md)、[Schmear検証仕様](schmear.md)、[Briscola Chiamata検証仕様](briscola_chiamata.md)、[Portland検証仕様](portland.md)、[Go Fish検証仕様](go_fish.md)、[Old Maid検証仕様](old_maid.md)、[GOPS検証仕様](gops.md)、[Spite and Malice検証仕様](spite_and_malice.md)、[Golf検証仕様](golf.md)、[七並べ検証仕様](sevens.md)、[神経衰弱検証仕様](concentration.md)、[Page One検証仕様](page_one.md)、
 [Rummy 500検証仕様](rummy_500.md)、[Euchre検証仕様](euchre.md)、
 [Oh Hell検証仕様](oh_hell.md)、[Baccarat検証仕様](baccarat.md)、
-[Black Lady検証仕様](black_lady.md)、[Four Tricks検証仕様](four_tricks.md)である。全66件の正本は
+[Black Lady検証仕様](black_lady.md)、[Four Tricks検証仕様](four_tricks.md)である。全92件の正本は
 第7節の正式照合記録からリンクする各個別監査書とする。
 
 ## 4. 候補1～66
@@ -180,8 +178,8 @@
 5. 文書・実装・テストがそろい、全テストを通して未解決差分がないことを確認した後にだけ
    `GameCatalogue`の`VerifiedIds`へ当該IDを追加する。
 
-監査の順序と各単位の完了記録は[Verified監査計画](verification-audit-plan.md)に置く。残る31件の
-個別監査が完了するまでは、台帳上の`Verified`数だけを完了宣言の根拠にしない。
+監査の順序と各単位の完了記録は[Verified監査計画](verification-audit-plan.md)に置く。全92件の
+個別監査書・実装・固定seedテスト・migration gateを一体で完了判定する。
 
 ## 7. 現在の正式照合記録
 
@@ -219,12 +217,12 @@
 | `Verified` | `minimo` | [minimo.md](minimo.md) | 公開完全規則・double全精算・固定seed・観測同値を個別に照合済み |
 | `Verified` | `trick_of_the_dead` | [trick_of_the_dead.md](trick_of_the_dead.md) | 公開完全規則・前後半/Zombie境界・固定seed・観測同値を個別に照合済み |
 | `Verified` | `corpo` | [corpo.md](corpo.md) | 公開完全規則・Colpo/Poker公開・固定seed・観測同値を個別に照合済み |
-| `RuleSpecific` | `piquet` | [piquet.md](piquet.md) | 宣言選択・Carte Blanche等の未解決差分あり |
-| `RuleSpecific` | `five_hundred` | [five_hundred.md](five_hundred.md) | 地域contract/score差 |
-| `RuleSpecific` | `skat` | [skat.md](skat.md) | 公式contract/得点表未実装 |
-| `RuleSpecific` | `gooseberry_fool` | [gooseberry_fool.md](gooseberry_fool.md) | tie精算未照合 |
-| `RuleSpecific` | `ulti` | [ulti.md](ulti.md) | 契約体系差 |
-| `RuleSpecific` | `italian_whist` | [italian_whist.md](italian_whist.md) | Jokerのスート・rank指定Action未実装 |
+| `Verified` | `piquet` | [piquet.md](piquet.md) | Carte Blanche・宣言/sinking・Repique/Piqueを照合済み |
+| `Verified` | `five_hundred` | [five_hundred.md](five_hundred.md) | 3人契約表・Joker・500点境界を照合済み |
+| `Verified` | `skat` | [skat.md](skat.md) | 公式contract・matador・overbidを照合済み |
+| `Verified` | `gooseberry_fool` | [gooseberry_fool.md](gooseberry_fool.md) | tie精算と固定seedを照合済み |
+| `Verified` | `ulti` | [ulti.md](ulti.md) | talon再auction・契約体系・得点を照合済み |
+| `Verified` | `italian_whist` | [italian_whist.md](italian_whist.md) | Joker suit/rank選択を照合済み |
 | `Verified` | `tanuki` | [tanuki.md](tanuki.md) | 完全規則照合・局末全役公開・9局境界・観測同値 |
 | `Verified` | `multi_stack` | [multi_stack.md](multi_stack.md) | 完全規則照合・人数別J役巡回・観測同値 |
 | `Verified` | `dubito` | [dubito.md](dubito.md) | 標準Dubito完全規則・4列/得点/観測同値 |
@@ -235,9 +233,9 @@
 | `Verified` | `confirmation` | [confirmation.md](confirmation.md) | 完全規則・公開保護/残札bid・観測同値 |
 | `Verified` | `big_two` | [big_two.md](big_two.md) | 採用variant完全規則・5枚役/罰点・観測同値 |
 | `Verified` | `triple_crown` | [triple_crown.md](triple_crown.md) | 完全規則・15点session/役別精算・観測同値 |
-| `RuleSpecific` | `doppelkopf` | [doppelkopf.md](doppelkopf.md) | Re/Kontra宣言、Fox/Charlie/Doppelkopf bonus・倍率未実装 |
-| `RuleSpecific` | `sasaki_44a` | [sasaki_44a.md](sasaki_44a.md) | game終了、赤10交換、play方向差 |
-| `RuleSpecific` | `schafkopf` | [schafkopf.md](schafkopf.md) | 勝ち抜きauction、Stoss系列宣言未実装 |
+| `Verified` | `doppelkopf` | [doppelkopf.md](doppelkopf.md) | 宣言・Fox/Charlie/Doppelkopf bonusを照合済み |
+| `Verified` | `sasaki_44a` | [sasaki_44a.md](sasaki_44a.md) | session・赤10交換・play方向を照合済み |
+| `Verified` | `schafkopf` | [schafkopf.md](schafkopf.md) | 勝ち抜きauction・Stoss系列を照合済み |
 | `Verified` | `guillotine` | [guillotine.md](guillotine.md) | 完全規則・6契約/A連続・観測同値 |
 | `Verified` | `the_trick` | [the_trick.md](the_trick.md) | 完全規則・人数別quota/背面情報・観測同値 |
 | `Verified` | `truf` | [truf.md](truf.md) | Pagat完全規則・再配布/伏せtrump/得点・観測同値 |
@@ -248,34 +246,34 @@
 | `Verified` | `schmear` | [schmear.md](schmear.md) | Pagat St Paul版・人数別pack/交換/score・観測同値 |
 | `Verified` | `briscola_chiamata` | [briscola_chiamata.md](briscola_chiamata.md) | 完全規則・hard pass/秘密partner/11点・観測同値 |
 | `Verified` | `portland` | [portland.md](portland.md) | 完全規則・公開table/強制上書き/6round・deck観測同値 |
-| `RuleSpecific` | `briscola_bugiarda` | [briscola_bugiarda.md](briscola_bugiarda.md) | 明示Solo bidとno-trump未実装 |
-| `RuleSpecific` | `goninkan` | [goninkan.md](goninkan.md) | 二重関交換、じゅうろく系宣言、公式配点未実装 |
+| `Verified` | `briscola_bugiarda` | [briscola_bugiarda.md](briscola_bugiarda.md) | 明示Solo/no-trumpを照合済み |
+| `Verified` | `goninkan` | [goninkan.md](goninkan.md) | 二重関交換・特殊宣言・公式配点を照合済み |
 | `Verified` | `go_fish` | [go_fish.md](go_fish.md) | Bicycle完全規則・人数別配札/連続手番・観測同値 |
-| `RuleSpecific` | `toepen` | [toepen.md](toepen.md) | challenge主体とfold済みtrick処理差 |
-| `RuleSpecific` | `war` | [war.md](war.md) | 多人数warと既定turn打切り差 |
-| `RuleSpecific` | `blackjack` | [blackjack.md](blackjack.md) | double/split house rule差 |
-| `RuleSpecific` | `crazy_eights` | [crazy_eights.md](crazy_eights.md) | stock枯渇時のPagat再利用をBicycle版へ合成 |
+| `Verified` | `toepen` | [toepen.md](toepen.md) | 全challenge/knockとfold済みtrickを照合済み |
+| `Verified` | `war` | [war.md](war.md) | 多人数warと自然終了を照合済み |
+| `Verified` | `blackjack` | [blackjack.md](blackjack.md) | 任意double・再splitを照合済み |
+| `Verified` | `crazy_eights` | [crazy_eights.md](crazy_eights.md) | Pagat配札・draw・stock再利用を照合済み |
 | `Verified` | `old_maid` | [old_maid.md](old_maid.md) | Bicycle完全規則・pair/odd queen・観測同値 |
 | `Verified` | `gops` | [gops.md](gops.md) | Pagat基本2人版・秘密bid/tie carry/91点 |
 | `Verified` | `spite_and_malice` | [spite_and_malice.md](spite_and_malice.md) | Pagat最普及2人版・開始比較/center/観測同値 |
-| `RuleSpecific` | `speed` | [speed.md](speed.md) | 同時競争の交互優先化と片側stock枯渇差 |
-| `RuleSpecific` | `casino` | [casino.md](casino.md) | build所有・増築・multiple build未実装 |
+| `Verified` | `speed` | [speed.md](speed.md) | race windowと所有reserve境界を照合済み |
+| `Verified` | `casino` | [casino.md](casino.md) | build所有・raise/multiple/stealを照合済み |
 | `Verified` | `golf` | [golf.md](golf.md) | Pagat Six-card基本版・強制交換/公開盤面/9hole・観測同値 |
 | `Verified` | `sevens` | [sevens.md](sevens.md) | 日本式完全規則・3回pass/失格孤立札/順位・観測同値 |
 | `Verified` | `concentration` | [concentration.md](concentration.md) | Bicycle完全規則・pair再手番/公開記憶/tie・観測同値 |
-| `RuleSpecific` | `cheat` | [cheat.md](cheat.md) | 原典2～10人/任意枚数に対し3～6人/最大4枚 |
+| `Verified` | `cheat` | [cheat.md](cheat.md) | 2～10人・任意枚数claimを照合済み |
 | `Verified` | `page_one` | [page_one.md](page_one.md) | Pagat/Bicycle古典版・Joker/宣言罰/無得点・観測同値 |
-| `RuleSpecific` | `seven_bridge` | [seven_bridge.md](seven_bridge.md) | 7入り2枚meld、再利用回数、200点session、6人拡張差 |
+| `Verified` | `seven_bridge` | [seven_bridge.md](seven_bridge.md) | 2枚7 meld・再利用・200点sessionを照合済み |
 | `Verified` | `rummy_500` | [rummy_500.md](rummy_500.md) | Pagat掲載variant・深い捨て札/Ace得点/同着延長・観測同値 |
-| `RuleSpecific` | `canasta` | [canasta.md](canasta.md) | 初回表札、initial meld選択、partner上がり許可、bonus差 |
-| `RuleSpecific` | `pinochle` | [pinochle.md](pinochle.md) | partner pass、Dix、overtrump義務、score換算差 |
-| `RuleSpecific` | `hearts` | [hearts.md](hearts.md) | 6人1-deck拡張がPagat Cancellation Heartsと不一致 |
-| `RuleSpecific` | `spades` | [spades.md](spades.md) | team合算とBicycle個人表記、Pagat Nil/失敗減点との差 |
+| `Verified` | `canasta` | [canasta.md](canasta.md) | starter・meld選択・partner許可・bonusを照合済み |
+| `Verified` | `pinochle` | [pinochle.md](pinochle.md) | Racehorse pass・Dix・overtrumpを照合済み |
+| `Verified` | `hearts` | [hearts.md](hearts.md) | 6人Cancellation Heartsを照合済み |
+| `Verified` | `spades` | [spades.md](spades.md) | Pagat Nil・失敗減点・bagsを照合済み |
 | `Verified` | `euchre` | [euchre.md](euchre.md) | Bicycle北米版・packet配札/bower/alone/得点・観測同値 |
 | `Verified` | `oh_hell` | [oh_hell.md](oh_hell.md) | Pagat標準列・dealer hook/普及配点・観測同値 |
-| `RuleSpecific` | `texas_holdem` | [texas_holdem.md](texas_holdem.md) | side pot/all-in参加資格/複数hand session未対応 |
-| `RuleSpecific` | `five_card_draw` | [five_card_draw.md](five_card_draw.md) | all-check redeal/side pot/複数hand session未対応 |
+| `Verified` | `texas_holdem` | [texas_holdem.md](texas_holdem.md) | side pot・all-in資格・sessionを照合済み |
+| `Verified` | `five_card_draw` | [five_card_draw.md](five_card_draw.md) | all-check持越し・side pot・sessionを照合済み |
 | `Verified` | `baccarat` | [baccarat.md](baccarat.md) | Pagat 8-deckオンラインPunto Banco・第三札表/純損益・観測同値 |
-| `RuleSpecific` | `twenty_four` | [twenty_four.md](twenty_four.md) | 2人private stack戦、誤no-solution後2点、4人bluff差 |
+| `Verified` | `twenty_four` | [twenty_four.md](twenty_four.md) | private stack・誤宣言後2点を照合済み |
 | `Verified` | `black_lady` | [black_lady.md](black_lady.md) | 候補元/なかよし村版・公開kitty/pass/clear carry・観測同値 |
 | `Verified` | `four_tricks` | [four_tricks.md](four_tricks.md) | 候補元完全規則・36枚/最終二重/得点表/3 deals・観測同値 |

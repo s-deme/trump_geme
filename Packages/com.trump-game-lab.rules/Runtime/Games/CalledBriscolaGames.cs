@@ -16,6 +16,7 @@ namespace TrumpLab.Games
         private readonly DeterministicRandom rng;
         private readonly bool mustFollow;
         private readonly bool detailedSettlement;
+        private readonly bool allowExplicitSolo;
         private readonly List<List<Card>> hands = Enumerable.Range(0, 5).Select(_ => new List<Card>()).ToList();
         private readonly List<List<Card>> captured = Enumerable.Range(0, 5).Select(_ => new List<Card>()).ToList();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
@@ -26,20 +27,24 @@ namespace TrumpLab.Games
         private int partner = -1;
         private int currentRankIndex = -1;
         private int calledRank;
-        private Suit trump;
+        private Suit? trump;
+        private bool explicitSolo;
         private int deals;
         private bool partnerRevealed;
         private string phase = "bid";
         private bool finished;
-        protected CalledBriscolaGameBase(DeterministicRandom rng, bool mustFollow, bool detailedSettlement)
-        { Players = 5; this.rng = rng; this.mustFollow = mustFollow; this.detailedSettlement = detailedSettlement; StartDeal(); }
+        protected CalledBriscolaGameBase(DeterministicRandom rng, bool mustFollow,
+            bool detailedSettlement, bool allowExplicitSolo)
+        { Players = 5; this.rng = rng; this.mustFollow = mustFollow; this.detailedSettlement = detailedSettlement;
+            this.allowExplicitSolo = allowExplicitSolo; StartDeal(); }
 
         private void StartDeal()
         {
             foreach (List<Card> pile in hands) pile.Clear(); foreach (List<Card> pile in captured) pile.Clear(); trick.Clear();
             List<Card> deck = Cards.Shuffled(Cards.StandardDeck(RankOrder), rng); dealer = (dealer + 1) % 5;
             for (int round = 0; round < 8; round++) for (int offset = 1; offset <= 5; offset++) hands[(dealer + offset) % 5].Add(Pop(deck));
-            Array.Fill(active, true); declarer = partner = -1; currentRankIndex = -1; calledRank = 0; partnerRevealed = false; phase = "bid"; CurrentPlayer = (dealer + 1) % 5;
+            Array.Fill(active, true); declarer = partner = -1; currentRankIndex = -1; calledRank = 0;
+            trump = null; explicitSolo = false; partnerRevealed = false; phase = "bid"; CurrentPlayer = (dealer + 1) % 5;
         }
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
@@ -48,6 +53,7 @@ namespace TrumpLab.Games
             {
                 var actions = new List<Action> { new Action("pass") };
                 for (int index = currentRankIndex + 1; index < RankOrder.Length; index++) actions.Add(new Action("bid_rank", value: RankOrder[index].ToString()));
+                if (allowExplicitSolo) actions.Add(new Action("bid_solo"));
                 return actions;
             }
             if (phase == "choose_trump") return Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit => new Action("choose_trump", value: Card.SuitCode(suit))).ToArray();
@@ -64,6 +70,11 @@ namespace TrumpLab.Games
             if (phase == "bid")
             {
                 if (action.Kind == "pass") active[player] = false;
+                else if (action.Kind == "bid_solo")
+                {
+                    declarer = player; partner = -1; explicitSolo = true; trump = null;
+                    phase = "play"; CurrentPlayer = declarer; return;
+                }
                 else { calledRank = int.Parse(action.Value!); currentRankIndex = Array.IndexOf(RankOrder, calledRank); declarer = player; }
                 if (active.Count(value => value) == 1 && declarer >= 0) { phase = "choose_trump"; CurrentPlayer = declarer; return; }
                 if (active.All(value => !value)) { dealer = (dealer + 4) % 5; StartDeal(); return; }
@@ -71,15 +82,15 @@ namespace TrumpLab.Games
             }
             if (phase == "choose_trump")
             {
-                trump = Card.ParseSuit(action.Value!); Card called = new Card(trump, calledRank);
+                trump = Card.ParseSuit(action.Value!); Card called = new Card(trump.Value, calledRank);
                 partner = Enumerable.Range(0, 5).Where(p => hands[p].Contains(called)).DefaultIfEmpty(-1).First();
                 if (partner == declarer) partner = -1; phase = "play"; CurrentPlayer = declarer; return;
             }
             Card played = action.Card!.Value; hands[player].Remove(played); trick.Add(Tuple.Create(player, played));
-            if (played == new Card(trump, calledRank)) partnerRevealed = true;
+            if (trump.HasValue && played == new Card(trump.Value, calledRank)) partnerRevealed = true;
             if (trick.Count < 5) { CurrentPlayer = (player + 1) % 5; return; }
-            Suit ledSuit = trick[0].Item2.Suit; IEnumerable<Tuple<int, Card>> eligible = trick.Any(item => item.Item2.Suit == trump)
-                ? trick.Where(item => item.Item2.Suit == trump) : trick.Where(item => item.Item2.Suit == ledSuit);
+            Suit ledSuit = trick[0].Item2.Suit; IEnumerable<Tuple<int, Card>> eligible = trump.HasValue && trick.Any(item => item.Item2.Suit == trump.Value)
+                ? trick.Where(item => item.Item2.Suit == trump.Value) : trick.Where(item => item.Item2.Suit == ledSuit);
             int winner = eligible.OrderBy(item => Array.IndexOf(RankOrder, item.Item2.Rank)).First().Item1; captured[winner].AddRange(trick.Select(item => item.Item2)); trick.Clear();
             if (hands.All(hand => hand.Count == 0)) FinishDeal(); else CurrentPlayer = winner;
         }
@@ -109,7 +120,8 @@ namespace TrumpLab.Games
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
-            if (phase == "bid") return declarer < 0 ? actions.Last() : actions[0];
+            if (phase == "bid") return declarer < 0
+                ? actions.Where(action => action.Kind == "bid_rank").Last() : actions[0];
             if (phase == "choose_trump") return actions.OrderBy(action => hands[player].Contains(new Card(Card.ParseSuit(action.Value!), calledRank)))
                 .ThenByDescending(action => hands[player].Count(card => card.Suit == Card.ParseSuit(action.Value!))).First();
             return actions.OrderBy(action => CardPoints(action.Card!.Value)).ThenByDescending(action => Array.IndexOf(RankOrder, action.Card!.Value.Rank)).First();
@@ -125,8 +137,8 @@ namespace TrumpLab.Games
         public override string View(int? player = null)
         {
             int viewer = player ?? CurrentPlayer; string role = viewer == declarer ? "declarer" : viewer == partner ? "partner" : "opposition";
-            return $"phase={phase} dealer=P{dealer} called_rank={(calledRank == 0 ? "-" : calledRank.ToString())} trump={(phase == "bid" ? "-" : Card.SuitCode(trump))} " +
-                $"declarer={(declarer < 0 ? "-" : "P" + declarer)} partner={(partnerRevealed ? partner < 0 ? "solo" : "P" + partner : "hidden")} your_role={role} " +
+            return $"phase={phase} dealer=P{dealer} called_rank={(explicitSolo ? "solo" : calledRank == 0 ? "-" : calledRank.ToString())} trump={(phase == "bid" ? "-" : trump.HasValue ? Card.SuitCode(trump.Value) : "none")} " +
+                $"declarer={(declarer < 0 ? "-" : "P" + declarer)} partner={(explicitSolo ? "solo" : partnerRevealed ? partner < 0 ? "solo" : "P" + partner : "hidden")} your_role={role} " +
                 $"scores=[{string.Join(",", scores)}] captured_points=[{string.Join(",", captured.Select(pile => pile.Sum(CardPoints)))}] table=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
     }
@@ -135,7 +147,7 @@ namespace TrumpLab.Games
     {
         public override string GameId => "briscola_chiamata";
         public override string Name => "ブリスコラ・キアマタ";
-        public BriscolaChiamataGame(DeterministicRandom rng) : base(rng, true, false) { }
+        public BriscolaChiamataGame(DeterministicRandom rng) : base(rng, true, false, false) { }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("briscola_chiamata", "ブリスコラ・キアマタ", 5, 5, "called-partner point-trick", "8・9・10を除く40枚。A>3>K>Q>J>7>6>5>4>2のrankを弱い方向へhard-pass auctionし、declarerがtrumpを決める。bid rankのtrump所持者を秘密partnerとしてmust-followで120点中61点を狙い、単独±4／2対3は±2・±1、全trickで倍、11点を争う。", "gokurakism/Briscola Chiamata"),
             (players, random, options) => new BriscolaChiamataGame(random));
@@ -145,7 +157,7 @@ namespace TrumpLab.Games
     {
         public override string GameId => "briscola_bugiarda";
         public override string Name => "ブリスコラ・ブジャルダ";
-        public BriscolaBugiardaGame(DeterministicRandom rng) : base(rng, false, true) { }
+        public BriscolaBugiardaGame(DeterministicRandom rng) : base(rng, false, true, true) { }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("briscola_bugiarda", "ブリスコラ・ブジャルダ", 5, 5, "called-partner may-follow", "キアマタと同じ40枚・rank auction・秘密partnerを使うが、follow義務なし。declarer側のcard pointを61～70から120まで7段階（敗北側も対称）でchip精算し、採用仕様では5deal合計を競う。", "gokurakism/Briscola Bugiarda"),
             (players, random, options) => new BriscolaBugiardaGame(random));

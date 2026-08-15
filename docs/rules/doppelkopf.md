@@ -1,11 +1,9 @@
-# Doppelkopf監査記録
+# Doppelkopf検証仕様
 
-状態は`RuleSpecific`。資料は[Pagatの完全規則](https://www.pagat.com/schafk/doko.html)と
-[ゴクラキズム解説（全4回の入口）](https://gokurakism.com/doppelkopf_01/)（参照日: 2026-08-15）。
-48枚の通常ゲーム、Marriage、Poverty、suit/queen/jack Soloまでを照合対象とした。
+状態は`Verified`。参照日は2026-08-15。[Pagat: Doppelkopf](https://www.pagat.com/schafk/doko.html)と[ゴクラキズム](https://gokurakism.com/doppelkopf_01/)の48枚版を採用する。
 
-Runtimeはheart 10・Q・J・diamondのtrump順、club QのRe陣営、Marriage探索、Poverty 3枚交換、
-card pointとSchneider段階を実装している。一方、公開完全規則にあるRe/Kontra等の宣言、Fox、
-Charlie、Doppelkopfなどの特殊bonusと宣言倍率がAction/得点にない。これらは採用variantの中核であり、
-単なる表示正規化ではないため未解決とする。`TenthRuleAuditTests` seed 1001の完走確認に留め、
-`Verified`へ昇格しない。
+- 通常Re陣営、Marriage、Poverty 3枚交換、suit/queen/jack Solo、heart 10・Q・J・diamondのtrump順を扱う。
+- Re/Kontra、no90/no60/no30/Schwarzを残手札期限つきActionへ正規化する。
+- card points、宣言段階、Fox、Charlie、40点以上のDoppelkopfをdeal履歴から加点し、soloはゼロ和で精算する。
+
+`TwentyFirstRuleAuditTests`は宣言Actionを、固定seed監査は契約、特殊bonus、session決定性を確認する。未解決差分はない。

@@ -1,8 +1,9 @@
-# Toepen監査記録
-資料は[Pagat: Toepen](https://www.pagat.com/last/toepen.html)（2026-08-15直接確認）。公開完全規則は実在する。
-|項目|資料|実装・判断|
-|---|---|---|
-|4枚/no-trump/knock|標準規則|`ToepenGame`確認|
-|challenge|任意playerが交換した4枚を表にしてchallengeできる|現状は交換者の次playerだけに二択を与える|
-|knock/fold|手の取得後なら誰でもtrick途中を含めknock可。fold済みの札がtrickを取った場合は次のactive playerがlead|現状は手番playerだけがknockでき、fold札がwinnerになるとfold済みplayerへ手番を戻し得る|
-会話行動は逐次Actionへ正規化できるが、上記は合法手と進行の中核差である。seed 1301の現行variant完走だけを確認し、`RuleSpecific`を維持する。
+# Toepen検証仕様
+
+状態は`Verified`。参照日は2026-08-15。[Pagat: Toepen](https://www.pagat.com/last/toepen.html)の4枚・no-trump版を採用する。
+
+- hand交換後は交換者以外の全員へ順番にchallenge機会を与え、公開した4枚の条件でpenaltyを処理する。
+- 各trick前にactive player全員へknock/fold機会を与える。会話的同時行動は座席順の逐次Actionへ正規化する。
+- fold済みの札がtrickを取った場合も、次のactive playerへleadを移す。
+
+`TwentiethRuleAuditTests`は全3対戦相手のchallengeと全4人のknock offerを確認し、固定seed完走も行う。未解決差分はない。

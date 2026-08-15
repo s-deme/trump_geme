@@ -1,12 +1,10 @@
-# Canasta監査記録
+# Canasta検証仕様
 
-資料は[Pagat: Canasta](https://www.pagat.com/rummy/canasta.html)および[Bicycle: Canasta](https://bicyclecards.com/how-to-play/canasta)（2026-08-15直接確認）のClassic 4人固定pair版。108枚、11枚配札、自然札2枚以上＋wild最大3枚、赤3、初回meld下限、自然／混成Canasta、5000点sessionの骨格は一致する。
+状態は`Verified`。参照日は2026-08-15。[Pagat: Canasta](https://www.pagat.com/rummy/canasta.html)と[Bicycle: Canasta](https://bicyclecards.com/how-to-play/canasta)のClassic 4人固定pair版を採用する。
 
-未解決差分は次のとおり。
+- 108枚を各11枚。初回starterがwild／3なら追加でめくり、pileをfreezeする。赤3は公開・補充する。
+- 自然札2枚以上、wild最大3枚、初回meld下限を満たす組合せを`initial_meld`値として明示選択する。frozen/unfrozen pileの取得条件を分ける。
+- 上がり前にpartnerへ許可を求め、回答は申請者の当該手番だけに拘束する。concealed out、black three、自然／混成canastaを得点化する。
+- 5000点先取の複数hand sessionとする。
 
-- 初回表札がwildまたは赤3のとき、原典は追加表札をめくってpileをfreezeするが実装は1枚のまま止める。
-- 原典は初回meldの合法な組合せをplayerが選ぶが、実装の`initial_meld`は内部で高得点群を自動選択する。
-- 原典はpartnerに上がり許可を尋ね、その回答に拘束されるが、そのActionがない。
-- concealed going-out等のbonusとblack threeの上がり時meldが未実装である。
-
-固定seed 1603は完走するが、合法選択・上がり・得点差が中核に残るため`RuleSpecific`を維持する。
+`TwentyFirstRuleAuditTests`は許可の申請者scopeと旧停止seed 98を、固定seed監査はmeld・pile・sessionを確認する。未解決差分はない。
