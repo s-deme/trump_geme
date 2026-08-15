@@ -16,13 +16,13 @@
 | ID | 状態 | マイルストーン | 完了状態 | 依存 |
 |---|---|---|---|---|
 | M01 | Ready | [構造化表示契約](milestones/M01-structured-presentation.md) | UIが表示文字列を解析せず、Crazy Eightsを安全に描画・操作できる | なし |
-| M02 | Backlog | Unity縦切り版 | Crazy Eightsを人間対CPUで起動から結果まで遊べる | M01 |
-| M03 | Backlog | セーブ・リプレイ | 中断再開と決定的な行動再生ができる | M02 |
-| M04 | Backlog | CPU難易度 | 弱・標準・強を観測可能情報と固定seedで検証できる | M02 |
-| M05 | Backlog | チュートリアル | 初見プレイヤーがゲーム内説明だけで1局を完走できる | M02 |
-| M06 | Backlog | 製品品質 | 設定、入力、音、演出、多言語化、アクセシビリティを備える | M03～M05 |
-| M07 | Backlog | Steam対応 | 配布ビルド、実績、製品設定、リリース確認を完了する | M06 |
-| M08 | Backlog | 対戦機能 | 必要性を再評価し、採用時はローカル対戦から段階導入する | M06 |
+| M02 | Backlog | [Unity縦切り版](milestones/M02-unity-vertical-slice.md) | Crazy Eightsを人間対CPUで起動から結果まで遊べる | M01 |
+| M03 | Backlog | [セーブ・リプレイ](milestones/M03-save-and-replay.md) | 中断再開と決定的な行動再生ができる | M02 |
+| M04 | Backlog | [CPU難易度](milestones/M04-cpu-difficulty.md) | 弱・標準・強を観測可能情報と固定seedで検証できる | M03 |
+| M05 | Backlog | [チュートリアル](milestones/M05-tutorial.md) | 初見プレイヤーがゲーム内説明だけで1局を完走できる | M04 |
+| M06 | Backlog | [製品品質](milestones/M06-product-quality.md) | 設定、入力、音、演出、多言語化、アクセシビリティを備える | M05 |
+| M07 | Backlog | [Steam対応](milestones/M07-steam-release.md) | 配布ビルド、実績、製品設定、リリース確認を完了する | M06 |
+| M08 | Backlog | [対戦機能](milestones/M08-multiplayer.md) | 必要性を再評価し、採用時はローカル対戦から段階導入する | M07 |
 
 ## 優先順位の原則
 
@@ -36,5 +36,8 @@
 
 - 直前マイルストーンが`Done`である。
 - スコープ、対象外、完了条件、検証方法が個別文書に記載されている。
-- 未確定の製品判断がある場合は、実装前にユーザーへ確認する。
+- M01～M08の個別文書は事前に用意し、完了時に次の計画をその場で自動生成しない。
+- 個別文書でDecision Gateと明記した未確定事項だけ、実装前にユーザーへ確認する。
 - 開始時に最初のタスクだけを`Ready`とし、他は依存関係に従って`Backlog`とする。
+- 最終タスク完了時は現在のマイルストーンを`Done`、次のマイルストーンと最初のタスクを
+  `Ready`へ変更する。通常の1タスク依頼とGoalは次マイルストーンの実装前に停止する。

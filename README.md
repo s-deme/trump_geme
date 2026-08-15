@@ -33,9 +33,9 @@ CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU�
 
 ルール検証基盤の次段階として、構造化表示契約、Unity UI、セーブ・リプレイ、CPU難易度、
 チュートリアル、製品品質を順次実装する。優先順位と現在地は
-[`docs/product/roadmap.md`](docs/product/roadmap.md)、現在の実装単位は
-[`docs/product/milestones/M01-structured-presentation.md`](docs/product/milestones/M01-structured-presentation.md)
-を正本とする。継続作業の依頼方法は[`docs/product/README.md`](docs/product/README.md)に記載する。
+[`docs/product/roadmap.md`](docs/product/roadmap.md)を正本とし、同ロードマップからM01～M08の
+個別マイルストーンを参照する。継続作業の依頼方法は
+[`docs/product/README.md`](docs/product/README.md)に記載する。
 
 ## CLIとテスト
 
