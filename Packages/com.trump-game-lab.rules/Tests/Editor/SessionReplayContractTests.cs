@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 
 namespace TrumpLab.Tests
@@ -145,6 +146,61 @@ namespace TrumpLab.Tests
             Assert.That(archive.Actions[0].Action.Value, Is.EqualTo("S"));
         }
 
+        [Test]
+        public void CodecResumesCrazyEightsAcrossStarterPlayAndTerminalPhases()
+        {
+            long seed = FindStarterSuitSeed();
+            var configuration = new SessionConfiguration(
+                "crazy_eights", 2, seed, 1, new[] { 0 },
+                new Dictionary<string, string> { ["wild_rank"] = "8" });
+            var recorder = new SessionRecorder(configuration);
+            Assert.That(((IGamePresentationProvider)recorder.Game).Present(0).Phase,
+                Is.EqualTo("choose_starter_suit"));
+            AssertCodecResume(recorder);
+
+            recorder.ApplyCpuAction();
+            Assert.That(((IGamePresentationProvider)recorder.Game).Present(0).Phase,
+                Is.EqualTo("play"));
+            for (int index = 0; index < 8 && !recorder.Game.IsTerminal; index++)
+                ApplyNext(recorder);
+            AssertCodecResume(recorder);
+
+            for (int index = 0; index < 1000 && !recorder.Game.IsTerminal; index++)
+                ApplyNext(recorder);
+            Assert.That(recorder.Game.IsTerminal, Is.True);
+            AssertCodecResume(recorder);
+        }
+
+        [Test]
+        public void CodecIsCanonicalAndRejectsDigestOrVersionChanges()
+        {
+            var configuration = new SessionConfiguration(
+                "crazy_eights", 2, seed: -9, difficulty: 1, humanPlayers: new[] { 0 },
+                options: new Dictionary<string, string> { ["wild_rank"] = "8" });
+            var recorder = new SessionRecorder(configuration);
+            if (recorder.Game.CurrentPlayer == 0)
+                recorder.ApplyHumanAction(0, recorder.Game.LegalActions(0)[0]);
+            else
+                recorder.ApplyCpuAction();
+            byte[] first = SessionArchiveCodec.Encode(recorder.Archive);
+            byte[] second = SessionArchiveCodec.Encode(recorder.Archive);
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(Encoding.UTF8.GetString(first), Does.StartWith(
+                "{\"format\":\"trumplab_session\",\"format_version\":1"));
+
+            byte[] corrupted = (byte[])first.Clone();
+            string json = Encoding.UTF8.GetString(corrupted);
+            int digest = json.IndexOf("\"digest\":\"", StringComparison.Ordinal) + 10;
+            Assert.That(digest, Is.GreaterThan(9));
+            corrupted[digest] = corrupted[digest] == (byte)'0' ? (byte)'1' : (byte)'0';
+            Assert.Throws<SessionIntegrityException>(() => SessionArchiveCodec.Decode(corrupted));
+
+            var future = new SessionArchive(configuration, recorder.Archive.Actions,
+                formatVersion: 2);
+            Assert.Throws<UnsupportedSessionVersionException>(
+                () => SessionArchiveCodec.Decode(SessionArchiveCodec.Encode(future)));
+        }
+
         private static string PresentationSignature(GamePresentation presentation)
         {
             IEnumerable<string> players = presentation.Players.Select(player =>
@@ -180,6 +236,46 @@ namespace TrumpLab.Tests
             (value.CardValue.HasValue
                 ? ((int)value.CardValue.Value.Suit) + "-" + value.CardValue.Value.Rank
                 : "-");
+
+        private static void AssertCodecResume(SessionRecorder recorder)
+        {
+            byte[] encoded = SessionArchiveCodec.Encode(recorder.Archive);
+            SessionArchive decoded = SessionArchiveCodec.Decode(encoded);
+            SessionRecorder resumed = SessionRecorder.Resume(decoded);
+            GamePresentation expected =
+                ((IGamePresentationProvider)recorder.Game).Present(0);
+            GamePresentation actual =
+                ((IGamePresentationProvider)resumed.Game).Present(0);
+            Assert.That(PresentationSignature(actual), Is.EqualTo(PresentationSignature(expected)));
+            Assert.That(decoded.Actions.Select(record => record.Action),
+                Is.EqualTo(recorder.Archive.Actions.Select(record => record.Action)));
+            if (!recorder.Game.IsTerminal)
+                Assert.That(resumed.Game.LegalActions(), Is.EqualTo(recorder.Game.LegalActions()));
+            else
+                Assert.That(resumed.Game.Result().Scores, Is.EqualTo(recorder.Game.Result().Scores));
+        }
+
+        private static void ApplyNext(SessionRecorder recorder)
+        {
+            int actor = recorder.Game.CurrentPlayer;
+            if (actor == 0)
+                recorder.ApplyHumanAction(actor, recorder.Game.LegalActions(actor)[0]);
+            else
+                recorder.ApplyCpuAction();
+        }
+
+        private static long FindStarterSuitSeed()
+        {
+            for (long seed = 1; seed <= 10000; seed++)
+            {
+                IGame game = BuiltInGames.Registry.Create(
+                    "crazy_eights", 2, seed,
+                    new Dictionary<string, string> { ["wild_rank"] = "8" });
+                if (((IGamePresentationProvider)game).Present(0).Phase == "choose_starter_suit")
+                    return seed;
+            }
+            throw new AssertionException("Could not find a Crazy Eights starter-suit seed.");
+        }
 
         private static GameRegistry RandomCpuRegistry()
         {
