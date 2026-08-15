@@ -47,3 +47,42 @@ IGame game = BuiltInGames.Registry.Create("crazy_eights", players: 4, seed: 10);
 IReadOnlyList<TrumpLab.Action> actions = game.LegalActions();
 game.Apply(actions[0]);
 ```
+
+## 構造化表示
+
+構造化表示に対応したゲームは`IGamePresentationProvider`も実装します。`Present(viewer)`が返す
+スナップショットだけを使うと、`View()`の表示文字列を解析せずに盤面と操作候補を構築できます。
+viewerはplayer indexで指定し、省略時は現在手番です。
+
+```csharp
+using System.Linq;
+using TrumpLab;
+
+IGame game = BuiltInGames.Registry.Create("crazy_eights", players: 2, seed: 10);
+
+if (game is IGamePresentationProvider provider)
+{
+    const int humanPlayer = 0;
+    GamePresentation screen = provider.Present(humanPlayer);
+
+    CardZonePresentation hand = screen.CardZones.Single(zone =>
+        zone.Role == "hand" && zone.OwnerPlayer == humanPlayer);
+    CardZonePresentation stock = screen.CardZones.Single(zone => zone.Id == "stock");
+    CardZonePresentation discard = screen.CardZones.Single(zone => zone.Id == "discard");
+
+    // FaceUpだけCardsを描画する。FaceDownはCount枚の裏面、CountOnlyは枚数だけを描画する。
+    // 非手番viewerと終了後のActionsは空になる。
+    if (screen.Actions.Count > 0)
+    {
+        ActionPresentation selected = screen.Actions[0];
+        game.Apply(selected.Action);
+        screen = provider.Present(humanPlayer);
+    }
+}
+```
+
+`ActionPresentation.Id`は現在のスナップショット内だけで有効です。入力時はdescriptorが保持する
+`Action`をそのまま`IGame.Apply()`へ渡し、画面のラベルやカード文字列からActionを再構築しません。
+ゲーム進行後は古いスナップショットを捨て、`Present()`を再取得してください。Crazy Eightsでは
+手札、山札、捨札、指定suit、手番、終了結果を取得できます。他playerの手札はカード値を含まない
+`FaceDown`、山札は順序を含まない`CountOnly`として返ります。
