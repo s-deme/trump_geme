@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using TrumpLab.Product;
@@ -55,7 +56,8 @@ namespace TrumpLab.Product.Editor
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
             router.Configure(new ProductScreen[] { title, settings, match, result });
-            controller.Configure(router, title, settings, result);
+            controller.Configure(router, title, settings, match, result);
+            RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -107,9 +109,10 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0.12f, 0.22f), new Vector2(0.88f, 0.36f));
             RectTransform actions = CreatePanel(root.transform, "ActionRoot",
                 new Vector2(0.18f, 0.04f), new Vector2(0.82f, 0.18f));
-            CreateText(actions, "Placeholder", "Legal action buttons appear here", font, 24,
+            Text actionSummary = CreateText(actions, "ActionSummary", "Legal action buttons appear here", font, 24,
                 Vector2.zero, Vector2.one);
-            root.GetComponent<MatchScreen>().Configure(status, opponent, stock, discard, hand, actions);
+            root.GetComponent<MatchScreen>().Configure(
+                status, opponent, stock, discard, hand, actionSummary, actions);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
         }
 
@@ -282,12 +285,30 @@ namespace TrumpLab.Product.Editor
             if (controller.Router.Screens.Count != expectedPrefabs.Length ||
                 controller.Router.Screens.Any(screen => screen == null))
                 throw new InvalidOperationException("Bootstrap scene does not contain all product screens.");
+            MatchScreen match = (MatchScreen)controller.Router.Get(ScreenId.Match);
+            if (!match.HumanHandLabel.text.StartsWith("Your hand: ", StringComparison.Ordinal) ||
+                !match.OpponentHandLabel.text.StartsWith("CPU hand: ", StringComparison.Ordinal) ||
+                !match.StockLabel.text.StartsWith("Stock: ", StringComparison.Ordinal) ||
+                !match.DiscardLabel.text.StartsWith("Discard: ", StringComparison.Ordinal))
+                throw new InvalidOperationException("Match screen did not render structured sample state.");
             if (roots.Sum(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount) != 0)
                 throw new InvalidOperationException("Bootstrap scene has a missing root script.");
             if (EditorBuildSettings.scenes.Length != 1 ||
                 EditorBuildSettings.scenes[0].path != ScenePath ||
                 !EditorBuildSettings.scenes[0].enabled)
                 throw new InvalidOperationException("Bootstrap scene is not the only enabled build scene.");
+        }
+
+        private static void RenderSampleMatch(MatchScreen match)
+        {
+            IGame game = BuiltInGames.Registry.Create(
+                "crazy_eights",
+                players: 2,
+                seed: 1,
+                options: new Dictionary<string, string> { ["wild_rank"] = "8" });
+            if (!(game is IGamePresentationProvider provider))
+                throw new InvalidOperationException("Crazy Eights does not provide structured presentation.");
+            match.Render(CrazyEightsMatchPresenter.Create(provider.Present(viewer: 0)));
         }
     }
 }
