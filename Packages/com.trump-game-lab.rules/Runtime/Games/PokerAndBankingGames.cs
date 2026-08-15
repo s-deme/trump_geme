@@ -212,6 +212,6 @@ namespace TrumpLab.Games
         public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");double high=scores.Max();return new GameResult(Enumerable.Range(0,Players).Where(i=>Math.Abs(scores[i]-high)<0.000001),scores,"Punto Banco wager",TurnCount,new Dictionary<string,object>{{"outcome",outcome}});}
         public override string View(int? player=null)=>finished?$"outcome={outcome} player=[{string.Join(" ",playerHand)}] total={Total(playerHand)} banker=[{string.Join(" ",bankerHand)}] total={Total(bankerHand)} scores=[{string.Join(",",scores)}]":$"bets_placed={bets.Count(value=>value!=null)}/{Players} your_bet={bets[player??CurrentPlayer]??"-"}";
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("baccarat","バカラ",1,8,"banking","Punto Bancoの第三札表でプレイヤー・バンカー・タイの固定額ベットを決着する。","Pagat Baccarat"),(p,r,o)=>new BaccaratGame(p,r));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("baccarat","バカラ",1,8,"banking","Punto Bancoの第三札表でプレイヤー・バンカー・タイの固定額ベットを決着する。","Pagat Punto Banco"),(p,r,o)=>new BaccaratGame(p,r));
     }
 }

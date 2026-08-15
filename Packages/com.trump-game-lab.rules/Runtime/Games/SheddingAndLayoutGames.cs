@@ -26,9 +26,11 @@ namespace TrumpLab.Games
         {
             Players=2;this.rng=rng;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(copies:2),rng);payoffs=new List<List<Card>>{new List<Card>(),new List<Card>()};hands=new List<List<Card>>{new List<Card>(),new List<Card>()};sides=new List<List<List<Card>>>{new List<List<Card>>(),new List<List<Card>>()};
             for(int round=0;round<20;round++)for(int player=0;player<2;player++)payoffs[player].Add(Pop(deck));for(int round=0;round<5;round++)for(int player=0;player<2;player++)hands[player].Add(Pop(deck));stock=deck;
-            CurrentPlayer=Strength(payoffs[0].Last())>=Strength(payoffs[1].Last())?0:1;
+            while(StartStrength(payoffs[0].Last())==StartStrength(payoffs[1].Last())){rng.Shuffle(payoffs[0]);rng.Shuffle(payoffs[1]);}
+            CurrentPlayer=StartStrength(payoffs[0].Last())>StartStrength(payoffs[1].Last())?0:1;
         }
         private static int Strength(Card card)=>card.Rank==1?14:card.Rank;
+        private static int StartStrength(Card card)=>card.Rank;
         private bool Fits(Card card,int center)=>card.Rank==13||(center==centers.Count?card.Rank==1:centers[center].Count+1==card.Rank);
         public override IReadOnlyList<Action> LegalActions(int? player=null)
         {
@@ -231,7 +233,7 @@ namespace TrumpLab.Games
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
         {IReadOnlyList<Action> actions=LegalActions(player);if(actions[0].Kind.StartsWith("draw",StringComparison.Ordinal))return actions[0];return actions.Where(action=>hands[player].Count==2?action.Kind=="play_page_one":action.Kind=="play").OrderBy(action=>Strength(hands[player].First(card=>card.Id==int.Parse(action.Value!,CultureInfo.InvariantCulture)))).First();}
         public override bool IsTerminal=>finished;
-        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");IEnumerable<int> winners=winner<0?Enumerable.Range(0,Players):new[]{winner};return new GameResult(winners,Enumerable.Range(0,Players).Select(i=>i==winner?1d:-hands[i].Count),winner<0?"stock exhaustion draw":"first player out",TurnCount);}
+        public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");IEnumerable<int> winners=winner<0?Enumerable.Range(0,Players):new[]{winner};return new GameResult(winners,Enumerable.Range(0,Players).Select(i=>winner>=0&&i==winner?1d:0d),winner<0?"stock exhaustion draw":"first player out",TurnCount);}
         public override string View(int? player=null){int viewer=player??CurrentPlayer;return $"led={(led.HasValue?Card.SuitCode(led.Value):"-")} stock={stock.Count} completed={completed.Count} trick=[{string.Join(" ",trick.Select(item=>item.Item2))}] hand_counts=[{string.Join(",",hands.Select(hand=>hand.Count))}]\nyour hand: {string.Join(" ",hands[viewer])}";}
         private static PageCard Pop(List<PageCard> cards){PageCard card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
         public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("page_one","ページワン",2,6,"inflation-trick","4枚手札でマストフォローし、出せなければ同スートが出るまで引く。ジョーカーとPage One宣言罰を含む。","Pagat Page One"),(p,r,o)=>new PageOneGame(p,r));
@@ -239,23 +241,23 @@ namespace TrumpLab.Games
 
     public sealed class GolfGame : GameBase
     {
-        private readonly DeterministicRandom rng;private readonly int[] scores;private List<List<Card>> layouts=new List<List<Card>>();private List<bool[]> faceUp=new List<bool[]>();private List<Card> stock=new List<Card>();private readonly List<Card> discard=new List<Card>();private Card? drawn;private bool drewDiscard;private int hole;private string phase="reveal";private bool finished;
+        private readonly DeterministicRandom rng;private readonly int[] scores;private List<List<Card>> layouts=new List<List<Card>>();private List<bool[]> faceUp=new List<bool[]>();private List<Card> stock=new List<Card>();private readonly List<Card> discard=new List<Card>();private Card? drawn;private bool drewDiscard;private int dealer;private int reveals;private int hole;private string phase="reveal";private bool finished;
         public override string GameId=>"golf";public override string Name=>"ゴルフ";
-        public GolfGame(int players,DeterministicRandom rng){Players=players;this.rng=rng;scores=new int[players];StartHole();}
+        public GolfGame(int players,DeterministicRandom rng){Players=players;this.rng=rng;scores=new int[players];dealer=players-1;StartHole();}
         private void StartHole()
-        {hole++;stock=Cards.Shuffled(Cards.StandardDeck(copies:Players>=5?2:1),rng);layouts=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();faceUp=Enumerable.Range(0,Players).Select(_=>new bool[6]).ToList();for(int round=0;round<6;round++)for(int player=0;player<Players;player++)layouts[player].Add(Pop(stock));discard.Clear();discard.Add(Pop(stock));phase="reveal";CurrentPlayer=0;}
+        {hole++;reveals=0;stock=Cards.Shuffled(Cards.StandardDeck(copies:Players>=5?2:1),rng);layouts=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();faceUp=Enumerable.Range(0,Players).Select(_=>new bool[6]).ToList();for(int round=0;round<6;round++)for(int offset=1;offset<=Players;offset++)layouts[(dealer+offset)%Players].Add(Pop(stock));discard.Clear();discard.Add(Pop(stock));phase="reveal";CurrentPlayer=(dealer+1)%Players;}
         public override IReadOnlyList<Action> LegalActions(int? player=null)
         {
             int actual=ValidateTurn(player);if(phase=="reveal"){var result=new List<Action>();for(int a=0;a<5;a++)for(int b=a+1;b<6;b++)result.Add(new Action("reveal_two",value:$"{a},{b}"));return result;}
-            if(phase=="draw")return new[]{new Action("draw_stock"),new Action("draw_discard")};var actions=Enumerable.Range(0,6).Select(index=>new Action("swap",value:index.ToString(CultureInfo.InvariantCulture))).ToList();actions.Add(new Action("discard_drawn"));return actions;
+            if(phase=="draw"){var draws=new List<Action>();if(stock.Count>0)draws.Add(new Action("draw_stock"));draws.Add(new Action("draw_discard"));return draws;}var actions=Enumerable.Range(0,6).Select(index=>new Action("swap",value:index.ToString(CultureInfo.InvariantCulture))).ToList();if(!drewDiscard)actions.Add(new Action("discard_drawn"));return actions;
         }
         public override void Apply(Action action)
         {
             int player=ValidateTurn(null);Guard.Legal(action,LegalActions(player));TurnCount++;
             if(phase=="reveal")
-            {foreach(int index in RummyRules.ParseIndexes(action.Value!))faceUp[player][index]=true;if(player+1<Players)CurrentPlayer=player+1;else{phase="draw";CurrentPlayer=0;}return;}
+            {foreach(int index in RummyRules.ParseIndexes(action.Value!))faceUp[player][index]=true;reveals++;if(reveals<Players)CurrentPlayer=(player+1)%Players;else{phase="draw";CurrentPlayer=(dealer+1)%Players;}return;}
             if(phase=="draw")
-            {drewDiscard=action.Kind=="draw_discard";if(!drewDiscard&&stock.Count==0)RecycleStock();drawn=drewDiscard?Pop(discard):Pop(stock);phase="replace";return;}
+            {drewDiscard=action.Kind=="draw_discard";drawn=drewDiscard?Pop(discard):Pop(stock);phase="replace";return;}
             if(action.Kind=="swap")
             {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);discard.Add(layouts[player][index]);layouts[player][index]=drawn!.Value;faceUp[player][index]=true;}
             else discard.Add(drawn!.Value);drawn=null;
@@ -263,14 +265,13 @@ namespace TrumpLab.Games
         }
         private static int Value(Card card)=>card.Rank==1?1:card.Rank==2?-2:card.Rank==13?0:Math.Min(card.Rank,10);
         private static int LayoutScore(IReadOnlyList<Card> cards){int total=0;for(int column=0;column<3;column++)if(cards[column].Rank!=cards[column+3].Rank)total+=Value(cards[column])+Value(cards[column+3]);return total;}
-        private void ScoreHole(){for(int player=0;player<Players;player++)scores[player]+=LayoutScore(layouts[player]);if(hole>=9)finished=true;else StartHole();}
-        private void RecycleStock(){Card top=Pop(discard);stock=discard.ToList();discard.Clear();discard.Add(top);rng.Shuffle(stock);}
+        private void ScoreHole(){for(int player=0;player<Players;player++)scores[player]+=LayoutScore(layouts[player]);if(hole>=9)finished=true;else{dealer=(dealer+1)%Players;StartHole();}}
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
-        {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="reveal")return actions[0];if(phase=="draw")return Value(discard.Last())<=4?new Action("draw_discard"):new Action("draw_stock");int target=Enumerable.Range(0,6).OrderByDescending(index=>faceUp[player][index]?Value(layouts[player][index]):6).First();return drawn.HasValue&&Value(drawn.Value)<(faceUp[player][target]?Value(layouts[player][target]):6)?new Action("swap",value:target.ToString(CultureInfo.InvariantCulture)):new Action("discard_drawn");}
+        {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="reveal")return actions[0];if(phase=="draw")return actions.Count==1?actions[0]:Value(discard.Last())<=4?new Action("draw_discard"):new Action("draw_stock");int target=Enumerable.Range(0,6).OrderBy(index=>faceUp[player][index]?1:0).ThenByDescending(index=>Value(layouts[player][index])).First();if(drewDiscard)return new Action("swap",value:target.ToString(CultureInfo.InvariantCulture));return drawn.HasValue&&Value(drawn.Value)<(faceUp[player][target]?Value(layouts[player][target]):6)?new Action("swap",value:target.ToString(CultureInfo.InvariantCulture)):new Action("discard_drawn");}
         public override bool IsTerminal=>finished;
         public override GameResult Result(){if(!finished)throw new InvalidOperationException("Game is not over.");int low=scores.Min();return new GameResult(Enumerable.Range(0,Players).Where(i=>scores[i]==low),scores.Select(value=>(double)-value),"lowest score after nine holes",TurnCount,new Dictionary<string,object>{{"golf_scores",scores.ToArray()}});}
-        public override string View(int? player=null){int viewer=player??CurrentPlayer;string Own()=>string.Join(" ",Enumerable.Range(0,6).Select(index=>faceUp[viewer][index]?layouts[viewer][index].ToString():"??"));return $"hole={hole}/9 phase={phase} scores=[{string.Join(",",scores)}] stock={stock.Count} discard={discard.Last()} face_up=[{string.Join(",",faceUp.Select(cards=>cards.Count(value=>value)))}]\nyour layout: {Own()}";}
+        public override string View(int? player=null){int viewer=player??CurrentPlayer;string Shown(int owner)=>string.Join(" ",Enumerable.Range(0,6).Select(index=>faceUp[owner][index]?layouts[owner][index].ToString():"??"));string pending=!drawn.HasValue?"-":drewDiscard||viewer==CurrentPlayer?drawn.Value.ToString():"??";string top=discard.Count==0?"-":discard.Last().ToString();return $"hole={hole}/9 dealer=P{dealer} phase={phase} scores=[{string.Join(",",scores)}] stock={stock.Count} discard={top} drawn={pending} face_up=[{string.Join(",",faceUp.Select(cards=>cards.Count(value=>value)))}] layouts=[{string.Join(" | ",Enumerable.Range(0,Players).Select(owner=>$"P{owner}:{Shown(owner)}"))}]\nyour layout: {Shown(viewer)}";}
         private static Card Pop(List<Card> cards){Card card=cards[cards.Count-1];cards.RemoveAt(cards.Count-1);return card;}
-        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("golf","ゴルフ",2,6,"layout","6枚を2×3に伏せ、2枚公開から交換して、同列ペア0点の9ホール合計を最小化する。5～6人は2組を使う。","Bicycle Six Card Golf"),(p,r,o)=>new GolfGame(p,r));
+        public static void Register(GameRegistry registry)=>registry.Register(new GameInfo("golf","ゴルフ",2,6,"layout","Pagat Six-card版。6枚を2×3に伏せ、2枚公開から交換して、同列ペア0点の9ホール合計を最小化する。5～6人は2組を使う。","Pagat Six-card Golf"),(p,r,o)=>new GolfGame(p,r));
     }
 }

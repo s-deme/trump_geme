@@ -78,12 +78,7 @@ namespace TrumpLab.Games
         private void AddLeadActions(List<Action> actions, string kind, FCard card, int owner)
         {
             string value = owner + ":" + card.Id;
-            if (firstLead && card.Card.Rank == 1)
-            {
-                actions.Add(new Action(kind + "_trump", card.Card, value: value));
-                actions.Add(new Action(kind + "_no_trump", card.Card, value: value));
-            }
-            else actions.Add(new Action(kind, card.Card, value: value));
+            actions.Add(new Action(kind, card.Card, value: value));
         }
 
         public override void Apply(Action action)
@@ -105,7 +100,7 @@ namespace TrumpLab.Games
                 if (owner == player) hands[player].Remove(card); else { tableCards[owner].Remove(card); refillOwners.Enqueue(owner); }
                 if (firstLead)
                 {
-                    trump = action.Kind.EndsWith("_no_trump", StringComparison.Ordinal) ? (Suit?)null : card.Card.Suit;
+                    trump = card.Card.Suit;
                     firstLead = false;
                 }
                 trick.Add(Tuple.Create(owner, card)); CurrentPlayer = NextUnplayed(owner); return;
@@ -138,14 +133,14 @@ namespace TrumpLab.Games
             int lastTeam = pendingLeader % 2;
             for (int team = 0; team < 2; team++)
             {
-                int dealScore = team == lastTeam ? 4 : 0; int won = pairTricks[team];
-                if (won >= 7) dealScore += won == 7 ? 2 : won == 8 ? 5 : won == 9 ? 10 : won == 10 ? 20 : won == 11 ? 10 : won == 12 ? 5 : 2;
+                int won = pairTricks[team]; int trickScore = 0;
+                if (won >= 7) trickScore = won == 7 ? 2 : won == 8 ? 5 : won == 9 ? 10 : won == 10 ? 20 : won == 11 ? 10 : won == 12 ? 5 : 2;
                 int penalty = Enumerable.Range(0, 4).Where(player => player % 2 == team).Sum(player =>
-                    tableCards[player].Count(card => trump.HasValue ? card.Card.Suit == trump.Value : card.Card.Rank >= 11)) * 3;
-                scores[team] += Math.Max(0, dealScore - penalty);
+                    tableCards[player].Count(card => card.Card.Suit == trump!.Value)) * 3;
+                scores[team] += Math.Max(0, trickScore - penalty) + (team == lastTeam ? 4 : 0);
             }
             int high = scores.Max(), low = scores.Min();
-            if (high >= 60 || high >= 42 && high - low >= 5) finished = true; else StartDeal();
+            if (high >= 42 && high != low) finished = true; else StartDeal();
         }
 
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
@@ -172,8 +167,8 @@ namespace TrumpLab.Games
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("finesse", "フィネス", 4, 4, "team open-table trick-taking",
-                "52枚＋J/Q/K複製12枚を、各13枚手札＋公開table3枚に分ける。lead時は自分の手札かpartnerのtable札を指定でき、初lead suitが切り札（Aならno-trump可）。table使用後は所有者が手札から補充し、勝数曲線・最終4点・残table罰点で42点差5または60点を争う。",
-                "gokurakism/Finesse"),
+                "52枚＋J/Q/K複製12枚を、各13枚手札＋公開table3枚に分ける。lead時は自分の手札かpartnerのtable札を指定でき、初lead suitを切り札とする。table使用後は所有者が手札から補充し、勝数曲線から残table切り札を減点（下限0）した後に最終trick4点を加え、42点到達時の高得点teamを勝者とする。",
+                "ゲームファーム/フィネス"),
             (players, random, options) => new FinesseGame(players, random));
     }
 

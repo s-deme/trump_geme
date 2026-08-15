@@ -130,7 +130,14 @@ namespace TrumpLab
             "trump_crew", "baohuang", "napoleon",
             "card_capture", "scoundrel", "gosankyo", "german_whist", "gin_rummy",
             "sono", "crisp", "cribbage", "super_trump", "daifugo_two",
-            "briscola", "bohemian_schneider", "durak", "officer_skat"
+            "briscola", "bohemian_schneider", "durak", "officer_skat",
+            "klaberjass", "norwegian_whist", "schnapsen", "goldmine", "knave", "hamlet", "whos_who", "mizerka", "sheriff", "farbwechsel", "kaedama_trick", "ninety_nine",
+            "minimo", "trick_of_the_dead", "corpo", "tanuki", "multi_stack", "dubito",
+            "three_tricks", "mini_misere", "agony_aunt", "collusion", "confirmation", "big_two",
+            "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
+            "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
+            "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
+            "baccarat", "black_lady", "four_tricks"
         };
 
         private static Dictionary<string,string> ImplementationIds()

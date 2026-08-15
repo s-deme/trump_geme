@@ -154,10 +154,12 @@ namespace TrumpLab.Games
     internal sealed class TableMeld
     {
         public List<Card> Cards { get; }=new List<Card>();
+        public List<int> CardOwners { get; }=new List<int>();
         public string Kind { get; set; }
         public int Owner { get; }
-        public TableMeld(IEnumerable<Card> cards,string kind,int owner){Cards.AddRange(cards);Kind=kind;Owner=owner;}
-        public override string ToString()=>$"{Kind}[{string.Join(" ",Cards)}]";
+        public TableMeld(IEnumerable<Card> cards,string kind,int owner){Cards.AddRange(cards);CardOwners.AddRange(Cards.Select(_=>owner));Kind=kind;Owner=owner;}
+        public void Add(Card card,int owner){Cards.Add(card);CardOwners.Add(owner);}
+        public override string ToString()=>$"{Kind}[{string.Join(" ",Cards.Select((card,index)=>card+"@P"+CardOwners[index]))}]";
     }
 
     internal static class RummyRules
@@ -236,7 +238,7 @@ namespace TrumpLab.Games
             if(action.Kind=="meld")
             {List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(action.Value!));melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));return;}
             if(action.Kind=="layoff")
-            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Cards.Add(card);if(meld.Kind=="seven")meld.Kind=card.Rank==7?"set":"run";return;}
+            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Add(card,player);if(meld.Kind=="seven")meld.Kind=card.Rank==7?"set":"run";return;}
             int discardIndex=int.Parse(action.Value!,CultureInfo.InvariantCulture);Card thrown=hands[player][discardIndex];hands[player].RemoveAt(discardIndex);discard.Add(thrown);hasPlayed[player]=true;
             if(hands[player].Count==0){winner=player;winnerHadMeld=hadMeldAtTurnStart;finished=true;return;}BeginClaims(player);
         }
@@ -296,18 +298,20 @@ namespace TrumpLab.Games
                 if(action.Kind=="end_hand"){ScoreHand();return;}if(action.Kind=="draw_stock"){hands[player].Add(Pop(stock));protectedIndex=-1;phase="meld";return;}
                 if(action.Kind=="draw_discard"){hands[player].Add(Pop(discard));protectedIndex=hands[player].Count-1;phase="meld";return;}
                 string[] parts=action.Value!.Split('|');int pileIndex=int.Parse(parts[0],CultureInfo.InvariantCulture);Card selected=discard[pileIndex];List<Card> claimed=discard.Skip(pileIndex).ToList();discard.RemoveRange(pileIndex,discard.Count-pileIndex);
-                List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(parts[1]));cards.Add(selected);claimed.RemoveAt(0);hands[player].AddRange(claimed);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=cards.Sum(Value);protectedIndex=-1;phase="meld";return;
+                List<Card> cards=RummyRules.RemoveIndexes(hands[player],RummyRules.ParseIndexes(parts[1]));cards.Add(selected);claimed.RemoveAt(0);hands[player].AddRange(claimed);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=MeldValue(cards);protectedIndex=-1;phase="meld";return;
             }
             if(action.Kind=="meld")
-            {int[] indexes=RummyRules.ParseIndexes(action.Value!);AdjustProtected(indexes);List<Card> cards=RummyRules.RemoveIndexes(hands[player],indexes);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=cards.Sum(Value);if(hands[player].Count==0)ScoreHand();return;}
+            {int[] indexes=RummyRules.ParseIndexes(action.Value!);AdjustProtected(indexes);List<Card> cards=RummyRules.RemoveIndexes(hands[player],indexes);melds.Add(new TableMeld(cards,RummyRules.Kind(cards),player));meldedValues[player]+=MeldValue(cards);if(hands[player].Count==0)ScoreHand();return;}
             if(action.Kind=="layoff")
-            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);AdjustProtected(new[]{index});Card card=hands[player][index];hands[player].RemoveAt(index);melds[action.Target!.Value].Cards.Add(card);meldedValues[player]+=Value(card);if(hands[player].Count==0)ScoreHand();return;}
+            {int index=int.Parse(action.Value!,CultureInfo.InvariantCulture);AdjustProtected(new[]{index});Card card=hands[player][index];hands[player].RemoveAt(index);TableMeld meld=melds[action.Target!.Value];meld.Add(card,player);meldedValues[player]+=card.Rank==1&&meld.Kind=="run"&&meld.Cards.Any(value=>value.Rank==2)?1:Value(card);if(hands[player].Count==0)ScoreHand();return;}
             int discardIndex=int.Parse(action.Value!,CultureInfo.InvariantCulture);discard.Add(hands[player][discardIndex]);hands[player].RemoveAt(discardIndex);if(hands[player].Count==0){ScoreHand();return;}phase="draw";protectedIndex=-1;CurrentPlayer=(player+1)%Players;
         }
         private static int Value(Card card)=>card.Rank==1?15:Math.Min(card.Rank,10);
+        private static int MeldValue(IEnumerable<Card> cards)
+        {Card[] values=cards.ToArray();bool lowAce=values.Any(card=>card.Rank==1)&&values.Any(card=>card.Rank==2)&&RummyRules.IsRun(values,true);return values.Sum(card=>card.Rank==1&&lowAce?1:Value(card));}
         private void AdjustProtected(IEnumerable<int> removed)
         {if(protectedIndex<0)return;int[] indexes=removed.ToArray();if(indexes.Contains(protectedIndex)){protectedIndex=-1;return;}protectedIndex-=indexes.Count(index=>index<protectedIndex);}
-        private void ScoreHand(){for(int player=0;player<Players;player++)scores[player]+=meldedValues[player]-hands[player].Sum(Value);if(scores.Max()>=targetScore)finished=true;else StartHand();}
+        private void ScoreHand(){for(int player=0;player<Players;player++)scores[player]+=meldedValues[player]-hands[player].Sum(Value);int high=scores.Max();if(high>=targetScore&&scores.Count(score=>score==high)==1)finished=true;else StartHand();}
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)
         {IReadOnlyList<Action> actions=LegalActions(player);if(phase=="draw"){Action[] claims=actions.Where(action=>action.Kind=="take_discard_meld").ToArray();if(claims.Length>0)return claims[0];if(actions.Any(action=>action.Kind=="end_hand"))return actions.First(action=>action.Kind=="end_hand");return actions.First(action=>action.Kind=="draw_stock"||action.Kind=="draw_discard");}Action[] plays=actions.Where(action=>action.Kind=="meld"||action.Kind=="layoff").ToArray();if(plays.Length>0)return plays[0];return actions.Where(action=>action.Kind=="discard").OrderByDescending(action=>Value(hands[player][int.Parse(action.Value!,CultureInfo.InvariantCulture)])).First();}
         public override bool IsTerminal=>finished;

@@ -17,7 +17,8 @@ namespace TrumpLab.Games
     public sealed class TripleCrownGame : GameBase
     {
         private readonly DeterministicRandom rng;
-        private readonly int sessionDeals;
+        private readonly int targetScore;
+        private readonly int? sessionDeals;
         private readonly List<List<Card>> hands = Enumerable.Range(0, 4).Select(_ => new List<Card>()).ToList();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
         private readonly int[] tricks = new int[4];
@@ -35,7 +36,11 @@ namespace TrumpLab.Games
         public override string GameId => "triple_crown";
         public override string Name => "トリプルクラウン";
         public TripleCrownGame(int players, DeterministicRandom rng, IReadOnlyDictionary<string, string> options)
-        { Players = 4; this.rng = rng; sessionDeals = Math.Max(1, options.Integer("deals", 4)); StartDeal(); }
+        {
+            Players = 4; this.rng = rng; targetScore = Math.Max(1, options.Integer("target_score", 15));
+            sessionDeals = options.ContainsKey("deals") ? Math.Max(1, options.Integer("deals", 4)) : (int?)null;
+            StartDeal();
+        }
 
         private void StartDeal()
         {
@@ -95,7 +100,9 @@ namespace TrumpLab.Games
                 int teamAward = Math.Max(0, 5 - tricks[highPlayer]) + tricks[lowPlayer];
                 for (int player = 0; player < 4; player++) if (player != highPlayer && player != lowPlayer) scores[player] += teamAward;
             }
-            dealsPlayed++; if (dealsPlayed >= sessionDeals) finished = true; else StartDeal();
+            dealsPlayed++;
+            if (sessionDeals.HasValue ? dealsPlayed >= sessionDeals.Value : scores.Max() >= targetScore) finished = true;
+            else StartDeal();
         }
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
@@ -116,19 +123,21 @@ namespace TrumpLab.Games
         public override GameResult Result()
         {
             if (!finished) throw new InvalidOperationException("Game is not over."); int high = scores.Max();
-            return new GameResult(Enumerable.Range(0, 4).Where(player => scores[player] == high), scores.Select(value => (double)value), "four hidden-crown deals", TurnCount);
+            return new GameResult(Enumerable.Range(0, 4).Where(player => scores[player] == high), scores.Select(value => (double)value),
+                sessionDeals.HasValue ? "configured hidden-crown deals" : "first to the Triple Crown target", TurnCount);
         }
         public override string View(int? player = null)
         {
             int viewer = player ?? CurrentPlayer; string role = RoleOf(viewer);
-            return $"phase={phase} deal={dealsPlayed + 1}/{sessionDeals} dealer=P{dealer} your_role={role} trump={(trump.HasValue ? Card.SuitCode(trump.Value) : "none")} " +
+            string session = sessionDeals.HasValue ? $"deal={dealsPlayed + 1}/{sessionDeals.Value}" : $"deal={dealsPlayed + 1} target={targetScore}";
+            return $"phase={phase} {session} dealer=P{dealer} your_role={role} trump={(trump.HasValue ? Card.SuitCode(trump.Value) : "none")} " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] scores=[{string.Join(",", scores)}] " +
                 $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("triple_crown", "トリプルクラウン", 4, 4, "hidden-objective trick-taking",
                 "AS保持者は5勝以上のHigh、2D保持者は0勝のLow、他2人は両者の失敗量を得るTeam Crown。両札保持者はHigh/Lowを秘密選択して切り札を指定し、どちらか達成で5点、失敗時は他3人へ宣言不足量の2倍を与える。",
-                "gokurakism/Triple Crown", new Dictionary<string, string> { { "deals", "4" } }),
+                "gokurakism/Triple Crown", new Dictionary<string, string> { { "target_score", "15" }, { "deals", "明示時のみ短縮戦" } }),
             (players, random, options) => new TripleCrownGame(players, random, options));
     }
 
@@ -176,7 +185,7 @@ namespace TrumpLab.Games
             {
                 var actions = hands[actual].Where(card => layout.Count == 0 || layout.Any(placed => Adjacent(card, placed)))
                     .Select(card => new Action("place_domino", card)).ToList();
-                if (aceRun) actions.Add(new Action("finish_ace_run"));
+                if (aceRun && actions.Count == 0) actions.Add(new Action("finish_ace_run"));
                 else if (actions.Count == 0) actions.Add(new Action("pass"));
                 return actions;
             }
@@ -334,7 +343,7 @@ namespace TrumpLab.Games
         }
         private void BeginTrick(int leader)
         {
-            trickLeader = leader; playOrder.Clear(); int direction = (leader + 3) % 4 == Partner(leader) ? -1 : 1;
+            trickLeader = leader; playOrder.Clear(); int direction = (leader + 1) % 4 == Partner(leader) ? -1 : 1;
             for (int offset = 0; offset < 4; offset++) playOrder.Add((leader + direction * offset + 8) % 4);
             orderIndex = 0; CurrentPlayer = leader;
         }

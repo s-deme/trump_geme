@@ -263,7 +263,7 @@ namespace TrumpLab.Games
             for (int player = 0; player < 5; player++)
             {
                 if (twoPartners) scores[player] -= Math.Abs(12 - points[player] - points[(player + 2) % 5] - points[(player + 3) % 5]);
-                else { int partnerPoints = points[(player + 2) % 5]; scores[player] += points[player] <= partnerPoints ? points[player] : -(points[player] - partnerPoints); }
+                else { int partnerPoints = points[(player + 3) % 5]; scores[player] += points[player] <= partnerPoints ? points[player] : -(points[player] - partnerPoints); }
             }
             deals++; if (deals >= 5) finished = true; else StartDeal();
         }
@@ -315,6 +315,7 @@ namespace TrumpLab.Games
         private Suit trump;
         private Card calledCard;
         private bool partnerRevealed;
+        private IReadOnlyList<int> winners = Array.Empty<int>();
         private string phase = "bid";
         private bool finished;
         public override string GameId => "schmear";
@@ -328,9 +329,12 @@ namespace TrumpLab.Games
         private void StartDeal()
         {
             foreach (List<SCard> pile in hands) pile.Clear(); foreach (List<SCard> pile in captured) pile.Clear(); trick.Clear(); stock.Clear(); Array.Clear(dealSpecial, 0, Players);
-            stock.AddRange(Cards.StandardDeck(Enumerable.Range(4, 10)).Select(card => new SCard(card))); stock.Add(new SCard(null)); rng.Shuffle(stock); dealer = (dealer + 1) % Players;
+            IEnumerable<Card> pack = Players == 5
+                ? Cards.StandardDeck(new[] { 1 }.Concat(Enumerable.Range(4, 10)))
+                : Cards.StandardDeck();
+            stock.AddRange(pack.Select(card => new SCard(card))); stock.Add(new SCard(null)); rng.Shuffle(stock); dealer = (dealer + 1) % Players;
             for (int round = 0; round < 6; round++) for (int offset = 1; offset <= Players; offset++) hands[(dealer + offset) % Players].Add(Pop(stock));
-            bidsMade = 0; highBid = 0; declarer = partner = -1; partnerRevealed = false; phase = "bid"; CurrentPlayer = (dealer + 1) % Players;
+            bidsMade = 0; highBid = 0; declarer = partner = -1; partnerRevealed = false; winners = Array.Empty<int>(); phase = "bid"; CurrentPlayer = (dealer + 1) % Players;
         }
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
@@ -339,17 +343,19 @@ namespace TrumpLab.Games
             if (phase == "choose_trump") return Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit => new Action("choose_trump", value: Card.SuitCode(suit))).ToArray();
             if (phase == "exchange")
             {
-                var actions = hands[actual].Where(card => !IsTrump(card)).Select(card => new Action("discard_exchange", card.Card, value: card.Id)).ToList(); actions.Add(new Action("finish_exchange")); return actions;
+                var actions = new List<Action>();
+                if (discarded < 3) actions.AddRange(hands[actual].Where(card => !IsTrump(card)).Select(card => new Action("discard_exchange", card.Card, value: card.Id)));
+                actions.Add(new Action("finish_exchange")); return actions;
             }
             if (phase == "dealer_discard")
             {
-                IEnumerable<SCard> cards = hands[actual].Where(card => !IsTrump(card)); if (!cards.Any()) cards = hands[actual].Where(card => !PointSpecial(card));
+                IEnumerable<SCard> cards = hands[actual].Where(card => !IsTrump(card)); if (!cards.Any()) cards = hands[actual].Where(card => !ProtectedTrump(card));
                 return cards.Select(card => new Action("dealer_discard", card.Card, value: card.Id)).ToArray();
             }
             if (phase == "call_partner")
             {
                 var actions = new List<Action> { new Action("play_solo") };
-                foreach (Card card in Cards.StandardDeck(Enumerable.Range(4, 10)).Where(card => hands[actual].All(item => item.Card != card))) actions.Add(new Action("call_partner", card, value: card.ToString()));
+                foreach (Card card in Cards.StandardDeck(new[] { 1 }.Concat(Enumerable.Range(4, 10))).Where(card => hands[actual].All(item => item.Card != card))) actions.Add(new Action("call_partner", card, value: card.ToString()));
                 return actions;
             }
             IEnumerable<SCard> playable = hands[actual];
@@ -368,7 +374,7 @@ namespace TrumpLab.Games
             {
                 bidsMade++; if (action.Kind == "bid") { highBid = int.Parse(action.Value!); declarer = player; }
                 if (bidsMade < Players) { CurrentPlayer = (player + 1) % Players; return; }
-                if (declarer < 0) { highBid = 3; declarer = (dealer + 1) % Players; }
+                if (declarer < 0) { dealer = (dealer - 1 + Players) % Players; StartDeal(); return; }
                 phase = "choose_trump"; CurrentPlayer = declarer; return;
             }
             if (phase == "choose_trump")
@@ -430,11 +436,22 @@ namespace TrumpLab.Games
             Suit leftSuit = Enum.GetValues(typeof(Suit)).Cast<Suit>().Single(suit => suit != trump && Red(suit) == Red(trump));
             int leftOwner = OwnerOfCaptured(new Card(leftSuit, 11)); if (leftOwner >= 0) dealSpecial[leftOwner]++;
             int jokerOwner = Enumerable.Range(0, Players).Where(p => captured[p].Any(card => card.Joker)).DefaultIfEmpty(-1).First(); if (jokerOwner >= 0) dealSpecial[jokerOwner]++;
-            int[] gameValues = captured.Select(pile => pile.Sum(GameValue)).ToArray(); int highGame = gameValues.Max(); foreach (int player in Enumerable.Range(0, Players).Where(p => gameValues[p] == highGame)) dealSpecial[player]++;
-            int teamPoints = declarerTeam.Sum(player => dealSpecial[player]); bool success = teamPoints >= highBid;
+            int[] gameValues = captured.Select(pile => pile.Sum(GameValue)).ToArray();
+            int declarerGame = declarerTeam.Sum(player => gameValues[player]);
+            int opponentGame = Enumerable.Range(0, Players).Where(player => !declarerTeam.Contains(player)).Sum(player => gameValues[player]);
+            if (declarerGame > opponentGame) dealSpecial[declarer]++;
+            else if (opponentGame > declarerGame) dealSpecial[Enumerable.Range(0, Players).First(player => !declarerTeam.Contains(player))]++;
+            int teamPoints = declarerTeam.Sum(player => dealSpecial[player]);
+            int opponentPoints = Enumerable.Range(0, Players).Where(player => !declarerTeam.Contains(player)).Sum(player => dealSpecial[player]);
+            bool success = teamPoints >= highBid;
             if (success) foreach (int player in declarerTeam) scores[player] += teamPoints; else foreach (int player in declarerTeam) scores[player] -= highBid;
-            foreach (int player in Enumerable.Range(0, Players).Where(player => !declarerTeam.Contains(player))) scores[player] += dealSpecial[player];
-            if (scores.Any(score => score >= targetScore)) finished = true; else StartDeal();
+            foreach (int player in Enumerable.Range(0, Players).Where(player => !declarerTeam.Contains(player))) scores[player] += opponentPoints;
+            if (scores.Any(score => score >= targetScore))
+            {
+                int high = scores.Max(); int[] tied = Enumerable.Range(0, Players).Where(player => scores[player] == high).ToArray();
+                int[] biddingSide = tied.Where(declarerTeam.Contains).ToArray(); winners = biddingSide.Length > 0 ? biddingSide : tied; finished = true;
+            }
+            else StartDeal();
         }
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
         {
@@ -447,8 +464,10 @@ namespace TrumpLab.Games
             return actions.OrderBy(action => action.Card.HasValue ? PlainStrength(action.Card.Value) : 20).First();
         }
         private int OwnerOfCaptured(Card card) => Enumerable.Range(0, Players).Where(player => captured[player].Any(item => item.Card == card)).DefaultIfEmpty(-1).First();
-        private bool IsLowTrump(SCard card) => card.Card == new Card(trump, 4);
-        private static bool PointSpecial(SCard card) => card.Joker || card.Card!.Value.Rank == 1 || card.Card.Value.Rank == 11 || card.Card.Value.Rank == 10;
+        private bool IsLowTrump(SCard card) => card.Card == new Card(trump, Players == 5 ? 4 : 2);
+        private bool ProtectedTrump(SCard card) => card.Joker || card.Card == new Card(trump, 1) ||
+            card.Card == new Card(trump, 11) || card.Card == new Card(trump, Players == 5 ? 4 : 2) ||
+            card.Card.HasValue && IsLeftBower(card.Card.Value);
         private static bool Red(Suit suit) => suit == Suit.Diamonds || suit == Suit.Hearts;
         private static int PlainStrength(Card card) => card.Rank == 1 ? 14 : card.Rank;
         private static int GameValue(SCard card) => card.Joker ? 1 : card.Card!.Value.Rank == 1 ? 4 : card.Card.Value.Rank == 13 ? 3 : card.Card.Value.Rank == 12 ? 2 : card.Card.Value.Rank == 11 ? 1 : card.Card.Value.Rank == 10 ? 10 : 0;
@@ -457,15 +476,15 @@ namespace TrumpLab.Games
         public override bool IsTerminal => finished;
         public override GameResult Result()
         {
-            if (!finished) throw new InvalidOperationException("Game is not over."); int high = scores.Max(); return new GameResult(Enumerable.Range(0, Players).Where(player => scores[player] == high), scores.Select(value => (double)value), "Schmear target score", TurnCount);
+            if (!finished) throw new InvalidOperationException("Game is not over."); return new GameResult(winners, scores.Select(value => (double)value), "Schmear target score", TurnCount);
         }
         public override string View(int? player = null)
         {
-            int viewer = player ?? CurrentPlayer; return $"phase={phase} dealer=P{dealer} bid={highBid} declarer={(declarer < 0 ? "-" : "P" + declarer)} trump={Card.SuitCode(trump)} " +
+            int viewer = player ?? CurrentPlayer; return $"phase={phase} dealer=P{dealer} bid={highBid} declarer={(declarer < 0 ? "-" : "P" + declarer)} trump={(phase == "bid" ? "-" : Card.SuitCode(trump))} called_card={(phase == "play" && Players == 5 ? calledCard.ToString() : "-")} stock={stock.Count} " +
                 $"partner={(partnerRevealed || Players == 6 ? partner < 0 ? "solo" : "P" + partner : "hidden")} special=[{string.Join(",", dealSpecial)}] scores=[{string.Join(",", scores)}] table=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
         public static void Register(GameRegistry registry) => registry.Register(
-            new GameInfo("schmear", "シュミア", 5, 6, "bid point-trick", "2・3を除く44枚＋Jokerで各6枚。3～6を1回bidし、宣言trump決定後に非trumpを最大3枚交換、dealerが残りを取り6枚へ戻す。5人はcard指名partner、6人は交互3対3。High/Low/正J/裏J/Joker/Gameの6点をbid以上集め21点を争う。", "gokurakism/Schmier", new Dictionary<string, string> { { "target_score", "21" } }),
+            new GameInfo("schmear", "シュミア", 5, 6, "bid point-trick", "Pagat St Paul版。6人は52枚＋Joker、5人は2・3を除く44枚＋Jokerで各6枚。3～6を1巡bidし、trump決定後に非trumpを最大3枚交換、dealerが残りを取り6枚へ戻す。5人はcard指名partner、6人は交互3対3。High/Low/正J/裏J/Joker/Gameのteam6点をbid以上集め21点を争う。", "Pagat/Schmier", new Dictionary<string, string> { { "target_score", "21" } }),
             (players, random, options) => new SchmearGame(players, random, options));
     }
 }

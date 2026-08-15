@@ -488,6 +488,8 @@ namespace TrumpLab.Games
 
         private int TrickWinner()
         {
+            if (phase == "first_half")
+                return trick.OrderByDescending(item => Strength(item.Item2)).First().Item1;
             Tuple<int, Card>? firstKing = trick.FirstOrDefault(item => item.Item2.Rank == 13);
             if (firstKing != null) return firstKing.Item1;
             Suit led = trick[0].Item2.Suit; Tuple<int, Card> best = trick[0];
@@ -538,6 +540,7 @@ namespace TrumpLab.Games
         private readonly int targetScore;
         private readonly List<List<Card>> hands = NewHands();
         private readonly List<List<Card>> pokerHands = NewHands();
+        private readonly List<List<Card>> revealedPokerHands = NewHands();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
         private readonly int[] tricks = new int[3];
         private readonly int[] scores = new int[3];
@@ -547,6 +550,7 @@ namespace TrumpLab.Games
         private int bidder = -1;
         private int tricksPlayed;
         private string phase = "reserve_poker";
+        private bool hasPokerShowdown;
         private bool finished;
 
         public override string GameId => "corpo";
@@ -644,6 +648,12 @@ namespace TrumpLab.Games
 
         private void ScorePoker()
         {
+            for (int player = 0; player < 3; player++)
+            {
+                revealedPokerHands[player].Clear();
+                revealedPokerHands[player].AddRange(pokerHands[player]);
+            }
+            hasPokerShowdown = true;
             int[][] values = pokerHands.Select(PokerValue).ToArray();
             int[] winners = Enumerable.Range(0, 3).Where(player =>
                 Enumerable.Range(0, 3).All(other => Compare(values[player], values[other]) >= 0)).ToArray();
@@ -700,11 +710,14 @@ namespace TrumpLab.Games
 
         public override string View(int? player = null)
         {
-            int viewer = player ?? CurrentPlayer; bool revealPoker = phase == "play" && tricksPlayed >= 9;
-            string poker = revealPoker ? string.Join(" ", pokerHands[viewer]) : pokerHands[viewer].Count + " reserved";
+            int viewer = player ?? CurrentPlayer;
+            string poker = pokerHands[viewer].Count + " reserved";
+            string revealedPoker = hasPokerShowdown ? string.Join(" | ", Enumerable.Range(0, 3)
+                .Select(index => "P" + index + ":" + string.Join(" ", revealedPokerHands[index]))) : "none";
             return $"phase={phase} dealer=P{dealer} bidder={(bidder < 0 ? "none" : "P" + bidder)} tricks_played={tricksPlayed}/9 " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] " +
-                $"scores=[{string.Join(",", scores)}] poker={poker} hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
+                $"scores=[{string.Join(",", scores)}] poker={poker} revealed_poker=[{revealedPoker}] " +
+                $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
 
         public static void Register(GameRegistry registry) => registry.Register(

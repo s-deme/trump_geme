@@ -16,7 +16,8 @@ namespace TrumpLab.Games
     public sealed class NinetyNineGame : GameBase
     {
         private readonly DeterministicRandom rng;
-        private readonly int targetScore;
+        private readonly int sessionDeals;
+        private readonly int? targetScore;
         private readonly List<List<Card>> hands = new List<List<Card>>
         {
             new List<Card>(), new List<Card>(), new List<Card>()
@@ -28,8 +29,10 @@ namespace TrumpLab.Games
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
         private readonly int[] tricks = new int[3];
         private readonly int[] scores = new int[3];
+        private readonly int?[] revealedBids = new int?[3];
         private readonly bool[] declared = new bool[3];
         private int dealer = 2;
+        private int completedDeals;
         private int completedBids;
         private int premiumLevel;
         private int premiumHolder = -1;
@@ -46,7 +49,10 @@ namespace TrumpLab.Games
             IReadOnlyDictionary<string, string> options)
         {
             Players = 3; this.rng = rng;
-            targetScore = Math.Max(1, options.Integer("target_score", 100)); StartDeal(null);
+            sessionDeals = Math.Max(1, options.Integer("deals", 9));
+            targetScore = options.ContainsKey("target_score")
+                ? Math.Max(1, options.Integer("target_score", 100)) : (int?)null;
+            StartDeal(null);
         }
 
         private void StartDeal(int? previousSuccesses)
@@ -141,17 +147,26 @@ namespace TrumpLab.Games
             int successCount = succeeded.Count(value => value);
             int contractPoints = successCount == 3 ? 10 : successCount == 2 ? 20 : successCount == 1 ? 30 : 0;
             for (int player = 0; player < 3; player++)
+            {
+                revealedBids[player] = succeeded[player] ? Bid(player) : (int?)null;
                 scores[player] += tricks[player] + (succeeded[player] ? contractPoints : 0);
+            }
             if (premiumHolder >= 0)
             {
                 int premium = premiumLevel == 1 ? 30 : 60;
                 if (succeeded[premiumHolder]) scores[premiumHolder] += premium;
                 else for (int player = 0; player < 3; player++) if (player != premiumHolder) scores[player] += premium;
             }
-            if (scores.Max() >= targetScore)
+            completedDeals++;
+            if (targetScore.HasValue && scores.Max() >= targetScore.Value)
             {
-                for (int player = 0; player < 3; player++) if (scores[player] >= targetScore) scores[player] += 100;
-                finished = true;
+                for (int player = 0; player < 3; player++)
+                    if (scores[player] >= targetScore.Value) scores[player] += 100;
+                phase = "finished"; finished = true;
+            }
+            else if (!targetScore.HasValue && completedDeals >= sessionDeals)
+            {
+                phase = "finished"; finished = true;
             }
             else StartDeal(successCount);
         }
@@ -186,7 +201,9 @@ namespace TrumpLab.Games
             if (!finished) throw new InvalidOperationException("Game is not over.");
             int high = scores.Max();
             return new GameResult(Enumerable.Range(0, 3).Where(player => scores[player] == high),
-                scores.Select(value => (double)value), "first to " + targetScore + " plus game bonus", TurnCount);
+                scores.Select(value => (double)value), targetScore.HasValue
+                    ? "first to " + targetScore.Value + " plus game bonus"
+                    : sessionDeals + "-deal session", TurnCount);
         }
 
         public override string View(int? player = null)
@@ -196,10 +213,16 @@ namespace TrumpLab.Games
                 ? string.Join(" ", bidCards[player]) : bidCards[player].Count == 3 ? "hidden" : bidCards[player].Count + "/3").ToArray();
             string openHand = premiumLevel == 2 && premiumHolder >= 0 ?
                 $" open_hand_P{premiumHolder}=[{string.Join(" ", hands[premiumHolder])}]" : "";
-            return $"phase={phase} dealer=P{dealer} trump={(trump.HasValue ? Card.SuitCode(trump.Value) : "N")} " +
+            string[] claims = Enumerable.Range(0, 3).Select(index => completedDeals == 0 ? "-" :
+                revealedBids[index].HasValue ? revealedBids[index]!.Value.ToString() : "hidden").ToArray();
+            int shownDeal = finished ? completedDeals : completedDeals + 1;
+            string session = targetScore.HasValue ? $"deal={shownDeal} target_score={targetScore.Value}" :
+                $"deal={shownDeal}/{sessionDeals}";
+            return $"phase={phase} {session} dealer=P{dealer} trump={(trump.HasValue ? Card.SuitCode(trump.Value) : "N")} " +
                 $"bids=[{string.Join(" | ", shownBids)}] premium={(premiumLevel == 0 ? "none" : premiumLevel == 1 ? "declare" : "reveal")} " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] " +
-                $"scores=[{string.Join(",", scores)}] hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]{openHand}\n" +
+                $"scores=[{string.Join(",", scores)}] revealed_bids=[{string.Join(",", claims)}] " +
+                $"hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]{openHand}\n" +
                 $"your hand: {string.Join(" ", hands[viewer])}";
         }
 
@@ -208,8 +231,11 @@ namespace TrumpLab.Games
 
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("ninety_nine", "ナインティナイン", 3, 3, "exact-bid trick-taking",
-                "6～Aの36枚から3枚のスート値で秘密bidし、残る9枚でexact tricksを狙う。declare/revealと成功人数連動の切り札・得点を含む。",
-                "David Parlett / Pagat", new Dictionary<string, string> { { "target_score", "100" } }),
+                "6～Aの36枚から3枚のスート値で秘密bidし、残る9枚でexact tricksを狙う。成功claim、declare/reveal、成功人数連動の切り札・得点を含む9ディール戦。",
+                "David Parlett / Pagat", new Dictionary<string, string>
+                {
+                    { "deals", "9" }, { "target_score", "100" }
+                }),
             (players, random, options) => new NinetyNineGame(players, random, options));
     }
 

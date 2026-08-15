@@ -23,5 +23,24 @@
              Link="SecondRuleAuditTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/ThirdRuleAuditTests.cs"
              Link="ThirdRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/RuleAuditTestSupport.cs"
+             Link="RuleAuditTestSupport.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/FourthRuleAuditTests.cs"
+             Link="FourthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/FifthRuleAuditTests.cs"
+             Link="FifthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SixthRuleAuditTests.cs" Link="SixthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SeventhRuleAuditTests.cs" Link="SeventhRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/EighthRuleAuditTests.cs" Link="EighthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/NinthRuleAuditTests.cs" Link="NinthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/TenthRuleAuditTests.cs" Link="TenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/EleventhRuleAuditTests.cs" Link="EleventhRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/TwelfthRuleAuditTests.cs" Link="TwelfthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/ThirteenthRuleAuditTests.cs" Link="ThirteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/FourteenthRuleAuditTests.cs" Link="FourteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/FifteenthRuleAuditTests.cs" Link="FifteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SixteenthRuleAuditTests.cs" Link="SixteenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SeventeenthRuleAuditTests.cs" Link="SeventeenthRuleAuditTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/EighteenthRuleAuditTests.cs" Link="EighteenthRuleAuditTests.cs" />
   </ItemGroup>
 </Project>

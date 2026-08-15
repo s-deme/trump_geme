@@ -117,7 +117,8 @@ namespace TrumpLab.Games
         private void StartHand()
         {
             dealer=(dealer+1)%4;List<Card> deck=Cards.Shuffled(Cards.StandardDeck(new[]{1,9,10,11,12,13}),rng);hands=Enumerable.Range(0,4).Select(_=>new List<Card>()).ToList();
-            for(int round=0;round<5;round++)for(int player=0;player<4;player++)hands[player].Add(Pop(deck));upcard=Pop(deck);
+            for(int offset=1;offset<=4;offset++){int player=(dealer+offset)%4;for(int card=0;card<3;card++)hands[player].Add(Pop(deck));}
+            for(int offset=1;offset<=4;offset++){int player=(dealer+offset)%4;for(int card=0;card<2;card++)hands[player].Add(Pop(deck));}upcard=Pop(deck);
             Array.Clear(tricks,0,tricks.Length);trick.Clear();offers=0;auctionRound=1;maker=-1;inactive=-1;trump=null;alone=false;phase="order";CurrentPlayer=(dealer+1)%4;
         }
         private static bool SameColor(Suit left,Suit right)=>(left==Suit.Clubs||left==Suit.Spades)==(right==Suit.Clubs||right==Suit.Spades);
@@ -213,7 +214,7 @@ namespace TrumpLab.Games
         {
             for(int team=0;team<2;team++)
             {int contract=bids[team]+bids[team+2],won=tricks[team]+tricks[team+2];if(won>=contract){int over=won-contract;teamScores[team]+=10*contract+over;bags[team]+=over;if(bags[team]>=10){teamScores[team]-=100;bags[team]-=10;}}}
-            if(teamScores.Max()>=targetScore)finished=true;else StartHand();
+            int high=teamScores.Max();if(high>=targetScore&&teamScores.Count(score=>score==high)==1)finished=true;else StartHand();
         }
         private int Next(int player,Func<int,bool> predicate){for(int offset=1;offset<=4;offset++){int next=(player+offset)%4;if(predicate(next))return next;}return -1;}
         public override Action ChooseCpuAction(int player,DeterministicRandom random,int difficulty=1)

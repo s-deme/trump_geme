@@ -100,6 +100,8 @@ namespace TrumpLab.Games
         private readonly List<List<Card>> hands;
         private readonly int[] passes;
         private readonly int[] finishOrder;
+        private readonly bool[,] placed = new bool[4,14];
+        private readonly List<int> eliminated = new List<int>();
         private readonly int[] low = Enumerable.Repeat(7,4).ToArray();
         private readonly int[] high = Enumerable.Repeat(7,4).ToArray();
         private int nextPlace=1;
@@ -114,6 +116,7 @@ namespace TrumpLab.Games
             hands=Enumerable.Range(0,players).Select(_=>new List<Card>()).ToList();
             for(int index=0;index<deck.Count;index++)hands[index%players].Add(deck[index]);
             passes=new int[players];finishOrder=new int[players];
+            for(int suit=0;suit<4;suit++)placed[suit,7]=true;
             int diamondSevenOwner=0;
             for(int player=0;player<players;player++)
             {
@@ -145,26 +148,37 @@ namespace TrumpLab.Games
             if(action.Kind=="play")
             {
                 Card card=action.Card!.Value;hands[player].Remove(card);int suit=(int)card.Suit;
-                if(card.Rank<7)low[suit]=card.Rank;else high[suit]=card.Rank;
+                placed[suit,card.Rank]=true;ExtendConnectedRow(suit);
                 if(hands[player].Count==0)finishOrder[player]=nextPlace++;
             }
             else if(action.Kind=="pass")passes[player]++;
             else
             {
-                foreach(Card card in hands[player])
-                {int suit=(int)card.Suit;low[suit]=Math.Min(low[suit],card.Rank);high[suit]=Math.Max(high[suit],card.Rank);}
-                hands[player].Clear();finishOrder[player]=Players;
+                foreach(Card card in hands[player])placed[(int)card.Suit,card.Rank]=true;
+                hands[player].Clear();finishOrder[player]=-(eliminated.Count+1);eliminated.Add(player);
+                for(int suit=0;suit<4;suit++)ExtendConnectedRow(suit);
             }
             CompletePlayersWithNoCards();
-            if(nextPlace>Players){finished=true;return;}
+            if(finishOrder.All(place=>place!=0)){FinalizeEliminatedPlaces();finished=true;return;}
             CurrentPlayer=NextActive(player);
+        }
+
+        private void ExtendConnectedRow(int suit)
+        {
+            while(low[suit]>1&&placed[suit,low[suit]-1])low[suit]--;
+            while(high[suit]<13&&placed[suit,high[suit]+1])high[suit]++;
+        }
+
+        private void FinalizeEliminatedPlaces()
+        {
+            for(int index=0;index<eliminated.Count;index++)finishOrder[eliminated[index]]=Players-index;
         }
 
         private void CompletePlayersWithNoCards()
         {
             foreach(int player in Enumerable.Range(0,Players).Where(i=>hands[i].Count==0&&finishOrder[i]==0).ToArray())
                 finishOrder[player]=nextPlace++;
-            if(finishOrder.All(place=>place>0))finished=true;
+            if(finishOrder.All(place=>place!=0)){FinalizeEliminatedPlaces();finished=true;}
         }
         private int NextActive(int player)
         {for(int offset=1;offset<=Players;offset++){int next=(player+offset)%Players;if(finishOrder[next]==0)return next;}return player;}
@@ -188,12 +202,14 @@ namespace TrumpLab.Games
             int viewer=player??CurrentPlayer;
             string rows=string.Join(" ",Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit=>
                 $"{Card.SuitCode(suit)}:{low[(int)suit]}-{high[(int)suit]}"));
-            return $"layout={rows} passes=[{string.Join(",",passes)}] places=[{string.Join(",",finishOrder)}]\n"+
+            string allPlaced=string.Join(" ",Enum.GetValues(typeof(Suit)).Cast<Suit>().Select(suit=>
+                $"{Card.SuitCode(suit)}:[{string.Join(",",Enumerable.Range(1,13).Where(rank=>placed[(int)suit,rank]))}]"));
+            return $"layout={rows} placed={allPlaced} passes=[{string.Join(",",passes)}] places=[{string.Join(",",finishOrder)}]\n"+
                 $"your hand: {string.Join(" ",hands[viewer])}";
         }
         public static void Register(GameRegistry registry)=>registry.Register(
             new GameInfo("sevens","七並べ",3,8,"layout-shedding",
-                "4枚の7から各スートを上下へ伸ばし、3回まで任意にパスして上がり順を競う。","Pagat Shichi Narabe"),
+                "ジョーカーなし・A/K非接続。4枚の7から各スートを上下へ伸ばし、3回まで任意にパスする。4回目は失格し、孤立札を含む全手札を所定位置へ公開する。","Trump Stadium Shichi Narabe"),
             (p,r,o)=>new SevensGame(p,r));
     }
 
@@ -305,7 +321,7 @@ namespace TrumpLab.Games
             for(int round=0;round<size;round++)for(int player=0;player<Players;player++)hands[player].Add(Pop(deck));
             kitty=deck;captured=Enumerable.Range(0,Players).Select(_=>new List<Card>()).ToList();trick.Clear();
             Card clubTwo=new Card(Suit.Clubs,2);
-            if(kitty.Contains(clubTwo))
+            if(Players==6&&kitty.Contains(clubTwo))
             {Card replacement=hands[0][hands[0].Count-1];hands[0][hands[0].Count-1]=clubTwo;kitty.Remove(clubTwo);kitty.Add(replacement);}
             heartsBroken=false;firstTrick=true;passDirection=PassDirection();
             phase=passDirection==0?"play":"pass";pending=Enumerable.Range(0,Players).Select(_=>(List<Card>?)null).ToList();
@@ -320,7 +336,7 @@ namespace TrumpLab.Games
         {
             Card clubTwo=new Card(Suit.Clubs,2);int owner=hands.FindIndex(hand=>hand.Contains(clubTwo));
             if(owner>=0)return owner;
-            return hands.Select((hand,index)=>Tuple.Create(index,hand.Where(c=>c.Suit==Suit.Clubs).DefaultIfEmpty().Min(c=>c.Rank)))
+            return hands.Select((hand,index)=>Tuple.Create(index,hand.Where(c=>c.Suit==Suit.Clubs).Select(c=>c.Rank).DefaultIfEmpty(99).Min()))
                 .OrderBy(item=>item.Item2).First().Item1;
         }
         public override IReadOnlyList<Action> LegalActions(int? player=null)

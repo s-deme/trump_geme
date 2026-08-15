@@ -49,14 +49,18 @@ Invoke-Step {
     $script:pendingCatalogueTail = dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue --pending |
         Select-Object -Last 1
 } "dotnet run catalogue --pending failed."
-if ($pendingCatalogueTail -ne "合計 75 件") {
+if ($pendingCatalogueTail -ne "合計 26 件") {
     Write-Error "Unexpected pending catalogue total: $pendingCatalogueTail"
 }
 
 $expectedVerified = @(
     "baohuang", "bohemian_schneider", "briscola", "card_capture", "cribbage", "crisp", "daifugo_two",
-    "durak", "german_whist", "gin_rummy", "gosankyo", "napoleon", "officer_skat", "scoundrel",
-    "sono", "super_trump", "trump_crew"
+    "corpo", "durak", "farbwechsel", "german_whist", "gin_rummy", "goldmine", "gosankyo", "hamlet", "kaedama_trick", "klaberjass", "knave", "minimo", "mizerka", "napoleon", "ninety_nine", "norwegian_whist",
+    "officer_skat", "scoundrel", "schnapsen", "sheriff", "sono", "super_trump", "tanuki", "three_tricks", "trick_of_the_dead", "trump_crew", "whos_who",
+    "dubito", "mini_misere", "multi_stack", "agony_aunt", "collusion", "confirmation", "big_two", "triple_crown", "guillotine", "the_trick",
+    "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke", "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
+    "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
+    "baccarat", "black_lady", "four_tricks"
 )
 $catalogueRows = dotnet run --project tools/TrumpLab.Cli --no-build -- catalogue
 if ($LASTEXITCODE -ne 0) {
@@ -75,7 +79,17 @@ $verifiedDocuments = @{
     german_whist = "german_whist"; gin_rummy = "gin_rummy"; sono = "sono"; crisp = "crisp";
     cribbage = "cribbage"; super_trump = "super_trump"; daifugo_two = "daifugo_two";
     briscola = "briscola"; bohemian_schneider = "bohemian_schneider"; durak = "durak";
-    officer_skat = "officer_skat"
+    officer_skat = "officer_skat"; klaberjass = "klaberjass"; knave = "knave"; norwegian_whist = "norwegian_whist"; schnapsen = "schnapsen"; goldmine = "goldmine";
+    hamlet = "hamlet"; whos_who = "whos_who"; mizerka = "mizerka"; sheriff = "sheriff"; farbwechsel = "farbwechsel"; kaedama_trick = "kaedama_trick";
+    ninety_nine = "ninety_nine"; minimo = "minimo"; trick_of_the_dead = "trick_of_the_dead"; corpo = "corpo";
+    tanuki = "tanuki"; multi_stack = "multi_stack"; dubito = "dubito"; three_tricks = "three_tricks"; mini_misere = "mini_misere";
+    agony_aunt = "agony_aunt"; collusion = "collusion"; confirmation = "confirmation"; big_two = "big_two"; triple_crown = "triple_crown";
+    guillotine = "guillotine"; the_trick = "the_trick";
+    truf = "truf"; pass_cut_run = "pass_cut_run"; finesse = "finesse"; yaniv = "yaniv"; wuxing_xiangke = "wuxing_xiangke";
+    schmear = "schmear"; briscola_chiamata = "briscola_chiamata"; portland = "portland";
+    go_fish = "go_fish"; old_maid = "old_maid"; gops = "gops"; spite_and_malice = "spite_and_malice";
+    golf = "golf"; sevens = "sevens"; concentration = "concentration"; page_one = "page_one"; rummy_500 = "rummy_500";
+    euchre = "euchre"; oh_hell = "oh_hell"; baccarat = "baccarat"; black_lady = "black_lady"; four_tricks = "four_tricks"
 }
 foreach ($id in $expectedVerified) {
     $document = Join-Path $repoDir ("docs/rules/" + $verifiedDocuments[$id] + ".md")

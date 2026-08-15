@@ -526,6 +526,12 @@ namespace TrumpLab.Games
         public override IReadOnlyList<Action> LegalActions(int? player = null)
         {
             int actual = ValidateTurn(player);
+            if (phase == "last_check")
+            {
+                var actions = new List<Action> { new Action("settle_last_trick") };
+                if (cardPoints[actual] >= 66) actions.Insert(0, new Action("claim_66"));
+                return actions;
+            }
             if (phase == "lead")
             {
                 var actions = hands[actual].Select(card => new Action("play", card)).ToList();
@@ -565,6 +571,12 @@ namespace TrumpLab.Games
             int player = ValidateTurn(null);
             Guard.Legal(action, LegalActions(player));
             TurnCount++;
+            if (phase == "last_check")
+            {
+                if (action.Kind == "claim_66") AwardHand(player, GamePointValue(player));
+                else AwardHand(player, 1);
+                return;
+            }
             if (action.Kind == "claim_66")
             {
                 AwardHand(player, GamePointValue(player));
@@ -620,14 +632,11 @@ namespace TrumpLab.Games
             phase = "lead";
             if (hands[0].Count == 0 && hands[1].Count == 0)
             {
-                if (closedBy.HasValue && cardPoints[closedBy.Value] < 66)
-                    AwardHand(1 - closedBy.Value, tricksWon[1 - closedBy.Value] == 0 ? 3 : 2);
-                else
-                {
-                    int handWinner = cardPoints[0] == cardPoints[1] ? winner :
-                        (cardPoints[0] > cardPoints[1] ? 0 : 1);
-                    AwardHand(handWinner, GamePointValue(handWinner));
-                }
+                // The tournament rules give the winner of the very last trick a
+                // final opportunity to check out.  If they do not, the last-trick
+                // winner receives exactly one game point; no Dix de Dernier bonus
+                // is part of the adopted Schnapsen variant.
+                phase = "last_check";
             }
         }
 

@@ -66,7 +66,7 @@ namespace TrumpLab.Games
                 if (action.Kind == "pass") active[player] = false;
                 else { calledRank = int.Parse(action.Value!); currentRankIndex = Array.IndexOf(RankOrder, calledRank); declarer = player; }
                 if (active.Count(value => value) == 1 && declarer >= 0) { phase = "choose_trump"; CurrentPlayer = declarer; return; }
-                if (active.All(value => !value)) { StartDeal(); return; }
+                if (active.All(value => !value)) { dealer = (dealer + 4) % 5; StartDeal(); return; }
                 CurrentPlayer = NextActive(player); return;
             }
             if (phase == "choose_trump")

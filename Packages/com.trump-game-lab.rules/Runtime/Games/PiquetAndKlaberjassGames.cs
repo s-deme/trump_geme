@@ -282,7 +282,11 @@ namespace TrumpLab.Games
         private readonly int[] dealPoints = new int[2];
         private readonly int[] scores = new int[2];
         private readonly int[] tricks = new int[2];
-        private readonly bool[] declaredMeld = new bool[2];
+        private readonly MeldRun?[] meldBest = new MeldRun?[2];
+        private readonly List<MeldRun>[] revealedMelds = new List<MeldRun>[]
+        {
+            new List<MeldRun>(), new List<MeldRun>()
+        };
         private readonly bool[] bellaEligible = new bool[2];
         private Card upCard;
         private Card? exposedBottom;
@@ -291,8 +295,31 @@ namespace TrumpLab.Games
         private int elder;
         private int maker;
         private int bidStep;
+        private int meldStep;
+        private int meldWinner;
+        private string? elderMeldHigh;
+        private string? elderMeldTrump;
+        private string? dealerMeldReply;
+        private bool meldResolved;
         private string phase = "bid";
         private bool finished;
+
+        private readonly struct MeldRun
+        {
+            public int Length { get; }
+            public int HighStrength { get; }
+            public Card HighCard { get; }
+            public bool IsTrump { get; }
+            public int Points => Length == 3 ? 20 : 50;
+
+            public MeldRun(int length, int highStrength, Card highCard, bool isTrump)
+            {
+                Length = length;
+                HighStrength = highStrength;
+                HighCard = highCard;
+                IsTrump = isTrump;
+            }
+        }
 
         public override string GameId => "klaberjass";
         public override string Name => "クラバヤス";
@@ -310,7 +337,8 @@ namespace TrumpLab.Games
         {
             hands[0].Clear(); hands[1].Clear(); stock.Clear(); trick.Clear();
             Array.Clear(dealPoints, 0, 2); Array.Clear(tricks, 0, 2);
-            declaredMeld[0] = false; declaredMeld[1] = false;
+            meldBest[0] = null; meldBest[1] = null;
+            revealedMelds[0].Clear(); revealedMelds[1].Clear();
             bellaEligible[0] = false; bellaEligible[1] = false;
             stock.AddRange(Cards.Shuffled(Cards.StandardDeck(new[] { 1, 7, 8, 9, 10, 11, 12, 13 }), rng));
             dealer = 1 - dealer; elder = 1 - dealer;
@@ -319,7 +347,9 @@ namespace TrumpLab.Games
                     for (int card = 0; card < 3; card++) hands[(dealer + offset) % 2].Add(Pop(stock));
             upCard = Pop(stock);
             exposedBottom = null;
-            trump = null; maker = -1; bidStep = 0; phase = "bid"; CurrentPlayer = elder;
+            trump = null; maker = -1; bidStep = 0; meldStep = 0; meldWinner = -1;
+            elderMeldHigh = null; elderMeldTrump = null; dealerMeldReply = null; meldResolved = false;
+            phase = "bid"; CurrentPlayer = elder;
         }
 
         public override IReadOnlyList<Action> LegalActions(int? player = null)
@@ -335,10 +365,7 @@ namespace TrumpLab.Games
             }
             if (phase == "meld")
             {
-                var actions = new List<Action>();
-                if (CanExchangeSeven(actual)) actions.Add(new Action("exchange_seven"));
-                actions.Add(new Action("declare_meld")); actions.Add(new Action("skip_meld"));
-                return actions;
+                return MeldActions(actual);
             }
             IEnumerable<Card> cards = hands[actual];
             if (trick.Count > 0) cards = FollowCards(actual, trick[0].Item2);
@@ -356,16 +383,7 @@ namespace TrumpLab.Games
             if (phase == "bid") { ApplyBid(action, player); return; }
             if (phase == "meld")
             {
-                if (action.Kind == "exchange_seven")
-                {
-                    Card seven = new Card(trump!.Value, 7);
-                    hands[player].Remove(seven); hands[player].Add(upCard); upCard = seven;
-                    UpdateBella(player);
-                    return;
-                }
-                declaredMeld[player] = action.Kind == "declare_meld";
-                if (player == elder) CurrentPlayer = dealer;
-                else BeginPlay();
+                ApplyMeld(action, player);
                 return;
             }
             Card card = action.Card!.Value;
@@ -402,57 +420,166 @@ namespace TrumpLab.Games
             exposedBottom = stock[0];
             for (int player = 0; player < 2; player++) UpdateBella(player);
             phase = "meld";
+            meldStep = 0;
             CurrentPlayer = elder;
         }
 
-        private void BeginPlay()
+        private IReadOnlyList<Action> MeldActions(int player)
         {
-            ResolveMelds();
+            if (meldStep == 0 || (meldStep == 1 && !meldBest[elder].HasValue))
+            {
+                var actions = new List<Action>();
+                if (CanExchangeSeven(player)) actions.Add(new Action("exchange_seven"));
+                MeldRun? best = Best(AllRuns(hands[player]));
+                if (best.HasValue)
+                    actions.Add(new Action("declare_meld", value: best.Value.Points.ToString(CultureInfo.InvariantCulture)));
+                actions.Add(new Action("skip_meld"));
+                return actions;
+            }
+            if (meldStep == 1) return MeldReplyActions(player, 0);
+            if (meldStep == 2)
+                return new[] { new Action("declare_meld_high", value: RankLabel(meldBest[elder]!.Value.HighCard.Rank)) };
+            if (meldStep == 3) return MeldReplyActions(player, 1);
+            if (meldStep == 4)
+                return new[] { new Action("declare_meld_trump", value: meldBest[elder]!.Value.IsTrump ? "trump" : "plain") };
+            if (meldStep == 5) return MeldReplyActions(player, 2);
+            throw new InvalidOperationException("Invalid Klaberjass meld step.");
+        }
+
+        private IReadOnlyList<Action> MeldReplyActions(int player, int component)
+        {
+            var actions = new List<Action> { new Action("meld_reply", value: "lose") };
+            MeldRun? best = Best(AllRuns(hands[player]));
+            if (best.HasValue)
+            {
+                string reply = CompareMeldComponent(best.Value, meldBest[elder]!.Value, component);
+                if (reply != "lose") actions.Add(new Action("meld_reply", value: reply));
+            }
+            return actions;
+        }
+
+        private void ApplyMeld(Action action, int player)
+        {
+            if (action.Kind == "exchange_seven")
+            {
+                Card seven = new Card(trump!.Value, 7);
+                hands[player].Remove(seven); hands[player].Add(upCard); upCard = seven;
+                UpdateBella(player);
+                return;
+            }
+            if (meldStep == 0 || (meldStep == 1 && !meldBest[elder].HasValue))
+            {
+                ApplyMeldDeclaration(action, player);
+                return;
+            }
+            if (meldStep == 1) { ApplyMeldReply(action, player, 0); return; }
+            if (meldStep == 2)
+            {
+                elderMeldHigh = action.Value;
+                meldStep = 3;
+                CurrentPlayer = dealer;
+                return;
+            }
+            if (meldStep == 3) { ApplyMeldReply(action, player, 1); return; }
+            if (meldStep == 4)
+            {
+                elderMeldTrump = action.Value;
+                meldStep = 5;
+                CurrentPlayer = dealer;
+                return;
+            }
+            if (meldStep == 5) { ApplyMeldReply(action, player, 2); return; }
+            throw new InvalidOperationException("Invalid Klaberjass meld step.");
+        }
+
+        private void ApplyMeldDeclaration(Action action, int player)
+        {
+            if (action.Kind == "declare_meld") meldBest[player] = Best(AllRuns(hands[player]));
+            if (player == elder)
+            {
+                meldStep = 1;
+                CurrentPlayer = dealer;
+                return;
+            }
+            FinishMeld(meldBest[player].HasValue ? player : -1);
+        }
+
+        private void ApplyMeldReply(Action action, int player, int component)
+        {
+            dealerMeldReply = action.Value;
+            if (action.Value == "lose")
+            {
+                FinishMeld(elder);
+                return;
+            }
+            meldBest[player] = Best(AllRuns(hands[player]));
+            if (action.Value == "win")
+            {
+                FinishMeld(player);
+                return;
+            }
+            if (component == 0)
+            {
+                meldStep = 2;
+                CurrentPlayer = elder;
+                return;
+            }
+            if (component == 1)
+            {
+                meldStep = 4;
+                CurrentPlayer = elder;
+                return;
+            }
+            FinishMeld(-1);
+        }
+
+        private void FinishMeld(int winner)
+        {
+            meldWinner = winner;
+            meldResolved = true;
+            if (winner >= 0)
+            {
+                List<MeldRun> runs = AllRuns(hands[winner]);
+                revealedMelds[winner].AddRange(runs);
+                dealPoints[winner] += runs.Sum(run => run.Points);
+            }
             phase = "play";
             CurrentPlayer = elder;
         }
 
-        private void ResolveMelds()
+        private List<MeldRun> AllRuns(List<Card> hand)
         {
-            List<Tuple<int, int, bool>>[] runs = hands.Select(AllRuns).ToArray();
-            Tuple<int, int, bool>? left = declaredMeld[0] ? Best(runs[0]) : null;
-            Tuple<int, int, bool>? right = declaredMeld[1] ? Best(runs[1]) : null;
-            int winner = CompareRuns(left, right);
-            if (winner >= 0) dealPoints[winner] += runs[winner].Sum(run => run.Item1 == 3 ? 20 : 50);
-        }
-
-        private List<Tuple<int, int, bool>> AllRuns(List<Card> hand)
-        {
-            var result = new List<Tuple<int, int, bool>>();
+            var result = new List<MeldRun>();
             foreach (IGrouping<Suit, Card> group in hand.GroupBy(card => card.Suit))
             {
-                int[] strengths = group.Select(PlainStrength).OrderBy(value => value).ToArray();
+                int[] strengths = group.Select(SequenceStrength).OrderBy(value => value).ToArray();
                 int start = 0;
                 while (start < strengths.Length)
                 {
                     int end = start;
                     while (end + 1 < strengths.Length && strengths[end + 1] == strengths[end] + 1) end++;
                     int length = end - start + 1;
-                    if (length >= 3) result.Add(Tuple.Create(length, strengths[end], group.Key == trump));
+                    if (length >= 3)
+                    {
+                        Card highCard = group.Single(card => SequenceStrength(card) == strengths[end]);
+                        result.Add(new MeldRun(length, strengths[end], highCard, group.Key == trump));
+                    }
                     start = end + 1;
                 }
             }
             return result;
         }
 
-        private static Tuple<int, int, bool>? Best(IEnumerable<Tuple<int, int, bool>> runs) => runs
-            .OrderByDescending(run => run.Item1).ThenByDescending(run => run.Item2)
-            .ThenByDescending(run => run.Item3).FirstOrDefault();
+        private static MeldRun? Best(IEnumerable<MeldRun> runs) => runs
+            .OrderByDescending(run => run.Points).ThenByDescending(run => run.HighStrength)
+            .ThenByDescending(run => run.IsTrump).FirstOrDefault();
 
-        private static int CompareRuns(Tuple<int, int, bool>? left, Tuple<int, int, bool>? right)
+        private static string CompareMeldComponent(MeldRun challenger, MeldRun declaration, int component)
         {
-            if (left == null && right == null) return -1;
-            if (left == null) return 1;
-            if (right == null) return 0;
-            if (left.Item1 != right.Item1) return left.Item1 > right.Item1 ? 0 : 1;
-            if (left.Item2 != right.Item2) return left.Item2 > right.Item2 ? 0 : 1;
-            if (left.Item3 != right.Item3) return left.Item3 ? 0 : 1;
-            return -1;
+            int compared = component == 0 ? challenger.Points.CompareTo(declaration.Points) :
+                component == 1 ? challenger.HighStrength.CompareTo(declaration.HighStrength) :
+                challenger.IsTrump.CompareTo(declaration.IsTrump);
+            return compared > 0 ? "win" : compared < 0 ? "lose" : "tie";
         }
 
         private IEnumerable<Card> FollowCards(int player, Card led)
@@ -517,7 +644,11 @@ namespace TrumpLab.Games
             if (phase == "meld")
             {
                 if (actions.Any(action => action.Kind == "exchange_seven")) return actions.First(action => action.Kind == "exchange_seven");
-                return actions.First(action => action.Kind == (AllRuns(hands[player]).Count > 0 ? "declare_meld" : "skip_meld"));
+                foreach (Action action in actions)
+                    if (action.Kind == "declare_meld" || action.Kind == "declare_meld_high" ||
+                        action.Kind == "declare_meld_trump" ||
+                        (action.Kind == "meld_reply" && action.Value != "lose")) return action;
+                return actions[0];
             }
             if (actions.Any(action => action.Kind == "play_bella")) return actions.First(action => action.Kind == "play_bella");
             return actions.Where(action => action.Kind == "play")
@@ -538,14 +669,61 @@ namespace TrumpLab.Games
             int viewer = player ?? CurrentPlayer;
             return $"phase={phase} bid_step={bidStep} up={upCard} trump={(trump.HasValue ? Card.SuitCode(trump.Value) : "-")} " +
                 $"bottom={(exposedBottom.HasValue ? exposedBottom.Value.ToString() : "-")} maker={(maker >= 0 ? "P" + maker : "-")} " +
+                $"meld=[P0:{MeldClaimText(0)},P1:{MeldClaimText(1)}] meld_detail=P{elder}:{elderMeldHigh ?? "-"}/{elderMeldTrump ?? "-"} " +
+                $"meld_reply={dealerMeldReply ?? "-"} meld_winner={(meldWinner >= 0 ? "P" + meldWinner : "-")} " +
+                $"meld_resolved={meldResolved} meld_reveals=[{MeldRevealText()}] " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] " +
                 $"deal_points=[{string.Join(",", dealPoints)}] scores=[{string.Join(",", scores)}] " +
                 $"hand_counts=[{hands[0].Count},{hands[1].Count}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }
 
+        private string MeldClaimText(int player)
+        {
+            if (player == elder)
+            {
+                if (meldStep == 0 && !meldResolved) return "-";
+                return meldBest[player].HasValue ? meldBest[player]!.Value.Points.ToString(CultureInfo.InvariantCulture) : "none";
+            }
+            if (!meldBest[elder].HasValue)
+            {
+                if (!meldResolved) return "-";
+                return meldBest[player].HasValue ? meldBest[player]!.Value.Points.ToString(CultureInfo.InvariantCulture) : "none";
+            }
+            return dealerMeldReply ?? "-";
+        }
+
+        private string MeldRevealText() => string.Join(",", Enumerable.Range(0, 2)
+            .Where(player => revealedMelds[player].Count > 0)
+            .Select(player => "P" + player + ":" + string.Join(" ", revealedMelds[player].Select(DescribeMeld))));
+
+        private static string DescribeMeld(MeldRun run) => string.Join(" ", Enumerable
+            .Range(run.HighStrength - run.Length + 1, run.Length)
+            .Select(strength => new Card(run.HighCard.Suit, RankFromSequenceStrength(strength)).ToString()));
+
+        private static int RankFromSequenceStrength(int strength)
+        {
+            switch (strength)
+            {
+                case 1: return 7;
+                case 2: return 8;
+                case 3: return 9;
+                case 4: return 10;
+                case 5: return 11;
+                case 6: return 12;
+                case 7: return 13;
+                case 8: return 1;
+                default: throw new ArgumentOutOfRangeException(nameof(strength));
+            }
+        }
+
+        private static string RankLabel(int rank) => rank == 1 ? "A" : rank == 11 ? "J" :
+            rank == 12 ? "Q" : rank == 13 ? "K" : rank.ToString(CultureInfo.InvariantCulture);
+
         private int CardPoint(Card card) => card.Suit == trump ? card.Rank == 11 ? 20 : card.Rank == 9 ? 14 :
             card.Rank == 1 ? 11 : card.Rank == 10 ? 10 : card.Rank == 13 ? 4 : card.Rank == 12 ? 3 : 0 :
             card.Rank == 1 ? 11 : card.Rank == 10 ? 10 : card.Rank == 13 ? 4 : card.Rank == 12 ? 3 : card.Rank == 11 ? 2 : 0;
+        private static int SequenceStrength(Card card) => card.Rank == 1 ? 8 : card.Rank == 13 ? 7 :
+            card.Rank == 12 ? 6 : card.Rank == 11 ? 5 : card.Rank == 10 ? 4 : card.Rank - 6;
         private static int PlainStrength(Card card) => card.Rank == 1 ? 8 : card.Rank == 10 ? 7 :
             card.Rank == 13 ? 6 : card.Rank == 12 ? 5 : card.Rank == 11 ? 4 : card.Rank - 6;
         private static int TrumpStrength(Card card) => card.Rank == 11 ? 8 : card.Rank == 9 ? 7 :

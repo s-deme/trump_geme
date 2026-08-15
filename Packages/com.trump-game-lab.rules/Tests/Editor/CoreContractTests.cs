@@ -922,19 +922,25 @@ namespace TrumpLab.Tests
         {
             Candidate[] candidates = GameCatalogue.Candidates().ToArray();
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.RuleSpecific),
-                Is.EqualTo(75));
+                Is.EqualTo(26));
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.Prototype),
                 Is.EqualTo(0));
             Assert.That(candidates.Count(candidate => candidate.Status == CandidateStatus.Verified),
-                Is.EqualTo(17));
+                Is.EqualTo(66));
             Assert.That(candidates.Where(candidate => candidate.Status == CandidateStatus.Verified)
                 .Select(candidate => candidate.ImplementationId),
                 Is.EquivalentTo(new[]
                 {
                     "trump_crew", "baohuang", "napoleon", "card_capture", "scoundrel",
-                    "gosankyo", "german_whist", "gin_rummy", "sono", "crisp", "cribbage",
+                    "gosankyo", "german_whist", "gin_rummy", "goldmine", "knave", "sono", "crisp", "cribbage",
                     "super_trump", "daifugo_two", "briscola", "bohemian_schneider", "durak",
-                    "officer_skat"
+                    "officer_skat", "klaberjass", "norwegian_whist", "schnapsen", "hamlet", "whos_who", "mizerka", "sheriff", "farbwechsel", "kaedama_trick", "ninety_nine",
+                    "minimo", "trick_of_the_dead", "corpo", "tanuki", "multi_stack", "dubito",
+                    "three_tricks", "mini_misere", "agony_aunt", "collusion", "confirmation", "big_two",
+                    "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
+                    "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
+                    "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
+                    "baccarat", "black_lady", "four_tricks"
                 }));
             Assert.That(candidates.Where(candidate => candidate.Status == CandidateStatus.RuleSpecific)
                 .Select(candidate => candidate.ImplementationId),
@@ -942,9 +948,15 @@ namespace TrumpLab.Tests
                     .Except(new[]
                     {
                         "trump_crew", "baohuang", "napoleon", "card_capture", "scoundrel",
-                        "gosankyo", "german_whist", "gin_rummy", "sono", "crisp", "cribbage",
+                        "gosankyo", "german_whist", "gin_rummy", "goldmine", "knave", "sono", "crisp", "cribbage",
                         "super_trump", "daifugo_two", "briscola", "bohemian_schneider", "durak",
-                        "officer_skat"
+                        "officer_skat", "klaberjass", "norwegian_whist", "schnapsen", "hamlet", "whos_who", "mizerka", "sheriff", "farbwechsel", "kaedama_trick", "ninety_nine",
+                        "minimo", "trick_of_the_dead", "corpo", "tanuki", "multi_stack", "dubito",
+                        "three_tricks", "mini_misere", "agony_aunt", "collusion", "confirmation", "big_two",
+                        "triple_crown", "guillotine", "the_trick", "truf", "pass_cut_run", "finesse", "yaniv", "wuxing_xiangke",
+                        "schmear", "briscola_chiamata", "portland", "go_fish", "old_maid", "gops", "spite_and_malice",
+                        "golf", "sevens", "concentration", "page_one", "rummy_500", "euchre", "oh_hell",
+                        "baccarat", "black_lady", "four_tricks"
                     })));
             Assert.That(candidates.Select(candidate => BuiltInGames.Registry.Create(candidate.ImplementationId!, seed: 1))
                 .All(game => game.GetType().Name != "RuleDrivenGame"), Is.True);

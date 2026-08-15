@@ -30,6 +30,7 @@ namespace TrumpLab.Games
         private readonly List<Card> trumpCards = new List<Card>();
         private readonly List<Tuple<int, Card>> trick = new List<Tuple<int, Card>>();
         private readonly int?[] bids = new int?[3];
+        private readonly int?[] revealedBids = new int?[3];
         private readonly int[] tricks = new int[3];
         private readonly int[] scores = new int[3];
         private int dealer = 2;
@@ -115,6 +116,7 @@ namespace TrumpLab.Games
                 if (bids[player] == tricks[player]) scores[player] += 20;
                 scores[player] += captured[player].Count(card => card.Rank == 10 || card.Rank == 11 || card.Rank == 12);
             }
+            Array.Copy(bids, revealedBids, bids.Length);
             if (scores.Max() >= targetScore) finished = true;
             else StartDeal();
         }
@@ -145,6 +147,7 @@ namespace TrumpLab.Games
             string trumps = string.Join(" ", trumpCards.Skip(trickIndex));
             return $"phase={phase} trick_no={trickIndex + 1}/11 trump={(trickIndex < 11 ? Card.SuitCode(CurrentTrump) : "-")} " +
                 $"trump_cards=[{trumps}] bids_made={bidsMade}/3 your_bid={(bids[viewer].HasValue ? bids[viewer]!.Value.ToString() : "-")} " +
+                $"revealed_bids=[{string.Join(",", revealedBids.Select(bid => bid.HasValue ? bid.Value.ToString() : "-"))}] " +
                 $"trick=[{string.Join(" ", trick.Select(item => "P" + item.Item1 + ":" + item.Item2))}] tricks=[{string.Join(",", tricks)}] " +
                 $"scores=[{string.Join(",", scores)}] hand_counts=[{string.Join(",", hands.Select(hand => hand.Count))}]\nyour hand: {string.Join(" ", hands[viewer])}";
         }

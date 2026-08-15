@@ -24,7 +24,7 @@ namespace TrumpLab.Games
             Players = players; this.rng = rng; wildRank = options.Integer("wild_rank", 8);
             List<Card> deck = Cards.Shuffled(Cards.StandardDeck(), rng);
             hands = Enumerable.Range(0, players).Select(_ => new List<Card>()).ToList();
-            int size = players == 2 ? 7 : 5;
+            const int size = 5;
             for (int round = 0; round < size; round++)
                 foreach (List<Card> hand in hands) hand.Add(Pop(deck));
             Card first = Pop(deck);
@@ -55,9 +55,8 @@ namespace TrumpLab.Games
                         actions.Add(new Action("play", card, value: Card.SuitCode(suit)));
                 else actions.Add(new Action("play", card));
             }
-            if (actions.Count == 0)
-                actions.Add(stock.Count > 0 || discard.Count > 1
-                    ? new Action("draw") : new Action("pass"));
+            if (stock.Count > 0 || discard.Count > 1) actions.Add(new Action("draw"));
+            else if (actions.Count == 0) actions.Add(new Action("pass"));
             return actions;
         }
 
@@ -70,7 +69,8 @@ namespace TrumpLab.Games
                 Refill();
                 if (stock.Count > 0) hands[player].Add(Pop(stock));
                 TurnCount++;
-                if (hands[player].Any(Playable)) return;
+                if (stock.Count > 0 || hands[player].Any(Playable)) return;
+                CurrentPlayer = (player + 1) % Players;
                 return;
             }
             else if(action.Kind == "play")
@@ -90,8 +90,7 @@ namespace TrumpLab.Games
             if (stock.Count != 0 || discard.Count <= 1) return;
             Card top = Pop(discard);
             stock = Cards.Shuffled(discard, rng);
-            discard.Clear();
-            discard.Add(top);
+            discard.Clear(); discard.Add(top);
         }
 
         public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
@@ -112,8 +111,8 @@ namespace TrumpLab.Games
         public override GameResult Result()
         {
             if (!winner.HasValue) throw new InvalidOperationException("Game is not over.");
-            double[] scores = hands.Select(hand => -(double)hand.Sum(card =>
-                card.Rank == wildRank ? 50 : Math.Min(card.Rank, 10))).ToArray();
+            double[] scores = hands.Select(hand => -(double)hand.Sum(CardPenalty)).ToArray();
+            scores[winner.Value] = -scores.Sum();
             return new GameResult(new[] { winner.Value }, scores, "empty hand", TurnCount);
         }
 
@@ -130,9 +129,11 @@ namespace TrumpLab.Games
             Card value = cards[cards.Count - 1]; cards.RemoveAt(cards.Count - 1); return value;
         }
 
+        private int CardPenalty(Card card) => card.Rank == wildRank ? 50 : Math.Min(card.Rank, 10);
+
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("crazy_eights", "クレイジーエイト", 2, 5, "shedding",
-                "場札と同じスートかランクを出し、8は任意スートになる。", "traditional",
+                "Bicycle版を基礎に各5枚。場札と同じsuitかrankを出し、8は任意suitになる。任意にdrawでき、play可能までdrawする。stock枯渇時はPagat方式でtop以外の捨札を再利用する。", "Bicycle/Crazy Eights + Pagat recycle",
                 new Dictionary<string, string> { ["wild_rank"] = "ワイルドとして扱うランク（既定8）" }),
             (players, rng, options) => new CrazyEightsGame(players, rng, options));
     }

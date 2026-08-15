@@ -488,8 +488,8 @@ namespace TrumpLab.Games
 
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("goldmine", "ゴールドマイン", 2, 2, "information trick-taking",
-                "2～7の3スートで、毎トリック前に一方が金塊調査、他方が手札交換を行い、メイフォローで伏せた2～7点札を争う30点戦。",
-                "Gokurakism Goldmine", new Dictionary<string, string> { { "target_score", "30" } }),
+                "2～7の3スートで、毎トリック前に一方が金塊調査、他方が手札交換を行い、follow義務なしで伏せた2～7点札を争う30点戦。",
+                "Tarte Games Goldmine", new Dictionary<string, string> { { "target_score", "30" } }),
             (players, random, options) => new GoldmineGame(players, random, options));
     }
 }

@@ -22,10 +22,10 @@ Gitパッケージとして参照します。RuntimeアセンブリはUnity 2021
 CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU同士で完走できます。
 ただし、これはすべての地域差・任意ルールまで正式照合済みという意味ではありません。
 会話、身体動作、同時操作などは列挙アクションまたは決定論的な入力順へ正規化し、採用した
-バリアントと省略範囲を候補別仕様へ明記しています。台帳上は`Verified` 17件
+バリアントと省略範囲を候補別仕様へ明記しています。台帳上は`Verified` 66件
 （`trump_crew`、`baohuang`、`napoleon`、`card_capture`、`scoundrel`、`gosankyo`、
 `german_whist`、`gin_rummy`、`sono`、`crisp`、`cribbage`、`super_trump`、`daifugo_two`、
-`briscola`、`bohemian_schneider`、`durak`、`officer_skat`）、`RuleSpecific` 75件、`Prototype` 0件です。
+`briscola`、`bohemian_schneider`、`durak`、`officer_skat`、`klaberjass`、`goldmine`、`knave`、`norwegian_whist`、`schnapsen`、`hamlet`、`whos_who`、`mizerka`、`sheriff`、`farbwechsel`、`kaedama_trick`、`ninety_nine`、`minimo`、`trick_of_the_dead`、`corpo`、`tanuki`、`multi_stack`、`dubito`、`three_tricks`、`mini_misere`、`agony_aunt`、`collusion`、`confirmation`、`big_two`、`triple_crown`、`guillotine`、`the_trick`、`truf`、`pass_cut_run`、`finesse`、`yaniv`、`wuxing_xiangke`、`schmear`、`briscola_chiamata`、`portland`、`go_fish`、`old_maid`、`gops`、`spite_and_malice`、`golf`、`sevens`、`concentration`、`page_one`、`rummy_500`、`euchre`、`oh_hell`、`baccarat`、`black_lady`、`four_tricks`）、`RuleSpecific` 26件、`Prototype` 0件です。
 
 完成判定、候補ごとの状態、採用バリアントの暫定仕様は
 [`docs/rules/candidate-rules.md`](docs/rules/candidate-rules.md)です。正式照合の進捗と監査単位は
