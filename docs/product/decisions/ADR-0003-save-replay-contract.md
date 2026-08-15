@@ -95,7 +95,7 @@ top-levelは次のfieldだけを持つ。
 
 ```json
 {
-  "format": "trump_lab_session",
+  "format": "trumplab_session",
   "format_version": 1,
   "rules_version": 1,
   "game": {
