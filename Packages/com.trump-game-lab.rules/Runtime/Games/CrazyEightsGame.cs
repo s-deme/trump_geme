@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace TrumpLab.Games
 {
-    public sealed class CrazyEightsGame : GameBase
+    public sealed class CrazyEightsGame : GameBase, IGamePresentationProvider
     {
         private readonly DeterministicRandom rng;
         private readonly int wildRank;
@@ -129,6 +129,72 @@ namespace TrumpLab.Games
             return $"top={discard[discard.Count - 1]} called={(calledSuit.HasValue ? Card.SuitCode(calledSuit.Value) : "-")} " +
                 $"stock={stock.Count} hands=[{string.Join(",", hands.Select(hand => hand.Count))}]\n" +
                 "your hand: " + string.Join(" ", hands[viewer]);
+        }
+
+        public GamePresentation Present(int? viewer = null)
+        {
+            int actualViewer = viewer ?? CurrentPlayer;
+            if (actualViewer < 0 || actualViewer >= Players)
+                throw new ArgumentOutOfRangeException(nameof(viewer));
+
+            PlayerPresentation[] presentedPlayers = Enumerable.Range(0, Players)
+                .Select(player => new PlayerPresentation(
+                    player, player == CurrentPlayer, player == actualViewer))
+                .ToArray();
+
+            var zones = new List<CardZonePresentation>();
+            for (int player = 0; player < Players; player++)
+            {
+                bool isViewer = player == actualViewer;
+                zones.Add(new CardZonePresentation(
+                    "hand_" + player,
+                    "hand",
+                    player,
+                    isViewer ? CardZoneVisibility.FaceUp : CardZoneVisibility.FaceDown,
+                    hands[player].Count,
+                    isViewer ? hands[player] : null));
+            }
+            zones.Add(new CardZonePresentation(
+                "stock", "stock", null, CardZoneVisibility.CountOnly, stock.Count));
+            zones.Add(new CardZonePresentation(
+                "discard", "discard", null, CardZoneVisibility.FaceUp, discard.Count, discard));
+
+            var fields = new List<GameFieldPresentation>();
+            if (calledSuit.HasValue)
+                fields.Add(new GameFieldPresentation(
+                    "called_suit", PresentationValue.FromSuit(calledSuit.Value)));
+
+            ActionPresentation[] actions = Array.Empty<ActionPresentation>();
+            if (!IsTerminal && actualViewer == CurrentPlayer)
+            {
+                actions = LegalActions(actualViewer)
+                    .Select((action, index) => new ActionPresentation(
+                        "action_" + index,
+                        action,
+                        "action." + GameId + "." + action.Kind))
+                    .ToArray();
+            }
+
+            GameResultPresentation? presentedResult = null;
+            if (IsTerminal)
+            {
+                GameResult result = Result();
+                presentedResult = new GameResultPresentation(
+                    result.Winners, result.Scores, result.Reason, result.Turns);
+            }
+
+            return new GamePresentation(
+                GameId,
+                phase,
+                actualViewer,
+                CurrentPlayer,
+                TurnCount,
+                IsTerminal,
+                presentedPlayers,
+                zones,
+                fields,
+                actions,
+                presentedResult);
         }
 
         private static Card Pop(List<Card> cards)
