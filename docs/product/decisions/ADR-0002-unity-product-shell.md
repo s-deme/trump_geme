@@ -37,8 +37,8 @@ Unity/TrumpGameLab/
 └─ ProjectSettings/
 ```
 
-- `Packages/manifest.json`から
-  `file:../../Packages/com.trump-game-lab.rules`として既存UPM packageを参照する。
+- `Packages/manifest.json`から、manifestの配置を基準に
+  `file:../../../Packages/com.trump-game-lab.rules`として既存UPM packageを参照する。
 - Runtime sourceを`Assets`へcopyしない。製品層は`TrumpLab.Core` assemblyの公開APIだけを使う。
 - `Library/`、`Logs/`、`Temp/`、`UserSettings/`、生成されたIDE projectは既存`.gitignore`対象とする。
 - `tests/TrumpLab.UnityTests/`は引き続きUPM package単体検証専用とし、製品Sceneへ依存させない。

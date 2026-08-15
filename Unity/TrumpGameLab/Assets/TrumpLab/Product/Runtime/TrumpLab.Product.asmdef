@@ -1,0 +1,9 @@
+{
+  "name": "TrumpLab.Product",
+  "rootNamespace": "TrumpLab.Product",
+  "references": [
+    "TrumpLab.Core",
+    "UnityEngine.UI"
+  ],
+  "autoReferenced": true
+}

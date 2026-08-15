@@ -1,0 +1,13 @@
+{
+  "name": "TrumpLab.Product.Editor",
+  "rootNamespace": "TrumpLab.Product.Editor",
+  "references": [
+    "TrumpLab.Product",
+    "TrumpLab.Core",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}
