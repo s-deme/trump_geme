@@ -53,5 +53,7 @@
              Link="CpuDifficultyContractTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CpuDifficultyObservationTests.cs"
              Link="CpuDifficultyObservationTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CpuDifficultyEvaluationTests.cs"
+             Link="CpuDifficultyEvaluationTests.cs" />
   </ItemGroup>
 </Project>

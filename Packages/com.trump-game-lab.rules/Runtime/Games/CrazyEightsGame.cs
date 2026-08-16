@@ -6,6 +6,19 @@ namespace TrumpLab.Games
 {
     public sealed class CrazyEightsGame : GameBase, IGamePresentationProvider
     {
+        private const int HardStarterSuitCountWeight = 100;
+        private const int HardPlayBaseScore = 10000;
+        private const int HardWinningPlayBonus = 100000;
+        private const int HardPenaltyCardWeight = -100;
+        private const int HardContinuationCardWeight = 1000;
+        private const int HardWildPreservationPenalty = 5000;
+        private const int HardOpponentThreatHandCount = 2;
+        private const int HardThreatContinuationBonusWeight = 100;
+        private const int HardLastCardDeclarationBonus = 600;
+        private const int HardDrawScore = -5000;
+        private const int HardPassScore = -6000;
+        private const int HardUnsupportedActionScore = -7000;
+
         private readonly DeterministicRandom rng;
         private readonly int wildRank;
         private readonly List<List<Card>> hands;
@@ -194,30 +207,32 @@ namespace TrumpLab.Games
             if (observation.Phase == "choose_starter_suit")
             {
                 Suit suit = Card.ParseSuit(action.Value!);
-                return observation.SuitCounts[(int)suit] * 100 +
-                    observation.SuitPenaltySums[(int)suit];
+                return observation.SuitCounts[(int)suit] * HardStarterSuitCountWeight;
             }
-            if (action.Kind == "draw") return -5000;
-            if (action.Kind == "pass") return -6000;
-            if (action.Kind != "play" && action.Kind != "play_last_card") return -7000;
+            if (action.Kind == "draw") return HardDrawScore;
+            if (action.Kind == "pass") return HardPassScore;
+            if (action.Kind != "play" && action.Kind != "play_last_card")
+                return HardUnsupportedActionScore;
 
             Card played = action.Card!.Value;
             bool wild = played.Rank == observation.WildRank;
-            int score = 10000 + Penalty(played, observation.WildRank) * 30;
-            if (observation.Hand.Count == 1) score += 100000;
+            int score = HardPlayBaseScore +
+                Penalty(played, observation.WildRank) * HardPenaltyCardWeight;
+            if (observation.Hand.Count == 1) score += HardWinningPlayBonus;
 
             Suit continuationSuit = wild
                 ? Card.ParseSuit(action.Value!)
                 : played.Suit;
             int continuationCards = observation.SuitCounts[(int)continuationSuit] -
                 (played.Suit == continuationSuit ? 1 : 0);
-            score += continuationCards * 120;
+            score += continuationCards * HardContinuationCardWeight;
 
-            if (wild && observation.HasNonWildPlay &&
-                observation.NearestOpponentHandCount > 2) score -= 1200;
-            if (observation.NearestOpponentHandCount <= 2)
-                score += wild ? 900 : Penalty(played, observation.WildRank) * 20;
-            if (action.Kind == "play_last_card") score += 600;
+            if (wild)
+                score -= HardWildPreservationPenalty;
+            if (observation.NearestOpponentHandCount <= HardOpponentThreatHandCount)
+                score += continuationCards * HardThreatContinuationBonusWeight;
+            if (action.Kind == "play_last_card")
+                score += HardLastCardDeclarationBonus;
             return score;
         }
 
@@ -236,9 +251,7 @@ namespace TrumpLab.Games
             public int WildRank { get; }
             public IReadOnlyList<Action> Actions { get; }
             public IReadOnlyList<int> SuitCounts { get; }
-            public IReadOnlyList<int> SuitPenaltySums { get; }
             public int NearestOpponentHandCount { get; }
-            public bool HasNonWildPlay { get; }
 
             public CpuObservation(int player, string phase, IEnumerable<Card> hand,
                 IEnumerable<int> handCounts, int stockCount, Card discardTop,
@@ -255,16 +268,10 @@ namespace TrumpLab.Games
                 Actions = Array.AsReadOnly(actions.ToArray());
                 SuitCounts = Array.AsReadOnly(Enum.GetValues(typeof(Suit)).Cast<Suit>()
                     .Select(suit => Hand.Count(card => card.Suit == suit)).ToArray());
-                SuitPenaltySums = Array.AsReadOnly(Enum.GetValues(typeof(Suit)).Cast<Suit>()
-                    .Select(suit => Hand.Where(card => card.Suit == suit)
-                        .Sum(card => Penalty(card, configuredWildRank))).ToArray());
                 NearestOpponentHandCount = HandCounts
                     .Where((count, otherPlayer) => otherPlayer != player)
                     .DefaultIfEmpty(0)
                     .Min();
-                HasNonWildPlay = Actions.Any(candidate =>
-                    (candidate.Kind == "play" || candidate.Kind == "play_last_card") &&
-                    candidate.Card!.Value.Rank != configuredWildRank);
             }
         }
 
