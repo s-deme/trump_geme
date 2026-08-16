@@ -88,7 +88,7 @@ namespace TrumpLab.Product
                 ? "Game finished"
                 : presentation.Phase == "choose_starter_suit"
                     ? (humanTurn ? "Choose the starter suit" : "CPU is choosing the starter suit")
-                    : humanTurn ? "Your turn" : "CPU turn";
+                    : humanTurn ? "Your turn" : "CPU is thinking…";
             status += "  •  Turn " + presentation.TurnCount;
 
             string called = calledSuit?.Value.SuitValue is Suit suit

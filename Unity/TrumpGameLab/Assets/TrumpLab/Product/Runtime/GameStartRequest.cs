@@ -10,11 +10,12 @@ namespace TrumpLab.Product
         public int WildRank { get; }
         public int Difficulty { get; }
 
-        public GameStartRequest(long seed, int wildRank, int difficulty = 1)
+        public GameStartRequest(long seed, int wildRank,
+            int difficulty = CpuDifficulties.Standard)
         {
             if (wildRank < 1 || wildRank > 13)
                 throw new ArgumentOutOfRangeException(nameof(wildRank));
-            if (difficulty < 1) throw new ArgumentOutOfRangeException(nameof(difficulty));
+            BuiltInGames.Registry.ValidateCpuDifficulty("crazy_eights", difficulty);
             Seed = seed;
             WildRank = wildRank;
             Difficulty = difficulty;

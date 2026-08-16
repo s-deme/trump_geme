@@ -23,7 +23,8 @@ namespace TrumpLab.Product
         private readonly IGamePresentationProvider provider;
         private GamePresentation? snapshot;
 
-        public GameSessionController(long seed, int wildRank = 8, int difficulty = 1)
+        public GameSessionController(long seed, int wildRank = 8,
+            int difficulty = CpuDifficulties.Standard)
             : this(new SessionRecorder(new SessionConfiguration(
                 "crazy_eights",
                 players: 2,

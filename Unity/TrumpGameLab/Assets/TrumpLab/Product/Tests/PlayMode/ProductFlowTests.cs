@@ -41,12 +41,20 @@ namespace TrumpLab.Product.Tests
             var settings = (GameSettingsScreen)controller.Router.Get(ScreenId.GameSettings);
             settings.SeedInput.text = "23";
             settings.WildRankInput.text = "8";
+            settings.DifficultyDropdown.value = settings.DifficultyDropdown.options
+                .FindIndex(option => option.text == "Hard");
+            Assert.That(settings.SummaryLabel.text, Does.EndWith("Difficulty: Hard"));
             Click(ScreenId.GameSettings, "StartButton");
             yield return null;
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
-            Assert.That(controller.LastRequest, Is.EqualTo(new GameStartRequest(23, 8)));
+            Assert.That(controller.LastRequest, Is.EqualTo(new GameStartRequest(
+                23, 8, CpuDifficulties.Hard)));
             Assert.That(controller.ActiveSlotId, Is.Not.Null);
             Assert.That(store.List().Count, Is.EqualTo(1));
+            Assert.That(controller.ActiveSession!.Archive.Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Hard));
+            Assert.That(store.Load(controller.ActiveSlotId!).Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Hard));
             string initialSignature = VisibleSnapshotSignature(controller.ActiveSession!.Snapshot);
 
             GameSessionController session = controller.ActiveSession!;
@@ -78,6 +86,8 @@ namespace TrumpLab.Product.Tests
             Click(ScreenId.Result, "RematchButton");
             yield return null;
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
+            Assert.That(controller.ActiveSession!.Archive.Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Hard));
             Assert.That(VisibleSnapshotSignature(controller.ActiveSession!.Snapshot),
                 Is.EqualTo(initialSignature));
 
@@ -128,6 +138,34 @@ namespace TrumpLab.Product.Tests
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
         }
 
+        [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator CpuThinkingWaitIsCancelledWhenTheAppControllerIsDestroyed()
+        {
+            long seed = FindCpuOpeningSeed();
+            Click(ScreenId.Title, "PlayButton");
+            yield return null;
+            var settings = (GameSettingsScreen)controller.Router.Get(ScreenId.GameSettings);
+            settings.SetValues(new GameStartRequest(
+                seed, wildRank: 8, difficulty: CpuDifficulties.Easy));
+            Click(ScreenId.GameSettings, "StartButton");
+            yield return null;
+
+            GameSessionController session = controller.ActiveSession!;
+            Assert.That(session.State, Is.EqualTo(MatchSessionState.WaitingForCpu));
+            var match = (MatchScreen)controller.Router.Get(ScreenId.Match);
+            Assert.That(match.StatusLabel.text, Does.StartWith("CPU is choosing"));
+            int turns = session.Game.TurnCount;
+            int actions = session.Archive.Actions.Count;
+
+            UnityEngine.Object.Destroy(controller.gameObject);
+            yield return null;
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            Assert.That(session.Game.TurnCount, Is.EqualTo(turns));
+            Assert.That(session.Archive.Actions.Count, Is.EqualTo(actions));
+        }
+
         private void CompleteActiveMatchSynchronously()
         {
             for (int step = 0; step < 1000 && controller.Router.Current == ScreenId.Match; step++)
@@ -141,6 +179,19 @@ namespace TrumpLab.Product.Tests
                     Assert.Fail("Unexpected session state: " + session.State);
             }
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Result));
+        }
+
+        private static long FindCpuOpeningSeed()
+        {
+            for (long seed = 1; seed <= 100; seed++)
+            {
+                var session = new GameSessionController(
+                    seed, wildRank: 8, difficulty: CpuDifficulties.Easy);
+                session.Begin();
+                if (session.State == MatchSessionState.WaitingForCpu) return seed;
+            }
+            Assert.Fail("Fixed seed search did not find a CPU opening turn.");
+            return -1;
         }
 
         private Button ActiveActionButton()

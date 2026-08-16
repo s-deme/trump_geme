@@ -15,15 +15,28 @@ namespace TrumpLab.Product.Tests
         [Test]
         public void SettingsCreateValidatedImmutableRequest()
         {
-            Assert.That(GameSettingsScreen.TryCreateRequest("-17", "8", out GameStartRequest? request,
-                out string error), Is.True, error);
-            Assert.That(request, Is.EqualTo(new GameStartRequest(-17, 8)));
-            Assert.That(GameSettingsScreen.TryCreateRequest("nope", "8", out _, out error), Is.False);
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "-17", "8", CpuDifficulties.Hard,
+                out GameStartRequest? request, out string error), Is.True, error);
+            Assert.That(request, Is.EqualTo(new GameStartRequest(
+                -17, 8, CpuDifficulties.Hard)));
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "-17", "8", out request, out error), Is.True, error);
+            Assert.That(request!.Difficulty, Is.EqualTo(CpuDifficulties.Standard));
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "nope", "8", CpuDifficulties.Standard, out _, out error), Is.False);
             Assert.That(error, Is.Not.Empty);
-            Assert.That(GameSettingsScreen.TryCreateRequest("1", "0", out _, out error), Is.False);
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "1", "0", CpuDifficulties.Standard, out _, out error), Is.False);
             Assert.That(error, Is.Not.Empty);
-            Assert.That(GameSettingsScreen.TryCreateRequest("1", "14", out _, out error), Is.False);
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "1", "14", CpuDifficulties.Standard, out _, out error), Is.False);
             Assert.That(error, Is.Not.Empty);
+            Assert.That(GameSettingsScreen.TryCreateRequest(
+                "1", "8", 99, out _, out error), Is.False);
+            Assert.That(error, Is.Not.Empty);
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new GameStartRequest(1, 8, difficulty: 99));
         }
 
         [Test]
@@ -97,8 +110,11 @@ namespace TrumpLab.Product.Tests
         [Test]
         public void RecordedProductSessionResumesWithTheSameVisibleState()
         {
-            var session = new GameSessionController(seed: 31, wildRank: 8);
+            var session = new GameSessionController(
+                seed: 31, wildRank: 8, difficulty: CpuDifficulties.Hard);
             session.Begin();
+            Assert.That(session.Archive.Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Hard));
             for (int step = 0; step < 8 && !session.Game.IsTerminal; step++)
             {
                 if (session.State == MatchSessionState.AwaitingHuman)
@@ -111,6 +127,8 @@ namespace TrumpLab.Product.Tests
             var resumed = new GameSessionController(SessionArchiveCodec.Decode(encoded));
             resumed.Begin();
 
+            Assert.That(resumed.Archive.Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Hard));
             Assert.That(SnapshotSignature(resumed.Snapshot),
                 Is.EqualTo(SnapshotSignature(session.Snapshot)));
             Assert.That(resumed.Archive.Actions.Count, Is.EqualTo(session.Archive.Actions.Count));

@@ -93,23 +93,28 @@ namespace TrumpLab.Product.Editor
             CreateText(root.transform, "Title", "GAME SETTINGS", font, 52,
                 new Vector2(0.2f, 0.78f), new Vector2(0.8f, 0.9f));
             Text summary = CreateText(root.transform, "Summary",
-                "Crazy Eights  •  Human: Player 1  •  CPU: Player 2  •  Difficulty: 1",
-                font, 26, new Vector2(0.12f, 0.64f), new Vector2(0.88f, 0.75f));
+                "Crazy Eights  •  Human: Player 1  •  CPU: Player 2  •  Difficulty: Standard",
+                font, 26, new Vector2(0.12f, 0.67f), new Vector2(0.88f, 0.76f));
             CreateText(root.transform, "SeedLabel", "Seed", font, 28,
-                new Vector2(0.27f, 0.52f), new Vector2(0.46f, 0.59f));
+                new Vector2(0.27f, 0.55f), new Vector2(0.46f, 0.62f));
             InputField seed = CreateInputField(root.transform, "SeedInput", "1", "Whole number", font,
-                new Vector2(170f, 80f));
+                new Vector2(170f, 105f));
             CreateText(root.transform, "WildRankLabel", "Wild rank (1-13)", font, 28,
-                new Vector2(0.23f, 0.41f), new Vector2(0.46f, 0.48f));
+                new Vector2(0.23f, 0.44f), new Vector2(0.46f, 0.51f));
             InputField wildRank = CreateInputField(root.transform, "WildRankInput", "8", "1 to 13", font,
-                new Vector2(170f, -40f));
+                new Vector2(170f, -15f));
+            CreateText(root.transform, "DifficultyLabel", "CPU difficulty", font, 28,
+                new Vector2(0.23f, 0.33f), new Vector2(0.46f, 0.4f));
+            Dropdown difficulty = CreateDropdown(
+                root.transform, "DifficultyDropdown", font, new Vector2(170f, -135f));
+            difficulty.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 64f);
             Text validation = CreateText(root.transform, "Validation", "", font, 24,
-                new Vector2(0.2f, 0.29f), new Vector2(0.8f, 0.37f));
+                new Vector2(0.2f, 0.18f), new Vector2(0.8f, 0.25f));
             validation.color = new Color(1f, 0.55f, 0.45f, 1f);
-            Button start = CreateButton(root.transform, "StartButton", "Start", font, new Vector2(130f, -220f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font, new Vector2(-130f, -220f));
+            Button start = CreateButton(root.transform, "StartButton", "Start", font, new Vector2(130f, -300f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font, new Vector2(-130f, -300f));
             root.GetComponent<GameSettingsScreen>().Configure(
-                summary, seed, wildRank, validation, start, back);
+                summary, seed, wildRank, difficulty, validation, start, back);
             return SavePrefab(root, PrefabDirectory + "/GameSettingsScreen.prefab");
         }
 
@@ -575,17 +580,27 @@ namespace TrumpLab.Product.Editor
 
         private static void ValidateSettings(GameSettingsScreen settings)
         {
-            if (GameSettingsScreen.TryCreateRequest("not-a-number", "8", out _, out _))
+            if (GameSettingsScreen.TryCreateRequest(
+                    "not-a-number", "8", CpuDifficulties.Standard, out _, out _))
                 throw new InvalidOperationException("Settings accepted an invalid seed.");
-            if (GameSettingsScreen.TryCreateRequest("42", "14", out _, out _))
+            if (GameSettingsScreen.TryCreateRequest(
+                    "42", "14", CpuDifficulties.Standard, out _, out _))
                 throw new InvalidOperationException("Settings accepted an invalid wild rank.");
+            if (GameSettingsScreen.TryCreateRequest("42", "8", 99, out _, out _))
+                throw new InvalidOperationException("Settings accepted an invalid difficulty.");
             if (!GameSettingsScreen.TryCreateRequest(
-                    "42", "8", out GameStartRequest? request, out _) || request == null ||
-                request.Seed != 42 || request.WildRank != 8)
+                    "42", "8", CpuDifficulties.Hard,
+                    out GameStartRequest? request, out _) || request == null ||
+                request.Seed != 42 || request.WildRank != 8 ||
+                request.Difficulty != CpuDifficulties.Hard)
                 throw new InvalidOperationException("Settings did not create the requested game settings.");
             if (!settings.TryReadRequest(out GameStartRequest? defaults, out _) || defaults == null ||
-                defaults.Seed != 1 || defaults.WildRank != 8)
+                defaults.Seed != 1 || defaults.WildRank != 8 ||
+                defaults.Difficulty != CpuDifficulties.Standard)
                 throw new InvalidOperationException("Generated settings defaults are invalid.");
+            if (!settings.DifficultyDropdown.options.Select(option => option.text).SequenceEqual(
+                    new[] { "Easy", "Standard", "Hard" }))
+                throw new InvalidOperationException("Generated difficulty order is invalid.");
         }
 
         private static void ValidateRepeatableRematch()
