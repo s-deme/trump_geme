@@ -24,6 +24,24 @@ command lineからは次のように実行できる。
 generatorはscreen component、missing script、Bootstrap root、build scene、`TrumpLab.Core`との
 assembly分離を検査し、不整合があれば非0で終了する。
 
+## CPU難易度
+
+Game SettingsではCrazy EightsのCPUを`Easy`、`Standard`、`Hard`の順で選択できる。保存形式と
+CLIで使う安定IDは表示順と異なり、`Standard = 1`、`Easy = 2`、`Hard = 3`である。既定値は
+従来互換の`Standard = 1`を維持する。
+
+- Easy：全合法手から注入乱数で選択する。
+- Standard：M03以前と同じ、playと手札内の多いsuitを優先する方策。
+- Hard：自分の手札、公開された手札枚数、捨札、山札枚数だけを評価するbounded heuristic。
+
+選択IDは新規対局のsession設定へ入り、自動保存、再戦、再開、リプレイでも維持される。CPU手番は
+`CPU is thinking…`表示から0.35秒待って適用し、画面終了、session終了、再開時は未適用の待機を
+cancelする。この待機は演出であり、方策の計算時間には含めない。
+
+ID、観測境界、互換性、強度基準は
+[ADR-0004](../../docs/product/decisions/ADR-0004-cpu-difficulty-contract.md)、固定800局の結果と
+再現コマンドは[M04 CPU難易度評価](../../docs/product/reports/M04-cpu-difficulty-evaluation.md)を参照する。
+
 ## 保存・再開・リプレイ
 
 対局開始時と各Action適用後に同じslotへ自動保存する。アプリを再起動した後はタイトルの
@@ -46,6 +64,6 @@ Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
 pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
 ```
 
-Edit Modeは設定・presenter・session・Prefab・atomic保存と破損拒否の契約、Play Modeは
-Bootstrapの主要画面遷移、二重入力lock、人間対CPUの1局完走、再戦、保存一覧、再開、
-リプレイ、2段階削除、error modalを検証する。
+Edit Modeは設定・難易度・presenter・session・Prefab・atomic保存と破損拒否の契約、Play Modeは
+Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel、二重入力lock、人間対CPUの
+1局完走、保存一覧、再開、リプレイ、2段階削除、error modalを検証する。

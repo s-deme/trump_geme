@@ -2,8 +2,8 @@
 
 ## 状態
 
-- マイルストーン：`In Progress`
-- 次のタスク：`M04-T06`
+- マイルストーン：`Done`
+- 次のタスク：なし（全タスク完了）
 - 参照ゲーム：`crazy_eights`
 - 依存：`M03`
 
@@ -37,7 +37,7 @@
 | M04-T03 | Done | 観測同値、固定seed、合法性の契約テストを追加する | T02 | 非公開情報だけが違う状態で選択が不変になる |
 | M04-T04 | Done | 自己対戦評価と回帰基準を追加する | T03 | 強度差と性能を再現可能なレポートで比較できる |
 | M04-T05 | Done | Unityの難易度設定とCPU手番へ統合する | T04 | 選択した難易度が新規対局へ反映され、保存にも含まれる |
-| M04-T06 | Ready | 通常の必須検証とUnity Standardを行いM04を完了する | T05 | 完了条件を満たし、難易度仕様が文書化されている |
+| M04-T06 | Done | 通常の必須検証とUnity Standardを行いM04を完了する | T05 | 完了条件を満たし、難易度仕様が文書化されている |
 
 ## 完了条件
 
@@ -64,6 +64,18 @@
 - 観測不能情報なしでは定義した強度差を作れない場合
 - 強CPUが性能予算を満たさず、製品上の待ち時間判断が必要な場合
 - 既存の`difficulty=1`互換性を破壊する必要がある場合
+
+## 完了時検証
+
+- `dotnet build TrumpGameLab.sln -m:1`：成功（警告0、エラー0）
+- `dotnet test tests/TrumpLab.Tests`：262/262合格
+- Bash版・PowerShell版migration verification：成功
+- 製品Edit Mode：13/13合格
+- 製品Play Mode：2/2合格
+- Unity Standard：260/260合格
+- Standard対Easy：強い側score率94.50%、Hard対Standard：57.00%（基準53%以上）
+- 固定800局：失敗0、Release reference 501.524 ms（製品目標15秒以下）
+- Hard固定observation：p95 0.012 ms、最大0.152 ms（基準5 ms/25 ms以下）
 
 ## 次への遷移
 
