@@ -51,5 +51,7 @@
              Link="SessionReplayContractTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CpuDifficultyContractTests.cs"
              Link="CpuDifficultyContractTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CpuDifficultyObservationTests.cs"
+             Link="CpuDifficultyObservationTests.cs" />
   </ItemGroup>
 </Project>
