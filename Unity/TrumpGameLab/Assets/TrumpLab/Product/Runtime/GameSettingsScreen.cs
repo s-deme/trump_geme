@@ -35,6 +35,7 @@ namespace TrumpLab.Product
         public event System.Action<GameStartRequest>? StartRequested;
         public event System.Action? HowToPlayRequested;
         public event System.Action? BackRequested;
+        public event System.Action? ValidationRejected;
 
         public void Configure(Text summary, InputField seed, InputField wildRank,
             Dropdown difficulty, Text validation, Button start, Button howToPlay, Button back)
@@ -175,6 +176,7 @@ namespace TrumpLab.Product
             if (!TryReadRequest(out GameStartRequest? request, out string error) || request == null)
             {
                 ValidationLabel.text = error;
+                ValidationRejected?.Invoke();
                 return;
             }
             ValidationLabel.text = string.Empty;

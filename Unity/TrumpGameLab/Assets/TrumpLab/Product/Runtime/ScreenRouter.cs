@@ -20,6 +20,7 @@ namespace TrumpLab.Product
 
         public ScreenId? Current { get; private set; }
         public IReadOnlyList<ProductScreen> Screens => screens;
+        public event System.Action<ScreenId>? ScreenChanged;
 
         public void Configure(ProductScreen[] configuredScreens)
         {
@@ -52,6 +53,7 @@ namespace TrumpLab.Product
             foreach (ProductScreen screen in screens) screen.SetVisible(screen == requested);
             Current = id;
             FocusFirstControl(requested);
+            ScreenChanged?.Invoke(id);
         }
 
         private void ValidateScreens()

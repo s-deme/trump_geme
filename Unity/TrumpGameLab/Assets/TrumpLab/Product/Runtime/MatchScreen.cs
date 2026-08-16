@@ -32,6 +32,8 @@ namespace TrumpLab.Product
         [SerializeField] private Button? tutorialContinueButton;
         [SerializeField] private Button? tutorialExitButton;
 
+        private bool lastInputEnabled;
+
         public override ScreenId Id => ScreenId.Match;
         public Text StatusLabel => Required(statusLabel, nameof(statusLabel));
         public Text OpponentHandLabel => Required(opponentHandLabel, nameof(opponentHandLabel));
@@ -64,12 +66,15 @@ namespace TrumpLab.Product
             throw Missing(nameof(tutorialExitButton));
         public bool IsContextHelpVisible => contextHelpPanel != null && contextHelpPanel.activeSelf;
         public bool IsTutorialVisible => tutorialPanel != null && tutorialPanel.activeSelf;
+        public bool IsPresentationLocked { get; private set; }
         public string? HighlightedActionId { get; private set; }
         public Selectable? PreferredFocus
         {
             get
             {
                 if (IsContextHelpVisible) return CloseHelpButton;
+                if (IsPresentationLocked)
+                    return IsTutorialVisible ? TutorialExitButton : HelpButton;
                 if (IsTutorialVisible)
                 {
                     if (TutorialContinueButton.gameObject.activeSelf)
@@ -138,6 +143,9 @@ namespace TrumpLab.Product
         public void Render(MatchViewModel model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
+            IsPresentationLocked = false;
+            lastInputEnabled = model.InputEnabled;
+            ResetFeedbackColors();
             StatusLabel.text = model.Status;
             OpponentHandLabel.text = model.OpponentHand;
             StockLabel.text = model.Stock;
@@ -146,6 +154,55 @@ namespace TrumpLab.Product
             ActionSummaryLabel.text = model.ActionSummary;
             ContextHelpLabel.text = model.ContextHelp;
             RenderActions(model);
+        }
+
+        public void ShowActionFeedback(ProductFeedbackKind kind)
+        {
+            ProductFeedbackPresentation feedback = ProductPresentationCatalog.Get(kind);
+            ActionSummaryLabel.text = feedback.DisplayText;
+            ResetFeedbackColors();
+            switch (kind)
+            {
+                case ProductFeedbackKind.CardPlay:
+                    HumanHandLabel.color = new Color(0.55f, 0.95f, 0.72f, 1f);
+                    DiscardLabel.color = new Color(0.55f, 0.95f, 0.72f, 1f);
+                    break;
+                case ProductFeedbackKind.Draw:
+                    StockLabel.color = new Color(0.48f, 0.82f, 1f, 1f);
+                    HumanHandLabel.color = new Color(0.48f, 0.82f, 1f, 1f);
+                    break;
+                case ProductFeedbackKind.WildSuit:
+                    HumanHandLabel.color = new Color(0.93f, 0.68f, 1f, 1f);
+                    DiscardLabel.color = new Color(0.93f, 0.68f, 1f, 1f);
+                    break;
+                case ProductFeedbackKind.CpuTurn:
+                    StatusLabel.color = new Color(1f, 0.82f, 0.38f, 1f);
+                    break;
+                case ProductFeedbackKind.Reject:
+                    ActionSummaryLabel.color = new Color(1f, 0.55f, 0.45f, 1f);
+                    break;
+                case ProductFeedbackKind.Submit:
+                    ActionSummaryLabel.color = new Color(0.62f, 0.94f, 0.7f, 1f);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind,
+                        "Feedback kind does not target the match surface.");
+            }
+        }
+
+        public void SetPresentationLocked(bool locked)
+        {
+            IsPresentationLocked = locked;
+            if (tutorialContinueButton != null)
+                tutorialContinueButton.interactable = !locked;
+            if (actionRoot != null)
+            {
+                foreach (Button button in actionRoot.GetComponentsInChildren<Button>(false))
+                {
+                    if (button != null)
+                        button.interactable = !locked && lastInputEnabled;
+                }
+            }
         }
 
         public void RenderTutorial(MatchViewModel match, TutorialOverlayViewModel tutorial)
@@ -192,7 +249,7 @@ namespace TrumpLab.Product
                 Button button = Instantiate(ActionButtonTemplate, ActionRoot);
                 button.name = "Action_" + action.Id;
                 button.gameObject.SetActive(true);
-                button.interactable = model.InputEnabled;
+                button.interactable = model.InputEnabled && !IsPresentationLocked;
                 Text? label = button.GetComponentInChildren<Text>(true);
                 if (label == null)
                     throw new InvalidOperationException("Action button template requires a Text label.");
@@ -228,7 +285,7 @@ namespace TrumpLab.Product
 
         public void ShowContextHelp()
         {
-            if (IsContextHelpVisible) return;
+            if (IsPresentationLocked || IsContextHelpVisible) return;
             ContextHelpPanel.SetActive(true);
             EventSystem.current?.SetSelectedGameObject(CloseHelpButton.gameObject);
             ContextHelpOpened?.Invoke();
@@ -258,9 +315,22 @@ namespace TrumpLab.Product
             ClearActionButtons();
         }
 
-        private void HandleRules() => RulesRequested?.Invoke();
+        private void HandleRules()
+        {
+            if (!IsPresentationLocked) RulesRequested?.Invoke();
+        }
         private void HandleTutorialContinue() => TutorialContinueRequested?.Invoke();
         private void HandleTutorialExit() => TutorialExitRequested?.Invoke();
+
+        private void ResetFeedbackColors()
+        {
+            Color normal = new Color(0.96f, 0.94f, 0.82f, 1f);
+            StatusLabel.color = normal;
+            StockLabel.color = normal;
+            DiscardLabel.color = normal;
+            HumanHandLabel.color = normal;
+            ActionSummaryLabel.color = normal;
+        }
 
         private static Text Required(Text? value, string name) => value ??
             throw new InvalidOperationException("Match control is not configured: " + name);

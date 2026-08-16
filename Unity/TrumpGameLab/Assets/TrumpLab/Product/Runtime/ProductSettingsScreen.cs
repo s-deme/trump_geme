@@ -73,6 +73,7 @@ namespace TrumpLab.Product
         public event System.Action? BackRequested;
         public event System.Action<ProductInputScheme, ProductInputCommand>? RebindRequested;
         public event System.Action? CancelRebindRequested;
+        public event System.Action? ValidationRejected;
 
         public void Configure(GameObject general, GameObject bindings,
             Button generalPage, Button bindingsPage, Dropdown displayMode,
@@ -185,6 +186,7 @@ namespace TrumpLab.Product
             {
                 error = exception.Message;
                 SetFeedback(error, isError: true);
+                ValidationRejected?.Invoke();
                 return false;
             }
         }
@@ -363,6 +365,7 @@ namespace TrumpLab.Product
             if (!TryReadSettings(out ProductSettings? settings, out string error) || settings == null)
             {
                 SetFeedback(error, isError: true);
+                ValidationRejected?.Invoke();
                 return;
             }
             ApplyRequested?.Invoke(settings);

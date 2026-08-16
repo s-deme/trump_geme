@@ -20,8 +20,10 @@ namespace TrumpLab.Product.Editor
     {
         private const string Root = "Assets/TrumpLab/Product";
         private const string PrefabDirectory = Root + "/Prefabs/Screens";
+        private const string AudioDirectory = Root + "/Audio/Generated";
         private const string SceneDirectory = Root + "/Scenes";
         private const string ScenePath = SceneDirectory + "/Bootstrap.unity";
+        private const int AudioSampleRate = 44100;
 
         [MenuItem("Trump Lab/Regenerate Product Scaffold")]
         public static void GenerateFromMenu() => Generate();
@@ -35,9 +37,11 @@ namespace TrumpLab.Product.Editor
         private static void Generate()
         {
             Directory.CreateDirectory(PrefabDirectory);
+            Directory.CreateDirectory(AudioDirectory);
             Directory.CreateDirectory(SceneDirectory);
             AssetDatabase.Refresh();
 
+            GeneratedAudioAssets audioAssets = GenerateAudioAssets();
             Font font = BuiltInFont();
             GameObject titlePrefab = CreateTitlePrefab(font);
             GameObject settingsPrefab = CreateSettingsPrefab(font);
@@ -51,6 +55,8 @@ namespace TrumpLab.Product.Editor
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             InputSystemUIInputModule inputModule = CreateEventSystem();
             Canvas canvas = CreateCanvas();
+            ProductPresentationController presentation =
+                canvas.gameObject.AddComponent<ProductPresentationController>();
 
             var title = Instantiate<TitleScreen>(titlePrefab, canvas.transform);
             var settings = Instantiate<GameSettingsScreen>(settingsPrefab, canvas.transform);
@@ -61,18 +67,27 @@ namespace TrumpLab.Product.Editor
             var replay = Instantiate<ReplayScreen>(replayPrefab, canvas.transform);
             var result = Instantiate<ResultScreen>(resultPrefab, canvas.transform);
             var howToPlay = Instantiate<HowToPlayScreen>(howToPlayPrefab, canvas.transform);
+            ProductPresentationSurfaces presentationSurfaces =
+                CreatePresentationSurfaces(canvas.transform, font);
             ProductErrorPanel errors = CreateErrorPanel(canvas.transform, font);
 
-            var productRoot = new GameObject("ProductRoot");
+            var productRoot = new GameObject("ProductRoot", typeof(AudioListener));
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductInputController input = productRoot.AddComponent<ProductInputController>();
+            ProductAudioController audio = CreateAudioController(productRoot, audioAssets);
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
+            presentation.Configure(
+                presentationSurfaces.Banner,
+                presentationSurfaces.BannerImage,
+                presentationSurfaces.BannerText,
+                presentationSurfaces.Transition,
+                audio);
             input.Configure(inputModule);
             router.Configure(new ProductScreen[]
                 { title, settings, productSettings, library, match, replay, result, howToPlay });
             controller.Configure(
                 router, title, settings, productSettings, library, match, replay, result,
-                howToPlay, input, errors);
+                howToPlay, input, presentation, errors);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
@@ -269,6 +284,8 @@ namespace TrumpLab.Product.Editor
             Text actionSummary = CreateText(root.transform, "ActionSummary", "Legal action buttons appear here", font, 22,
                 new Vector2(0.18f, 0.2f), new Vector2(0.82f, 0.25f));
             Button actionTemplate = CreateButton(actions, "ActionButtonTemplate", "Action", font, Vector2.zero);
+            actionTemplate.GetComponent<ProductUiFeedbackEmitter>()
+                .SetSubmitFeedbackEnabled(false);
             actionTemplate.gameObject.SetActive(false);
             Button help = CreateButton(root.transform, "HelpButton", "Help", font,
                 new Vector2(790f, 455f));
@@ -434,6 +451,73 @@ namespace TrumpLab.Product.Editor
             return panel;
         }
 
+        private static ProductPresentationSurfaces CreatePresentationSurfaces(
+            Transform parent, Font font)
+        {
+            var transitionObject = new GameObject("ScreenTransition",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(CanvasGroup));
+            transitionObject.transform.SetParent(parent, false);
+            Stretch(transitionObject.GetComponent<RectTransform>());
+            Image transitionImage = transitionObject.GetComponent<Image>();
+            transitionImage.color = new Color(0.015f, 0.03f, 0.025f, 0.82f);
+            transitionImage.raycastTarget = false;
+            CanvasGroup transition = transitionObject.GetComponent<CanvasGroup>();
+            transition.alpha = 0f;
+            transition.interactable = false;
+            transition.blocksRaycasts = false;
+
+            var bannerObject = new GameObject("FeedbackBanner",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(CanvasGroup));
+            bannerObject.transform.SetParent(parent, false);
+            RectTransform bannerRect = bannerObject.GetComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0.3f, 0.84f);
+            bannerRect.anchorMax = new Vector2(0.7f, 0.94f);
+            bannerRect.offsetMin = Vector2.zero;
+            bannerRect.offsetMax = Vector2.zero;
+            Image bannerImage = bannerObject.GetComponent<Image>();
+            bannerImage.color = new Color(0.1f, 0.4f, 0.58f, 0.97f);
+            bannerImage.raycastTarget = false;
+            CanvasGroup banner = bannerObject.GetComponent<CanvasGroup>();
+            banner.alpha = 0f;
+            banner.interactable = false;
+            banner.blocksRaycasts = false;
+            Text bannerText = CreateText(bannerObject.transform, "FeedbackText",
+                "◇  Focus moved", font, 30,
+                new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f));
+
+            return new ProductPresentationSurfaces(
+                banner, bannerImage, bannerText, transition);
+        }
+
+        private static ProductAudioController CreateAudioController(
+            GameObject productRoot, GeneratedAudioAssets assets)
+        {
+            if (productRoot == null) throw new ArgumentNullException(nameof(productRoot));
+            if (assets == null) throw new ArgumentNullException(nameof(assets));
+
+            var musicObject = new GameObject("MusicAudio", typeof(AudioSource));
+            musicObject.transform.SetParent(productRoot.transform, false);
+            var sfxObject = new GameObject("SfxAudio", typeof(AudioSource));
+            sfxObject.transform.SetParent(productRoot.transform, false);
+            AudioSource music = musicObject.GetComponent<AudioSource>();
+            AudioSource sfx = sfxObject.GetComponent<AudioSource>();
+            ProductAudioClipBinding[] cues = Enum.GetValues(typeof(ProductFeedbackKind))
+                .Cast<ProductFeedbackKind>()
+                .Select(kind => new ProductAudioClipBinding(kind,
+                    assets.Cues.TryGetValue(kind, out AudioClip? clip)
+                        ? clip
+                        : throw new InvalidOperationException(
+                            "Generated audio cue is missing: " + kind)))
+                .ToArray();
+
+            ProductAudioController controller =
+                productRoot.AddComponent<ProductAudioController>();
+            controller.Configure(music, sfx, assets.Music, cues);
+            return controller;
+        }
+
         private static GameObject ScreenRoot<T>(string name) where T : ProductScreen
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(T));
@@ -505,7 +589,8 @@ namespace TrumpLab.Product.Editor
         private static Button CreateButton(Transform parent, string name, string label, Font font,
             Vector2 anchoredPosition)
         {
-            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Button));
             root.transform.SetParent(parent, false);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -523,7 +608,8 @@ namespace TrumpLab.Product.Editor
         private static Toggle CreateToggle(Transform parent, string name, string label, Font font,
             Vector2 anchoredPosition)
         {
-            var root = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            var root = new GameObject(name, typeof(RectTransform),
+                typeof(ProductUiFeedbackEmitter), typeof(Toggle));
             root.transform.SetParent(parent, false);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -563,7 +649,8 @@ namespace TrumpLab.Product.Editor
         private static Slider CreateSlider(Transform parent, string name,
             Vector2 anchoredPosition)
         {
-            var root = new GameObject(name, typeof(RectTransform), typeof(Slider));
+            var root = new GameObject(name, typeof(RectTransform),
+                typeof(ProductUiFeedbackEmitter), typeof(Slider));
             root.transform.SetParent(parent, false);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -620,7 +707,7 @@ namespace TrumpLab.Product.Editor
             string placeholderValue, Font font, Vector2 anchoredPosition)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(Image), typeof(InputField));
+                typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(InputField));
             root.transform.SetParent(parent, false);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -650,7 +737,7 @@ namespace TrumpLab.Product.Editor
             Vector2 anchoredPosition)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(Image), typeof(Dropdown));
+                typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Dropdown));
             root.transform.SetParent(parent, false);
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -700,7 +787,8 @@ namespace TrumpLab.Product.Editor
                 ContentSizeFitter.FitMode.PreferredSize;
 
             var itemObject = new GameObject("Item", typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(Image), typeof(Toggle), typeof(LayoutElement));
+                typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Toggle),
+                typeof(LayoutElement));
             itemObject.transform.SetParent(content, false);
             itemObject.GetComponent<LayoutElement>().preferredHeight = 60f;
             Image itemBackground = itemObject.GetComponent<Image>();
@@ -756,6 +844,219 @@ namespace TrumpLab.Product.Editor
 #endif
         }
 
+        private static GeneratedAudioAssets GenerateAudioAssets()
+        {
+            string musicPath = AudioDirectory + "/music-loop.wav";
+            WriteWaveAsset(musicPath, RenderMusicLoop());
+
+            var definitions = new[]
+            {
+                new CueWave(ProductFeedbackKind.Navigation, "navigation.wav",
+                    new[] { 880d }, 0.045d),
+                new CueWave(ProductFeedbackKind.Submit, "submit.wav",
+                    new[] { 660d, 880d }, 0.055d),
+                new CueWave(ProductFeedbackKind.Reject, "reject.wav",
+                    new[] { 180d, 145d }, 0.080d),
+                new CueWave(ProductFeedbackKind.CardPlay, "card-play.wav",
+                    new[] { 1040d, 720d }, 0.040d),
+                new CueWave(ProductFeedbackKind.Draw, "draw.wav",
+                    new[] { 430d, 315d }, 0.070d),
+                new CueWave(ProductFeedbackKind.WildSuit, "wild-suit.wav",
+                    new[] { 523.25d, 659.25d, 783.99d }, 0.065d),
+                new CueWave(ProductFeedbackKind.CpuTurn, "cpu-turn.wav",
+                    new[] { 220d, 330d }, 0.090d),
+                new CueWave(ProductFeedbackKind.Win, "win.wav",
+                    new[] { 523.25d, 659.25d, 783.99d, 1046.5d }, 0.080d),
+                new CueWave(ProductFeedbackKind.Lose, "lose.wav",
+                    new[] { 440d, 349.23d, 261.63d, 196d }, 0.090d),
+                new CueWave(ProductFeedbackKind.Error, "error.wav",
+                    new[] { 130d, 105d, 130d }, 0.110d)
+            };
+
+            var clips = new Dictionary<ProductFeedbackKind, AudioClip>();
+            foreach (CueWave definition in definitions)
+            {
+                string path = AudioDirectory + "/" + definition.FileName;
+                WriteWaveAsset(path, RenderToneSequence(
+                    definition.Frequencies, definition.NoteSeconds));
+                AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+                if (clip == null)
+                    throw new InvalidOperationException("Generated audio clip is missing: " + path);
+                clips.Add(definition.Kind, clip);
+            }
+
+            AudioClip music = AssetDatabase.LoadAssetAtPath<AudioClip>(musicPath);
+            if (music == null)
+                throw new InvalidOperationException("Generated music loop is missing: " + musicPath);
+            return new GeneratedAudioAssets(music, clips);
+        }
+
+        private static float[] RenderMusicLoop()
+        {
+            const int seconds = 4;
+            int sampleCount = AudioSampleRate * seconds;
+            var samples = new float[sampleCount];
+            double[][] chords =
+            {
+                new[] { 220d, 277.18d, 329.63d },
+                new[] { 196d, 246.94d, 293.66d },
+                new[] { 174.61d, 220d, 261.63d },
+                new[] { 196d, 246.94d, 329.63d }
+            };
+            for (int index = 0; index < sampleCount; index++)
+            {
+                double time = (double)index / AudioSampleRate;
+                int segment = Math.Min(seconds - 1, (int)time);
+                double local = time - segment;
+                double edge = Math.Min(1d, Math.Min(local / 0.025d,
+                    (1d - local) / 0.025d));
+                double value = 0d;
+                foreach (double frequency in chords[segment])
+                    value += Math.Sin(2d * Math.PI * frequency * local);
+                samples[index] = (float)(value / chords[segment].Length * 0.16d * edge);
+            }
+            return samples;
+        }
+
+        private static float[] RenderToneSequence(IReadOnlyList<double> frequencies,
+            double noteSeconds)
+        {
+            if (frequencies == null || frequencies.Count == 0)
+                throw new ArgumentException("A generated cue requires at least one tone.",
+                    nameof(frequencies));
+            int noteSamples = Math.Max(1, (int)Math.Round(noteSeconds * AudioSampleRate));
+            int gapSamples = (int)Math.Round(0.008d * AudioSampleRate);
+            int sampleCount = frequencies.Count * noteSamples +
+                Math.Max(0, frequencies.Count - 1) * gapSamples;
+            var samples = new float[sampleCount];
+            int output = 0;
+            for (int toneIndex = 0; toneIndex < frequencies.Count; toneIndex++)
+            {
+                double frequency = frequencies[toneIndex];
+                for (int index = 0; index < noteSamples; index++)
+                {
+                    double position = noteSamples == 1 ? 1d :
+                        (double)index / (noteSamples - 1);
+                    double envelope = Math.Min(1d, position / 0.12d) *
+                        Math.Min(1d, (1d - position) / 0.28d);
+                    double time = (double)index / AudioSampleRate;
+                    double fundamental = Math.Sin(2d * Math.PI * frequency * time);
+                    double harmonic = Math.Sin(4d * Math.PI * frequency * time) * 0.18d;
+                    samples[output++] = (float)((fundamental + harmonic) *
+                        0.34d * envelope);
+                }
+                if (toneIndex < frequencies.Count - 1) output += gapSamples;
+            }
+            return samples;
+        }
+
+        private static void WriteWaveAsset(string path, float[] samples)
+        {
+            byte[] bytes = EncodePcm16Wave(samples);
+            bool unchanged = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(bytes);
+            if (!unchanged) File.WriteAllBytes(path, bytes);
+            AssetDatabase.ImportAsset(path,
+                ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
+
+            var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+            if (importer == null)
+                throw new InvalidOperationException("Generated WAV has no AudioImporter: " + path);
+            AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+            settings.loadType = AudioClipLoadType.DecompressOnLoad;
+            settings.compressionFormat = AudioCompressionFormat.PCM;
+            settings.sampleRateSetting = AudioSampleRateSetting.PreserveSampleRate;
+            settings.preloadAudioData = true;
+            importer.defaultSampleSettings = settings;
+            importer.forceToMono = true;
+            importer.loadInBackground = false;
+            importer.SaveAndReimport();
+        }
+
+        private static byte[] EncodePcm16Wave(IReadOnlyList<float> samples)
+        {
+            if (samples == null || samples.Count == 0)
+                throw new ArgumentException("Generated WAV samples cannot be empty.",
+                    nameof(samples));
+            using var stream = new MemoryStream(44 + samples.Count * sizeof(short));
+            using var writer = new BinaryWriter(stream);
+            WriteAscii(writer, "RIFF");
+            writer.Write(36 + samples.Count * sizeof(short));
+            WriteAscii(writer, "WAVE");
+            WriteAscii(writer, "fmt ");
+            writer.Write(16);
+            writer.Write((short)1);
+            writer.Write((short)1);
+            writer.Write(AudioSampleRate);
+            writer.Write(AudioSampleRate * sizeof(short));
+            writer.Write((short)sizeof(short));
+            writer.Write((short)16);
+            WriteAscii(writer, "data");
+            writer.Write(samples.Count * sizeof(short));
+            foreach (float sample in samples)
+            {
+                float clamped = Mathf.Clamp(sample, -1f, 1f);
+                writer.Write((short)Math.Round(clamped * short.MaxValue,
+                    MidpointRounding.AwayFromZero));
+            }
+            writer.Flush();
+            return stream.ToArray();
+        }
+
+        private static void WriteAscii(BinaryWriter writer, string value)
+        {
+            foreach (char character in value) writer.Write((byte)character);
+        }
+
+        private sealed class GeneratedAudioAssets
+        {
+            public GeneratedAudioAssets(AudioClip music,
+                IReadOnlyDictionary<ProductFeedbackKind, AudioClip> cues)
+            {
+                Music = music;
+                Cues = cues;
+            }
+
+            public AudioClip Music { get; }
+            public IReadOnlyDictionary<ProductFeedbackKind, AudioClip> Cues { get; }
+        }
+
+        private sealed class ProductPresentationSurfaces
+        {
+            public ProductPresentationSurfaces(CanvasGroup banner, Image bannerImage,
+                Text bannerText, CanvasGroup transition)
+            {
+                Banner = banner ?? throw new ArgumentNullException(nameof(banner));
+                BannerImage = bannerImage ??
+                    throw new ArgumentNullException(nameof(bannerImage));
+                BannerText = bannerText ??
+                    throw new ArgumentNullException(nameof(bannerText));
+                Transition = transition ??
+                    throw new ArgumentNullException(nameof(transition));
+            }
+
+            public CanvasGroup Banner { get; }
+            public Image BannerImage { get; }
+            public Text BannerText { get; }
+            public CanvasGroup Transition { get; }
+        }
+
+        private readonly struct CueWave
+        {
+            public CueWave(ProductFeedbackKind kind, string fileName,
+                IReadOnlyList<double> frequencies, double noteSeconds)
+            {
+                Kind = kind;
+                FileName = fileName;
+                Frequencies = frequencies;
+                NoteSeconds = noteSeconds;
+            }
+
+            public ProductFeedbackKind Kind { get; }
+            public string FileName { get; }
+            public IReadOnlyList<double> Frequencies { get; }
+            public double NoteSeconds { get; }
+        }
+
         private static void ConfigurePlayerSettings()
         {
             PlayerSettings.companyName = "Trump Game Lab";
@@ -808,6 +1109,8 @@ namespace TrumpLab.Product.Editor
                 eventSystem.GetComponent<StandaloneInputModule>() != null)
                 throw new InvalidOperationException(
                     "Bootstrap scene must use only the Input System UI module.");
+            ValidateGeneratedAudioContract(roots, controller);
+            ValidatePresentationContract(roots, controller, canvas);
             if (controller.ErrorPanel == null || controller.ErrorPanel.gameObject.activeSelf)
                 throw new InvalidOperationException("Bootstrap error panel is missing or initially visible.");
             if (controller.Router.Screens.Count != expectedPrefabs.Length ||
@@ -833,6 +1136,129 @@ namespace TrumpLab.Product.Editor
                 EditorBuildSettings.scenes[0].path != ScenePath ||
                 !EditorBuildSettings.scenes[0].enabled)
                 throw new InvalidOperationException("Bootstrap scene is not the only enabled build scene.");
+        }
+
+        private static void ValidateGeneratedAudioContract(GameObject[] roots,
+            ProductAppController controller)
+        {
+            AudioListener[] listeners = roots.SelectMany(root =>
+                root.GetComponentsInChildren<AudioListener>(true)).ToArray();
+            AudioSource[] sources = roots.SelectMany(root =>
+                root.GetComponentsInChildren<AudioSource>(true)).ToArray();
+            ProductAudioController[] audioControllers = roots.SelectMany(root =>
+                root.GetComponentsInChildren<ProductAudioController>(true)).ToArray();
+            if (listeners.Length != 1 || listeners[0].gameObject != controller.gameObject ||
+                !listeners[0].enabled)
+                throw new InvalidOperationException(
+                    "Bootstrap scene requires exactly one enabled ProductRoot AudioListener.");
+            if (sources.Length != 2 || audioControllers.Length != 1 ||
+                audioControllers[0].gameObject != controller.gameObject)
+                throw new InvalidOperationException(
+                    "Bootstrap scene requires one product audio controller and two audio sources.");
+
+            ProductAudioController audio = audioControllers[0];
+            audio.Initialize();
+            if (!audio.IsInitialized || audio.MusicSource == audio.SfxSource ||
+                !sources.Contains(audio.MusicSource) || !sources.Contains(audio.SfxSource))
+                throw new InvalidOperationException(
+                    "Product audio sources are not wired to separate music and SFX channels.");
+            if (audio.MusicSource.gameObject.name != "MusicAudio" ||
+                audio.SfxSource.gameObject.name != "SfxAudio" ||
+                audio.MusicSource.transform.parent != controller.transform ||
+                audio.SfxSource.transform.parent != controller.transform)
+                throw new InvalidOperationException(
+                    "Product audio channels are not owned by ProductRoot.");
+            if (!audio.MusicSource.loop || audio.MusicSource.playOnAwake ||
+                audio.MusicSource.spatialBlend != 0f ||
+                audio.MusicSource.clip != audio.MusicLoop ||
+                audio.SfxSource.loop || audio.SfxSource.playOnAwake ||
+                audio.SfxSource.spatialBlend != 0f || audio.SfxSource.clip != null)
+                throw new InvalidOperationException(
+                    "Product music and SFX AudioSource settings are invalid.");
+            foreach (ProductFeedbackKind kind in Enum.GetValues(typeof(ProductFeedbackKind)))
+                audio.Play(kind);
+
+            string[] expectedFiles =
+            {
+                "card-play.wav", "cpu-turn.wav", "draw.wav", "error.wav", "lose.wav",
+                "music-loop.wav", "navigation.wav", "reject.wav", "submit.wav",
+                "wild-suit.wav", "win.wav"
+            };
+            string[] paths = AssetDatabase.FindAssets("t:AudioClip", new[] { AudioDirectory })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+            if (!paths.Select(Path.GetFileName).SequenceEqual(expectedFiles))
+                throw new InvalidOperationException(
+                    "Generated audio asset set does not match the product cue contract.");
+            foreach (string path in paths)
+            {
+                AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+                var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+                AudioImporterSampleSettings settings = importer == null
+                    ? default
+                    : importer.defaultSampleSettings;
+                if (clip == null || clip.channels != 1 || clip.frequency != AudioSampleRate ||
+                    importer == null || !importer.forceToMono || importer.loadInBackground ||
+                    !settings.preloadAudioData)
+                    throw new InvalidOperationException(
+                        "Generated audio format is invalid: " + path);
+                if (settings.loadType != AudioClipLoadType.DecompressOnLoad ||
+                    settings.compressionFormat != AudioCompressionFormat.PCM ||
+                    settings.sampleRateSetting != AudioSampleRateSetting.PreserveSampleRate)
+                    throw new InvalidOperationException(
+                        "Generated audio import settings are invalid: " + path);
+            }
+        }
+
+        private static void ValidatePresentationContract(GameObject[] roots,
+            ProductAppController controller, Canvas canvas)
+        {
+            ProductPresentationController[] presentations = roots.SelectMany(root =>
+                root.GetComponentsInChildren<ProductPresentationController>(true)).ToArray();
+            if (presentations.Length != 1 || presentations[0].gameObject != canvas.gameObject ||
+                controller.PresentationController != presentations[0])
+                throw new InvalidOperationException(
+                    "Product presentation must be the single feedback sink on ProductCanvas.");
+
+            ProductPresentationController presentation = presentations[0];
+            if (presentation.Banner.transform.parent != canvas.transform ||
+                presentation.Transition.transform.parent != canvas.transform ||
+                presentation.Banner.alpha != 0f || presentation.Banner.interactable ||
+                presentation.Banner.blocksRaycasts || presentation.Transition.alpha != 0f ||
+                presentation.Transition.interactable || presentation.Transition.blocksRaycasts)
+                throw new InvalidOperationException(
+                    "Product presentation surfaces are not initialized as non-interactive overlays.");
+            Graphic[] presentationGraphics = presentation.Banner
+                .GetComponentsInChildren<Graphic>(true)
+                .Concat(presentation.Transition.GetComponentsInChildren<Graphic>(true))
+                .ToArray();
+            if (presentationGraphics.Length < 3 ||
+                presentationGraphics.Any(graphic => graphic.raycastTarget))
+                throw new InvalidOperationException(
+                    "Product presentation surfaces must never be UI raycast targets.");
+
+            Selectable[] selectables = canvas.GetComponentsInChildren<Selectable>(true);
+            ProductUiFeedbackEmitter[] emitters =
+                canvas.GetComponentsInChildren<ProductUiFeedbackEmitter>(true);
+            if (selectables.Length == 0 || emitters.Length != selectables.Length ||
+                selectables.Any(selectable =>
+                    selectable.GetComponent<ProductUiFeedbackEmitter>() == null ||
+                    !FeedbackPrecedesSelectable(selectable)) ||
+                emitters.Any(emitter => emitter.GetComponent<Selectable>() == null ||
+                    emitter.GetComponentInParent<ProductPresentationController>() != presentation))
+                throw new InvalidOperationException(
+                    "Every generated Selectable requires one canvas-routed feedback emitter.");
+        }
+
+        private static bool FeedbackPrecedesSelectable(Selectable selectable)
+        {
+            Component[] components = selectable.GetComponents<Component>();
+            int selectableIndex = Array.IndexOf(components, selectable);
+            int feedbackIndex = Array.FindIndex(components,
+                component => component is ProductUiFeedbackEmitter);
+            return feedbackIndex >= 0 && selectableIndex > feedbackIndex;
         }
 
         private static void RenderSampleMatch(MatchScreen match)

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 using TrumpLab;
 using UnityEngine;
@@ -20,11 +21,19 @@ namespace TrumpLab.Product
         [SerializeField] private ResultScreen? resultScreen;
         [SerializeField] private HowToPlayScreen? howToPlayScreen;
         [SerializeField] private ProductInputController? inputController;
+        [SerializeField] private ProductPresentationController? presentationController;
         [SerializeField] private ProductErrorPanel? errorPanel;
 
         private GameSessionController? activeSession;
         private TutorialSessionController? activeTutorial;
         private Coroutine? cpuTurnCoroutine;
+        private Coroutine? actionPresentationCoroutine;
+        private SessionActionRecord? pendingSessionAction;
+        private SessionActionRecord? pendingTutorialAction;
+        private ResultViewModel? pendingResult;
+        private int presentationGeneration;
+        private int lastSessionCpuCueActionCount = -1;
+        private int lastTutorialCpuCueActionCount = -1;
         private GameStartRequest? lastRequest;
         private ISessionStore? sessionStore;
         private IProductProgressStore? progressStore;
@@ -56,12 +65,15 @@ namespace TrumpLab.Product
             throw new InvalidOperationException("Product settings are not initialized.");
         public ProductInputController InputController => inputController ??
             throw new InvalidOperationException("Product input controller is not configured.");
+        public ProductPresentationController PresentationController => presentationController ??
+            throw new InvalidOperationException(
+                "Product presentation controller is not configured.");
 
         public void Configure(ScreenRouter configuredRouter, TitleScreen title,
             GameSettingsScreen settings, ProductSettingsScreen productSettings,
             SessionLibraryScreen library, MatchScreen match, ReplayScreen replay,
             ResultScreen result, HowToPlayScreen howToPlay, ProductInputController input,
-            ProductErrorPanel errors)
+            ProductPresentationController presentation, ProductErrorPanel errors)
         {
             router = configuredRouter;
             titleScreen = title;
@@ -73,6 +85,7 @@ namespace TrumpLab.Product
             resultScreen = result;
             howToPlayScreen = howToPlay;
             inputController = input;
+            presentationController = presentation;
             errorPanel = errors;
         }
 
@@ -102,7 +115,8 @@ namespace TrumpLab.Product
             if (router == null || titleScreen == null || settingsScreen == null ||
                 productSettingsScreen == null || inputController == null ||
                 sessionLibraryScreen == null || matchScreen == null || replayScreen == null ||
-                resultScreen == null || howToPlayScreen == null || errorPanel == null)
+                resultScreen == null || howToPlayScreen == null ||
+                presentationController == null || errorPanel == null)
                 throw new InvalidOperationException("Product app controller is not configured.");
 
             if (sessionStore == null) sessionStore = new FileSessionStore(Application.persistentDataPath);
@@ -125,11 +139,13 @@ namespace TrumpLab.Product
             settingsScreen.StartRequested += HandleStartRequested;
             settingsScreen.HowToPlayRequested += HandleSettingsHowToPlayRequested;
             settingsScreen.BackRequested += HandleTitleRequested;
+            settingsScreen.ValidationRejected += HandleValidationRejected;
             productSettingsScreen.ApplyRequested += HandleProductSettingsApplyRequested;
             productSettingsScreen.ResetRequested += HandleProductSettingsResetRequested;
             productSettingsScreen.BackRequested += HandleTitleRequested;
             productSettingsScreen.RebindRequested += HandleRebindRequested;
             productSettingsScreen.CancelRebindRequested += HandleCancelRebindRequested;
+            productSettingsScreen.ValidationRejected += HandleValidationRejected;
             sessionLibraryScreen.ResumeRequested += HandleResumeRequested;
             sessionLibraryScreen.ReplayRequested += HandleReplayRequested;
             sessionLibraryScreen.DeleteRequested += HandleDeleteRequested;
@@ -157,6 +173,8 @@ namespace TrumpLab.Product
             resultScreen.CancelRequested += HandleTitleRequested;
             howToPlayScreen.CancelRequested += HandleHowToPlayBackRequested;
             errorPanel.Dismissed += HandleErrorDismissed;
+            errorPanel.Shown += HandleErrorShown;
+            router.ScreenChanged += HandleScreenChanged;
             errorPanel.Hide();
             router.Show(ScreenId.Title);
             awakeComplete = true;
@@ -178,6 +196,7 @@ namespace TrumpLab.Product
                 settingsScreen.HowToPlayRequested -= HandleSettingsHowToPlayRequested;
                 settingsScreen.BackRequested -= HandleTitleRequested;
                 settingsScreen.CancelRequested -= HandleTitleRequested;
+                settingsScreen.ValidationRejected -= HandleValidationRejected;
             }
             if (productSettingsScreen != null)
             {
@@ -187,6 +206,7 @@ namespace TrumpLab.Product
                 productSettingsScreen.RebindRequested -= HandleRebindRequested;
                 productSettingsScreen.CancelRebindRequested -= HandleCancelRebindRequested;
                 productSettingsScreen.CancelRequested -= HandleProductSettingsCancelRequested;
+                productSettingsScreen.ValidationRejected -= HandleValidationRejected;
             }
             if (sessionLibraryScreen != null)
             {
@@ -230,7 +250,12 @@ namespace TrumpLab.Product
                 inputController.GamepadDisconnected -= HandleGamepadDisconnected;
                 inputController.GamepadReconnected -= HandleGamepadReconnected;
             }
-            if (errorPanel != null) errorPanel.Dismissed -= HandleErrorDismissed;
+            if (errorPanel != null)
+            {
+                errorPanel.Dismissed -= HandleErrorDismissed;
+                errorPanel.Shown -= HandleErrorShown;
+            }
+            if (router != null) router.ScreenChanged -= HandleScreenChanged;
             EndSession();
             EndTutorial();
         }
@@ -238,9 +263,11 @@ namespace TrumpLab.Product
         private void InitializeProductSettings()
         {
             if (productSettingsStore == null || productSettingsApplier == null ||
-                inputController == null) return;
+                inputController == null || presentationController == null) return;
+            var combinedApplier = new CompositeProductSettingsApplier(
+                productSettingsApplier, presentationController);
             productSettingsService = new ProductSettingsService(
-                productSettingsStore, productSettingsApplier, validator: inputController);
+                productSettingsStore, combinedApplier, validator: inputController);
             ProductSettingsLoadResult result = productSettingsService.Initialize();
             inputController.ApplyBindings(productSettingsService.Current.InputBindings);
             settingsLoadFeedback = result.Status switch
@@ -261,6 +288,23 @@ namespace TrumpLab.Product
                 displayGuard.MaintainValidDisplay(productSettingsService.Current);
         }
 
+        private void HandleScreenChanged(ScreenId _)
+        {
+            try
+            {
+                PresentationController.BeginScreenTransition();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("Screen transition feedback failed: " + exception.Message);
+            }
+        }
+
+        private void HandleErrorShown() => TryPlayFeedback(ProductFeedbackKind.Error);
+
+        private void HandleValidationRejected() =>
+            TryPlayFeedback(ProductFeedbackKind.Reject);
+
         private void HandleTitleSettingsRequested()
         {
             if (productSettingsScreen == null || productSettingsService == null) return;
@@ -277,6 +321,7 @@ namespace TrumpLab.Product
                 productSettingsScreen.SetFeedback(
                     "Settings were not saved: " + (result.Error ?? "Unknown error."),
                     isError: true);
+                TryPlayFeedback(ProductFeedbackKind.Error);
                 return;
             }
             try
@@ -293,6 +338,7 @@ namespace TrumpLab.Product
                 productSettingsScreen.SetFeedback(
                     "Settings were saved, but input could not be applied: " + exception.Message,
                     isError: true);
+                TryPlayFeedback(ProductFeedbackKind.Error);
             }
         }
 
@@ -305,6 +351,7 @@ namespace TrumpLab.Product
                 productSettingsScreen.SetFeedback(
                     "Defaults were not saved: " + (result.Error ?? "Unknown error."),
                     isError: true);
+                TryPlayFeedback(ProductFeedbackKind.Error);
                 return;
             }
             InputController.CancelRebind();
@@ -335,12 +382,14 @@ namespace TrumpLab.Product
                 productSettingsScreen.SetRebindState(false, string.Empty);
                 productSettingsScreen.SetFeedback(
                     "Rebinding could not start: " + exception.Message, isError: true);
+                TryPlayFeedback(ProductFeedbackKind.Error);
                 return;
             }
             if (!started)
             {
                 productSettingsScreen.SetRebindState(true,
                     "Finish or cancel the current rebind first.");
+                TryPlayFeedback(ProductFeedbackKind.Reject);
             }
         }
 
@@ -372,6 +421,7 @@ namespace TrumpLab.Product
 
         private void HandleMatchCancelRequested()
         {
+            if (matchScreen?.IsPresentationLocked == true) return;
             if (matchScreen?.IsContextHelpVisible == true)
             {
                 matchScreen.HideContextHelp();
@@ -388,6 +438,7 @@ namespace TrumpLab.Product
             if (!Router.Current.HasValue || Router.Current == ScreenId.HowToPlay) return;
             if (Router.Current == ScreenId.Match)
             {
+                if (matchScreen?.IsPresentationLocked == true) return;
                 matchScreen?.ShowContextHelp();
                 return;
             }
@@ -414,7 +465,8 @@ namespace TrumpLab.Product
             {
                 if (errorPanel.MessageLabel.text.StartsWith("Gamepad disconnected",
                         StringComparison.Ordinal))
-                    errorPanel.Show("Gamepad reconnected. You can use it again.");
+                    errorPanel.MessageLabel.text =
+                        "Gamepad reconnected. You can use it again.";
                 return;
             }
             Router.RestoreFocus();
@@ -455,6 +507,8 @@ namespace TrumpLab.Product
             EndSession();
             activeSession = session;
             activeSlotId = SessionSlotIds.Require(slotId);
+            lastSessionCpuCueActionCount = -1;
+            session.ActionApplied += HandleSessionActionApplied;
             session.SnapshotChanged += HandleSnapshotChanged;
             session.Finished += HandleSessionFinished;
             session.Faulted += HandleSessionFaulted;
@@ -572,13 +626,23 @@ namespace TrumpLab.Product
             {
                 if (Router.Current != ScreenId.Match ||
                     matchScreen?.IsContextHelpVisible == true ||
-                    !tutorial.TryApplyHumanAction(actionId)) return;
+                    matchScreen?.IsPresentationLocked == true) return;
+                bool applied = tutorial.TryApplyHumanAction(actionId);
+                if (!applied)
+                {
+                    if (tutorial.FeedbackKey != null &&
+                        tutorial.FeedbackKey.StartsWith("tutorial.feedback.expected_",
+                            StringComparison.Ordinal))
+                        PresentMatchFeedback(ProductFeedbackKind.Reject);
+                    return;
+                }
                 ScheduleTutorialCpuTurn();
                 return;
             }
             GameSessionController? session = activeSession;
             if (session == null || Router.Current != ScreenId.Match ||
                 matchScreen?.IsContextHelpVisible == true ||
+                matchScreen?.IsPresentationLocked == true ||
                 !session.TryApplyHumanAction(actionId)) return;
             ScheduleCpuTurn();
         }
@@ -637,6 +701,8 @@ namespace TrumpLab.Product
             ErrorPanel.Hide();
             var tutorial = new TutorialSessionController();
             activeTutorial = tutorial;
+            lastTutorialCpuCueActionCount = -1;
+            tutorial.ActionApplied += HandleTutorialActionApplied;
             tutorial.Changed += HandleTutorialChanged;
             tutorial.Completed += HandleTutorialCompleted;
             tutorial.Faulted += HandleTutorialFaulted;
@@ -655,13 +721,23 @@ namespace TrumpLab.Product
             matchScreen.RenderTutorial(
                 CrazyEightsMatchPresenter.Create(tutorial.Snapshot, inputEnabled),
                 TutorialOverlayPresenter.Create(tutorial));
+            SessionActionRecord? appliedAction = pendingTutorialAction;
+            pendingTutorialAction = null;
+            if (appliedAction != null)
+                StartActionPresentation(appliedAction);
+            else if (Router.Current == ScreenId.Match)
+                Router.RestoreFocus();
             ScheduleTutorialCpuTurn();
         }
+
+        private void HandleTutorialActionApplied(SessionActionRecord action) =>
+            pendingTutorialAction = action ?? throw new ArgumentNullException(nameof(action));
 
         private void HandleTutorialContinueRequested()
         {
             TutorialSessionController? tutorial = activeTutorial;
-            if (tutorial == null || Router.Current != ScreenId.Match) return;
+            if (tutorial == null || Router.Current != ScreenId.Match ||
+                matchScreen?.IsPresentationLocked == true) return;
             if (tutorial.State == TutorialSessionState.AwaitingIntro)
                 tutorial.AcknowledgeIntro();
             else if (tutorial.State == TutorialSessionState.AwaitingResultConfirmation)
@@ -716,14 +792,133 @@ namespace TrumpLab.Product
             matchScreen.Render(CrazyEightsMatchPresenter.Create(
                 presentation,
                 activeSession.State == MatchSessionState.AwaitingHuman));
+            SessionActionRecord? appliedAction = pendingSessionAction;
+            pendingSessionAction = null;
+            if (appliedAction != null)
+                StartActionPresentation(appliedAction);
+            else if (Router.Current == ScreenId.Match)
+                Router.RestoreFocus();
         }
+
+        private void HandleSessionActionApplied(SessionActionRecord action) =>
+            pendingSessionAction = action ?? throw new ArgumentNullException(nameof(action));
 
         private void HandleSessionFinished(GameResultPresentation result)
         {
             StopCpuTurn();
-            if (resultScreen == null) return;
-            resultScreen.Render(CrazyEightsResultPresenter.Create(result));
+            pendingResult = CrazyEightsResultPresenter.Create(result);
+            if (actionPresentationCoroutine == null) ShowPendingResult();
+        }
+
+        private void StartActionPresentation(SessionActionRecord action)
+        {
+            IReadOnlyList<ProductFeedbackKind> sequence;
+            try
+            {
+                sequence = ProductActionFeedback.ClassifyActionSequence(action);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("Action feedback classification failed: " + exception.Message);
+                matchScreen?.SetPresentationLocked(false);
+                return;
+            }
+
+            CancelActionPresentation(unlockMatch: false, clearPendingResult: false);
+            matchScreen?.SetPresentationLocked(true);
+            if (Router.Current == ScreenId.Match) Router.RestoreFocus();
+            int generation = ++presentationGeneration;
+            actionPresentationCoroutine = StartCoroutine(RunActionPresentation(
+                sequence, generation, activeSession, activeTutorial));
+        }
+
+        private IEnumerator RunActionPresentation(
+            IReadOnlyList<ProductFeedbackKind> sequence, int generation,
+            GameSessionController? session, TutorialSessionController? tutorial)
+        {
+            foreach (ProductFeedbackKind kind in sequence)
+            {
+                if (!IsCurrentPresentation(generation, session, tutorial)) yield break;
+                PresentMatchFeedback(kind);
+                yield return WaitForCurrentCue(generation, session, tutorial);
+            }
+
+            if (!IsCurrentPresentation(generation, session, tutorial)) yield break;
+            actionPresentationCoroutine = null;
+            if (session != null && pendingResult != null)
+            {
+                ShowPendingResult();
+                yield break;
+            }
+
+            matchScreen?.SetPresentationLocked(false);
+            if (Router.Current == ScreenId.Match) Router.RestoreFocus();
+            if (session != null) ScheduleCpuTurn();
+            if (tutorial != null) ScheduleTutorialCpuTurn();
+        }
+
+        private IEnumerator WaitForCurrentCue(int generation,
+            GameSessionController? session, TutorialSessionController? tutorial)
+        {
+            float elapsed = 0f;
+            bool yielded = false;
+            while (IsCurrentPresentation(generation, session, tutorial))
+            {
+                ProductPresentationPolicy policy = PresentationController.Policy;
+                float duration = policy.CueEnterSeconds + policy.CueHoldSeconds +
+                    policy.CueExitSeconds;
+                if (yielded && elapsed >= duration) yield break;
+                yield return null;
+                yielded = true;
+                elapsed += Time.unscaledDeltaTime;
+            }
+        }
+
+        private bool IsCurrentPresentation(int generation, GameSessionController? session,
+            TutorialSessionController? tutorial) =>
+            generation == presentationGeneration &&
+            (session == null || activeSession == session) &&
+            (tutorial == null || activeTutorial == tutorial);
+
+        private void ShowPendingResult()
+        {
+            ResultViewModel? model = pendingResult;
+            pendingResult = null;
+            if (model == null || resultScreen == null) return;
+            matchScreen?.SetPresentationLocked(false);
+            resultScreen.Render(model);
             Router.Show(ScreenId.Result);
+            if (model.Outcome == ProductResultOutcome.Win)
+                TryPlayFeedback(ProductFeedbackKind.Win);
+            else if (model.Outcome == ProductResultOutcome.Loss)
+                TryPlayFeedback(ProductFeedbackKind.Lose);
+        }
+
+        private void PresentMatchFeedback(ProductFeedbackKind kind)
+        {
+            try
+            {
+                matchScreen?.ShowActionFeedback(kind);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("Match feedback failed: " + exception.Message);
+            }
+            TryPlayFeedback(kind);
+        }
+
+        private bool TryPlayFeedback(ProductFeedbackKind kind)
+        {
+            try
+            {
+                PresentationController.Play(kind);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("Product feedback failed: " + exception.Message);
+                return false;
+            }
         }
 
         private void HandleSessionFaulted(string _)
@@ -751,21 +946,34 @@ namespace TrumpLab.Product
         private void ScheduleCpuTurn()
         {
             if (activeSession?.State != MatchSessionState.WaitingForCpu ||
-                cpuTurnCoroutine != null || matchScreen?.IsContextHelpVisible == true) return;
+                cpuTurnCoroutine != null || actionPresentationCoroutine != null ||
+                Router.Current != ScreenId.Match ||
+                matchScreen?.IsContextHelpVisible == true) return;
+            if (lastSessionCpuCueActionCount != activeSession.Archive.Actions.Count)
+            {
+                lastSessionCpuCueActionCount = activeSession.Archive.Actions.Count;
+                PresentMatchFeedback(ProductFeedbackKind.CpuTurn);
+            }
             cpuTurnCoroutine = StartCoroutine(RunCpuTurn(activeSession));
         }
 
         private void ScheduleTutorialCpuTurn()
         {
             if (activeTutorial?.State != TutorialSessionState.WaitingForCpu ||
-                cpuTurnCoroutine != null || Router.Current != ScreenId.Match ||
+                cpuTurnCoroutine != null || actionPresentationCoroutine != null ||
+                Router.Current != ScreenId.Match ||
                 matchScreen?.IsContextHelpVisible == true) return;
+            if (lastTutorialCpuCueActionCount != activeTutorial.Archive.Actions.Count)
+            {
+                lastTutorialCpuCueActionCount = activeTutorial.Archive.Actions.Count;
+                PresentMatchFeedback(ProductFeedbackKind.CpuTurn);
+            }
             cpuTurnCoroutine = StartCoroutine(RunTutorialCpuTurn(activeTutorial));
         }
 
         private IEnumerator RunTutorialCpuTurn(TutorialSessionController tutorial)
         {
-            yield return new WaitForSecondsRealtime(CpuTurnDelaySeconds);
+            yield return WaitForDynamicCpuDelay();
             cpuTurnCoroutine = null;
             if (activeTutorial != tutorial ||
                 tutorial.State != TutorialSessionState.WaitingForCpu ||
@@ -776,12 +984,23 @@ namespace TrumpLab.Product
 
         private IEnumerator RunCpuTurn(GameSessionController session)
         {
-            yield return new WaitForSecondsRealtime(CpuTurnDelaySeconds);
+            yield return WaitForDynamicCpuDelay();
             cpuTurnCoroutine = null;
             if (activeSession != session || session.State != MatchSessionState.WaitingForCpu)
                 yield break;
             session.TryApplyCpuAction();
             ScheduleCpuTurn();
+        }
+
+        private IEnumerator WaitForDynamicCpuDelay()
+        {
+            float elapsed = 0f;
+            do
+            {
+                yield return null;
+                elapsed += Time.unscaledDeltaTime;
+            }
+            while (elapsed < CpuTurnDelaySeconds);
         }
 
         private void StopCpuTurn()
@@ -791,30 +1010,58 @@ namespace TrumpLab.Product
             cpuTurnCoroutine = null;
         }
 
+        private void CancelActionPresentation(bool unlockMatch, bool clearPendingResult)
+        {
+            presentationGeneration++;
+            if (actionPresentationCoroutine != null)
+            {
+                StopCoroutine(actionPresentationCoroutine);
+                actionPresentationCoroutine = null;
+            }
+            if (unlockMatch && matchScreen != null)
+                matchScreen.SetPresentationLocked(false);
+            if (clearPendingResult)
+            {
+                pendingResult = null;
+                if (presentationController != null) presentationController.Cancel();
+            }
+        }
+
         private void EndSession()
         {
             StopCpuTurn();
-            matchScreen?.HideContextHelp(notify: false);
+            if (matchScreen != null) matchScreen.HideContextHelp(notify: false);
             if (activeSession == null) return;
+            CancelActionPresentation(unlockMatch: true, clearPendingResult: true);
+            pendingSessionAction = null;
+            activeSession.ActionApplied -= HandleSessionActionApplied;
             activeSession.SnapshotChanged -= HandleSnapshotChanged;
             activeSession.Finished -= HandleSessionFinished;
             activeSession.Faulted -= HandleSessionFaulted;
             activeSession = null;
             activeSlotId = null;
+            lastSessionCpuCueActionCount = -1;
         }
 
         private void EndTutorial()
         {
             StopCpuTurn();
-            matchScreen?.HideContextHelp(notify: false);
-            matchScreen?.HideTutorial();
+            if (matchScreen != null)
+            {
+                matchScreen.HideContextHelp(notify: false);
+                matchScreen.HideTutorial();
+            }
             TutorialSessionController? tutorial = activeTutorial;
             if (tutorial == null) return;
+            CancelActionPresentation(unlockMatch: true, clearPendingResult: true);
+            pendingTutorialAction = null;
             activeTutorial = null;
+            tutorial.ActionApplied -= HandleTutorialActionApplied;
             tutorial.Changed -= HandleTutorialChanged;
             tutorial.Completed -= HandleTutorialCompleted;
             tutorial.Faulted -= HandleTutorialFaulted;
             tutorial.Cancel();
+            lastTutorialCpuCueActionCount = -1;
         }
 
         private void RefreshTutorialProgress()

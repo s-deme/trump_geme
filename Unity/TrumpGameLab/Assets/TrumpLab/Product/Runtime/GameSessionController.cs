@@ -67,6 +67,7 @@ namespace TrumpLab.Product
             "The session has not produced its first snapshot.");
         public string? FaultMessage { get; private set; }
 
+        public event System.Action<SessionActionRecord>? ActionApplied;
         public event System.Action<GamePresentation>? SnapshotChanged;
         public event System.Action<GameResultPresentation>? Finished;
         public event System.Action<string>? Faulted;
@@ -98,7 +99,9 @@ namespace TrumpLab.Product
                 if (player == HumanPlayer)
                     throw new InvalidOperationException("CPU turn cannot run for the human player.");
                 State = MatchSessionState.Applying;
+                int previousActionCount = recorder.Archive.Actions.Count;
                 recorder.ApplyCpuAction();
+                NotifyActionApplied(previousActionCount);
                 return TryRefresh();
             }
             catch (Exception exception)
@@ -111,13 +114,24 @@ namespace TrumpLab.Product
         {
             try
             {
+                int previousActionCount = recorder.Archive.Actions.Count;
                 recorder.ApplyHumanAction(HumanPlayer, action);
+                NotifyActionApplied(previousActionCount);
                 return TryRefresh();
             }
             catch (Exception exception)
             {
                 return Fail(exception);
             }
+        }
+
+        private void NotifyActionApplied(int previousActionCount)
+        {
+            SessionArchive archive = recorder.Archive;
+            if (archive.Actions.Count != previousActionCount + 1)
+                throw new InvalidOperationException(
+                    "A successful product action must append exactly one session record.");
+            ActionApplied?.Invoke(archive.Actions[archive.Actions.Count - 1]);
         }
 
         private bool TryRefresh()

@@ -6,12 +6,23 @@ using System.Linq;
 
 namespace TrumpLab.Product
 {
+    public enum ProductResultOutcome
+    {
+        Win,
+        Loss,
+        Draw
+    }
+
     public sealed class ResultViewModel
     {
+        public ProductResultOutcome Outcome { get; }
         public string Summary { get; }
 
-        public ResultViewModel(string summary)
+        public ResultViewModel(ProductResultOutcome outcome, string summary)
         {
+            if (!Enum.IsDefined(typeof(ProductResultOutcome), outcome))
+                throw new ArgumentOutOfRangeException(nameof(outcome));
+            Outcome = outcome;
             Summary = string.IsNullOrWhiteSpace(summary)
                 ? throw new ArgumentException("Result summary cannot be empty.", nameof(summary))
                 : summary;
@@ -29,14 +40,18 @@ namespace TrumpLab.Product
                 throw new ArgumentOutOfRangeException(nameof(humanPlayer));
 
             bool humanWon = result.Winners.Contains(humanPlayer);
-            string outcome = result.Winners.Count == 0
+            ProductResultOutcome outcome = result.Winners.Count == 0
+                ? ProductResultOutcome.Draw
+                : humanWon ? ProductResultOutcome.Win : ProductResultOutcome.Loss;
+            string outcomeText = outcome == ProductResultOutcome.Draw
                 ? "Draw"
-                : humanWon ? "You win!" : "CPU wins";
+                : outcome == ProductResultOutcome.Win ? "You win!" : "CPU wins";
             string scores = string.Join("  •  ", result.Scores.Select((score, player) =>
                 (player == humanPlayer ? "You" : "CPU") + ": " +
                 score.ToString("0.##", CultureInfo.InvariantCulture)));
             return new ResultViewModel(
-                outcome + "\n" + scores + "\nReason: " + result.Reason +
+                outcome,
+                outcomeText + "\n" + scores + "\nReason: " + result.Reason +
                 "  •  Turns: " + result.Turns);
         }
     }

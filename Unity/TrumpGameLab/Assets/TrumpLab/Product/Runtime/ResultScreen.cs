@@ -16,6 +16,7 @@ namespace TrumpLab.Product
         public override ScreenId Id => ScreenId.Result;
         public Text SummaryLabel => summaryLabel ?? throw new InvalidOperationException(
             "Result summary is not configured.");
+        public ProductResultOutcome? LastOutcome { get; private set; }
         public event System.Action? RematchRequested;
         public event System.Action? DetailsRequested;
         public event System.Action? TitleRequested;
@@ -31,7 +32,9 @@ namespace TrumpLab.Product
         public void Render(ResultViewModel model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
-            SummaryLabel.text = model.Summary;
+            LastOutcome = model.Outcome;
+            SummaryLabel.text = OutcomeSymbol(model.Outcome) + "  " + model.Summary;
+            SummaryLabel.color = OutcomeColor(model.Outcome);
         }
 
         private void Awake()
@@ -54,5 +57,34 @@ namespace TrumpLab.Product
         private void HandleDetails() => DetailsRequested?.Invoke();
         private void HandleRematch() => RematchRequested?.Invoke();
         private void HandleTitle() => TitleRequested?.Invoke();
+
+        private static string OutcomeSymbol(ProductResultOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case ProductResultOutcome.Win: return "★ WIN";
+                case ProductResultOutcome.Loss: return "◆ LOSS";
+                case ProductResultOutcome.Draw: return "= DRAW";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome,
+                        "Unknown product result outcome.");
+            }
+        }
+
+        private static Color OutcomeColor(ProductResultOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case ProductResultOutcome.Win:
+                    return new Color(0.98f, 0.84f, 0.28f, 1f);
+                case ProductResultOutcome.Loss:
+                    return new Color(0.98f, 0.52f, 0.48f, 1f);
+                case ProductResultOutcome.Draw:
+                    return new Color(0.62f, 0.84f, 0.98f, 1f);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome,
+                        "Unknown product result outcome.");
+            }
+        }
     }
 }

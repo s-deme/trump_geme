@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -430,6 +431,69 @@ namespace TrumpLab.Product.Tests
                 Assert.That(productRoot, Is.Not.Null);
                 Assert.That(productRoot!.GetComponent<ProductInputController>(), Is.Not.Null);
 
+                AudioListener[] listeners = roots.SelectMany(root =>
+                    root.GetComponentsInChildren<AudioListener>(true)).ToArray();
+                AudioSource[] audioSources = roots.SelectMany(root =>
+                    root.GetComponentsInChildren<AudioSource>(true)).ToArray();
+                Assert.That(listeners, Has.Length.EqualTo(1));
+                Assert.That(listeners[0].gameObject, Is.SameAs(productRoot));
+                Assert.That(audioSources, Has.Length.EqualTo(2));
+                ProductAudioController? audio =
+                    productRoot.GetComponent<ProductAudioController>();
+                Assert.That(audio, Is.Not.Null);
+                audio!.Initialize();
+                Assert.That(audio.IsInitialized, Is.True);
+                Assert.That(audio.MusicSource, Is.Not.SameAs(audio.SfxSource));
+                Assert.That(audio.MusicSource.gameObject.name, Is.EqualTo("MusicAudio"));
+                Assert.That(audio.SfxSource.gameObject.name, Is.EqualTo("SfxAudio"));
+                Assert.That(audio.MusicSource.transform.parent, Is.SameAs(productRoot.transform));
+                Assert.That(audio.SfxSource.transform.parent, Is.SameAs(productRoot.transform));
+                Assert.That(audio.MusicSource.spatialBlend, Is.Zero);
+                Assert.That(audio.SfxSource.spatialBlend, Is.Zero);
+                Assert.That(audio.MusicSource.loop, Is.True);
+                Assert.That(audio.SfxSource.loop, Is.False);
+                Assert.That(audio.MusicSource.clip, Is.SameAs(audio.MusicLoop));
+                foreach (ProductFeedbackKind kind in Enum.GetValues(typeof(ProductFeedbackKind)))
+                    Assert.DoesNotThrow(() => audio.Play(kind), kind.ToString());
+
+                Canvas? canvas = roots.Select(root => root.GetComponent<Canvas>())
+                    .SingleOrDefault(component => component != null);
+                Assert.That(canvas, Is.Not.Null);
+                ProductPresentationController? presentation =
+                    canvas!.GetComponent<ProductPresentationController>();
+                Assert.That(presentation, Is.Not.Null);
+                Assert.That(presentation!.Banner.transform.parent, Is.SameAs(canvas.transform));
+                Assert.That(presentation.Transition.transform.parent, Is.SameAs(canvas.transform));
+                Assert.That(presentation.Banner.blocksRaycasts, Is.False);
+                Assert.That(presentation.Transition.blocksRaycasts, Is.False);
+                Assert.That(presentation.Banner.GetComponentsInChildren<UnityEngine.UI.Graphic>(true)
+                    .Concat(presentation.Transition
+                        .GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
+                    .All(graphic => !graphic.raycastTarget), Is.True);
+
+                UnityEngine.UI.Selectable[] selectables =
+                    canvas.GetComponentsInChildren<UnityEngine.UI.Selectable>(true);
+                ProductUiFeedbackEmitter[] emitters =
+                    canvas.GetComponentsInChildren<ProductUiFeedbackEmitter>(true);
+                Assert.That(selectables, Is.Not.Empty);
+                Assert.That(emitters, Has.Length.EqualTo(selectables.Length));
+                Assert.That(selectables.All(selectable =>
+                    selectable.GetComponent<ProductUiFeedbackEmitter>() != null), Is.True);
+                foreach (UnityEngine.UI.Selectable control in selectables)
+                {
+                    Component[] components = control.GetComponents<Component>();
+                    int controlIndex = Array.IndexOf(components, control);
+                    int emitterIndex = Array.FindIndex(components,
+                        component => component is ProductUiFeedbackEmitter);
+                    Assert.That(emitterIndex, Is.GreaterThanOrEqualTo(0), control.name);
+                    Assert.That(emitterIndex, Is.LessThan(controlIndex),
+                        control.name + " must emit Submit before its action callback.");
+                }
+                Assert.That(emitters.All(emitter =>
+                    emitter.GetComponent<UnityEngine.UI.Selectable>() != null &&
+                    emitter.GetComponentsInParent<ProductPresentationController>(true)
+                        .SingleOrDefault() == presentation), Is.True);
+
                 ScreenRouter? router = productRoot!.GetComponent<ScreenRouter>();
                 Assert.That(router, Is.Not.Null);
                 ScreenId[] expectedIds = Enum.GetValues(typeof(ScreenId))
@@ -437,6 +501,9 @@ namespace TrumpLab.Product.Tests
                 Assert.That(router!.Screens.Count, Is.EqualTo(expectedIds.Length));
                 Assert.That(router.Screens.Select(screen => screen.Id),
                     Is.EquivalentTo(expectedIds));
+                ProductAppController? app = productRoot.GetComponent<ProductAppController>();
+                Assert.That(app, Is.Not.Null);
+                Assert.That(app!.PresentationController, Is.SameAs(presentation));
 
                 var library = (SessionLibraryScreen)router.Get(ScreenId.SessionLibrary);
                 library.SetSlots(Array.Empty<SessionSlotInfo>());
@@ -446,6 +513,11 @@ namespace TrumpLab.Product.Tests
                 Assert.That(selectable, Is.Not.Null);
                 Assert.That(selectable!.gameObject.activeInHierarchy, Is.True);
                 Assert.That(selectable!.IsActive() && selectable.IsInteractable(), Is.True);
+
+                var match = (MatchScreen)router.Get(ScreenId.Match);
+                Assert.That(match.ActionButtonTemplate
+                    .GetComponent<ProductUiFeedbackEmitter>().SubmitFeedbackEnabled, Is.False,
+                    "Match actions use record-derived semantic feedback, not generic Submit.");
             }
             finally
             {
@@ -453,6 +525,54 @@ namespace TrumpLab.Product.Tests
                     EditorSceneManager.RestoreSceneManagerSetup(previousSetup);
                 else
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        [Test]
+        public void GeneratedAudioAssetsUseOwnedPcmContract()
+        {
+            const string audioDirectory = "Assets/TrumpLab/Product/Audio/Generated";
+            string[] expectedFiles =
+            {
+                "card-play.wav", "cpu-turn.wav", "draw.wav", "error.wav", "lose.wav",
+                "music-loop.wav", "navigation.wav", "reject.wav", "submit.wav",
+                "wild-suit.wav", "win.wav"
+            };
+            string[] paths = AssetDatabase.FindAssets("t:AudioClip", new[] { audioDirectory })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.That(paths.Select(Path.GetFileName), Is.EqualTo(expectedFiles));
+            var waveformSignatures = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string path in paths)
+            {
+                AudioClip? clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+                var importer = AssetImporter.GetAtPath(path) as AudioImporter;
+                Assert.That(clip, Is.Not.Null, path);
+                Assert.That(clip!.channels, Is.EqualTo(1), path);
+                Assert.That(clip.frequency, Is.EqualTo(44100), path);
+                Assert.That(importer, Is.Not.Null, path);
+                Assert.That(importer!.forceToMono, Is.True, path);
+                Assert.That(importer.loadInBackground, Is.False, path);
+                AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+                Assert.That(settings.preloadAudioData, Is.True, path);
+                Assert.That(settings.loadType,
+                    Is.EqualTo(AudioClipLoadType.DecompressOnLoad), path);
+                Assert.That(settings.compressionFormat,
+                    Is.EqualTo(AudioCompressionFormat.PCM), path);
+                Assert.That(settings.sampleRateSetting,
+                    Is.EqualTo(AudioSampleRateSetting.PreserveSampleRate), path);
+
+                byte[] wave = File.ReadAllBytes(path);
+                Assert.That(wave.Length, Is.GreaterThan(44), path);
+                Assert.That(wave.Skip(44).Any(value => value != 0), Is.True,
+                    path + " must contain a non-silent PCM payload.");
+                using SHA256 sha256 = SHA256.Create();
+                string signature = Convert.ToBase64String(sha256.ComputeHash(wave));
+                Assert.That(waveformSignatures.Add(signature), Is.True,
+                    path + " must have a distinct generated waveform.");
             }
         }
 

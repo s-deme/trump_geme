@@ -21,6 +21,7 @@ namespace TrumpLab.Product
         public Text MessageLabel => messageLabel ?? throw new InvalidOperationException(
             "Error message label is not configured.");
         public event System.Action? Dismissed;
+        public event System.Action? Shown;
 
         public void Configure(Text message, Button dismiss)
         {
@@ -54,6 +55,7 @@ namespace TrumpLab.Product
             gameObject.SetActive(true);
             if (opening) LockBackgroundControls();
             FocusDismissButton();
+            Shown?.Invoke();
         }
 
         public void Hide()

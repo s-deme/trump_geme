@@ -23,7 +23,8 @@ command lineからは次のように実行できる。
 ```
 
 generatorはscreen component、missing script、Bootstrap root、build scene、`TrumpLab.Core`との
-assembly分離を検査し、不整合があれば非0で終了する。
+assembly分離に加え、AudioListener、Music / SFX source、feedback overlay、全cueの生成WAVを検査し、
+不整合があれば非0で終了する。
 
 ## CPU難易度
 
@@ -82,6 +83,19 @@ Titleの`Settings`ではwindowed / borderless、対応解像度、VSync、master
 keyboard / mouseへ復帰する。詳細は
 [ADR-0007](../../docs/product/decisions/ADR-0007-product-settings-and-input-contract.md)を参照する。
 
+## 音と演出
+
+Navigation、決定、明示的なvalidation拒否、card play、draw、wild suit、CPU手番、勝敗、errorは、
+共通bannerの文字・symbolと固有SFXで識別する。Matchのcard / draw / wild / CPU feedbackは対象領域も
+変化させ、ResultはWin / Loss / Drawを構造値と別の文字・symbolで表示する。busy、古いAction ID、
+同一frameの二重入力は従来どおり無視し、拒否音を出さない。
+
+音源は`Assets/TrumpLab/Product/Audio/Generated/`へ数式波形から生成するmono 44.1 kHz PCM16 WAVで、
+外部sampleや第三者assetを使わない。MasterはPlayerのAudioListener、Music / SFXは別の2D AudioSourceへ
+適用する。Reducedは非本質的motionを止め、Normal / Fastと同じAction順、入力lock、結果を維持する。
+詳細は[ADR-0008](../../docs/product/decisions/ADR-0008-product-av-feedback-contract.md)と
+[M06-T03受入記録](../../docs/product/reports/M06-T03-av-evidence.md)を参照する。
+
 ## 製品テスト
 
 Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
@@ -90,8 +104,10 @@ Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
 pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
 ```
 
-Edit Modeは製品設定、入力Actionとrebind、難易度、presenter、session、Prefab、atomic保存と
-破損拒否の契約、Play Modeは設定画面の保存・再読込・Resetを含む
+Edit Modeは製品設定、入力Actionとrebind、難易度、presenter、session、Prefab、atomic保存、
+生成音声、semantic cue、3速度のrule不変性と破損拒否の契約、Play Modeは設定画面の
+保存・再読込・ResetとAudioSource反映を含む
 Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel、二重入力lock、人間対CPUの
 1局完走、保存一覧、再開、リプレイ、2段階削除、error modalに加え、pointerとSubmitによる
-tutorial完走、優先focus、完了記録、再実行を検証する。
+tutorial完走、優先focus、完了記録、再実行、card / draw / wild / CPU / resultの音響・視覚eventを
+検証する。

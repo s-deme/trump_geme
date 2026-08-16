@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using UnityEngine;
 
 namespace TrumpLab.Product
@@ -22,6 +23,28 @@ namespace TrumpLab.Product
     public interface IProductDisplayGuard
     {
         void MaintainValidDisplay(ProductSettings settings);
+    }
+
+    public sealed class CompositeProductSettingsApplier : IProductSettingsApplier
+    {
+        private readonly IProductSettingsApplier[] appliers;
+
+        public CompositeProductSettingsApplier(params IProductSettingsApplier[] configuredAppliers)
+        {
+            if (configuredAppliers == null)
+                throw new ArgumentNullException(nameof(configuredAppliers));
+            if (configuredAppliers.Length == 0 || configuredAppliers.Any(applier => applier == null))
+                throw new ArgumentException(
+                    "At least one non-null product settings applier is required.",
+                    nameof(configuredAppliers));
+            appliers = configuredAppliers.ToArray();
+        }
+
+        public void Apply(ProductSettings settings)
+        {
+            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            foreach (IProductSettingsApplier applier in appliers) applier.Apply(settings);
+        }
     }
 
     public static class ProductDisplayPolicy

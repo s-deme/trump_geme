@@ -162,6 +162,7 @@ namespace TrumpLab.Product
         public GamePresentation Snapshot => snapshot ?? throw new InvalidOperationException(
             "Tutorial has not produced its first snapshot.");
 
+        public event System.Action<SessionActionRecord>? ActionApplied;
         public event System.Action? Changed;
         public event System.Action? Completed;
         public event System.Action<string>? Faulted;
@@ -224,7 +225,9 @@ namespace TrumpLab.Product
 
             try
             {
+                int previousActionCount = recorder.Archive.Actions.Count;
                 recorder.ApplyHumanAction(HumanPlayer, selected.Action);
+                NotifyActionApplied(previousActionCount);
                 traceIndex++;
                 FeedbackKey = null;
                 return RefreshFromTrace();
@@ -241,7 +244,9 @@ namespace TrumpLab.Product
             try
             {
                 TutorialTraceEntry expected = definition.Trace[traceIndex];
+                int previousActionCount = recorder.Archive.Actions.Count;
                 TrumpLab.Action selected = recorder.ApplyCpuAction();
+                NotifyActionApplied(previousActionCount);
                 if (selected != expected.Action)
                     throw new InvalidOperationException(
                         "Tutorial CPU trace diverged at action " + traceIndex + ".");
@@ -253,6 +258,15 @@ namespace TrumpLab.Product
             {
                 return Fail(exception);
             }
+        }
+
+        private void NotifyActionApplied(int previousActionCount)
+        {
+            SessionArchive archive = recorder.Archive;
+            if (archive.Actions.Count != previousActionCount + 1)
+                throw new InvalidOperationException(
+                    "A successful tutorial action must append exactly one session record.");
+            ActionApplied?.Invoke(archive.Actions[archive.Actions.Count - 1]);
         }
 
         public bool ConfirmResult()
