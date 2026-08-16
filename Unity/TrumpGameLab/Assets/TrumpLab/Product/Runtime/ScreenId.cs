@@ -7,6 +7,7 @@ namespace TrumpLab.Product
         SessionLibrary,
         Match,
         Replay,
-        Result
+        Result,
+        HowToPlay
     }
 }

@@ -17,6 +17,7 @@ namespace TrumpLab.Product
         [SerializeField] private MatchScreen? matchScreen;
         [SerializeField] private ReplayScreen? replayScreen;
         [SerializeField] private ResultScreen? resultScreen;
+        [SerializeField] private HowToPlayScreen? howToPlayScreen;
         [SerializeField] private ProductErrorPanel? errorPanel;
 
         private GameSessionController? activeSession;
@@ -25,6 +26,7 @@ namespace TrumpLab.Product
         private ISessionStore? sessionStore;
         private string? activeSlotId;
         private ScreenId errorReturnScreen = ScreenId.Title;
+        private ScreenId howToPlayReturnScreen = ScreenId.Title;
 
         public ScreenRouter Router => router ?? throw new InvalidOperationException(
             "Screen router is not configured.");
@@ -39,7 +41,8 @@ namespace TrumpLab.Product
 
         public void Configure(ScreenRouter configuredRouter, TitleScreen title,
             GameSettingsScreen settings, SessionLibraryScreen library, MatchScreen match,
-            ReplayScreen replay, ResultScreen result, ProductErrorPanel errors)
+            ReplayScreen replay, ResultScreen result, HowToPlayScreen howToPlay,
+            ProductErrorPanel errors)
         {
             router = configuredRouter;
             titleScreen = title;
@@ -48,6 +51,7 @@ namespace TrumpLab.Product
             matchScreen = match;
             replayScreen = replay;
             resultScreen = result;
+            howToPlayScreen = howToPlay;
             errorPanel = errors;
         }
 
@@ -58,7 +62,7 @@ namespace TrumpLab.Product
         {
             if (router == null || titleScreen == null || settingsScreen == null ||
                 sessionLibraryScreen == null || matchScreen == null || replayScreen == null ||
-                resultScreen == null || errorPanel == null)
+                resultScreen == null || howToPlayScreen == null || errorPanel == null)
                 throw new InvalidOperationException("Product app controller is not configured.");
 
             if (sessionStore == null) sessionStore = new FileSessionStore(Application.persistentDataPath);
@@ -67,6 +71,7 @@ namespace TrumpLab.Product
             titleScreen.SessionsRequested += HandleSessionsRequested;
             titleScreen.QuitRequested += HandleQuitRequested;
             settingsScreen.StartRequested += HandleStartRequested;
+            settingsScreen.HowToPlayRequested += HandleSettingsHowToPlayRequested;
             settingsScreen.BackRequested += HandleTitleRequested;
             sessionLibraryScreen.ResumeRequested += HandleResumeRequested;
             sessionLibraryScreen.ReplayRequested += HandleReplayRequested;
@@ -75,9 +80,12 @@ namespace TrumpLab.Product
             matchScreen.ActionRequested += HandleActionRequested;
             matchScreen.ContextHelpOpened += HandleContextHelpOpened;
             matchScreen.ContextHelpClosed += HandleContextHelpClosed;
+            matchScreen.RulesRequested += HandleMatchRulesRequested;
             replayScreen.BackRequested += HandleSessionsRequested;
             resultScreen.RematchRequested += HandleRematchRequested;
+            resultScreen.DetailsRequested += HandleResultDetailsRequested;
             resultScreen.TitleRequested += HandleTitleRequested;
+            howToPlayScreen.BackRequested += HandleHowToPlayBackRequested;
             errorPanel.Dismissed += HandleErrorDismissed;
             errorPanel.Hide();
             router.Show(ScreenId.Title);
@@ -94,6 +102,7 @@ namespace TrumpLab.Product
             if (settingsScreen != null)
             {
                 settingsScreen.StartRequested -= HandleStartRequested;
+                settingsScreen.HowToPlayRequested -= HandleSettingsHowToPlayRequested;
                 settingsScreen.BackRequested -= HandleTitleRequested;
             }
             if (sessionLibraryScreen != null)
@@ -108,13 +117,17 @@ namespace TrumpLab.Product
                 matchScreen.ActionRequested -= HandleActionRequested;
                 matchScreen.ContextHelpOpened -= HandleContextHelpOpened;
                 matchScreen.ContextHelpClosed -= HandleContextHelpClosed;
+                matchScreen.RulesRequested -= HandleMatchRulesRequested;
             }
             if (replayScreen != null) replayScreen.BackRequested -= HandleSessionsRequested;
             if (resultScreen != null)
             {
                 resultScreen.RematchRequested -= HandleRematchRequested;
+                resultScreen.DetailsRequested -= HandleResultDetailsRequested;
                 resultScreen.TitleRequested -= HandleTitleRequested;
             }
+            if (howToPlayScreen != null)
+                howToPlayScreen.BackRequested -= HandleHowToPlayBackRequested;
             if (errorPanel != null) errorPanel.Dismissed -= HandleErrorDismissed;
             EndSession();
         }
@@ -122,6 +135,11 @@ namespace TrumpLab.Product
         private void Update()
         {
             if (!Input.GetKeyDown(KeyCode.Escape)) return;
+            if (Router.Current == ScreenId.HowToPlay)
+            {
+                HandleHowToPlayBackRequested();
+                return;
+            }
             if (Router.Current == ScreenId.Match && matchScreen != null &&
                 matchScreen.IsContextHelpVisible)
             {
@@ -273,13 +291,49 @@ namespace TrumpLab.Product
         private void HandleActionRequested(string actionId)
         {
             GameSessionController? session = activeSession;
-            if (session == null || matchScreen?.IsContextHelpVisible == true ||
+            if (session == null || Router.Current != ScreenId.Match ||
+                matchScreen?.IsContextHelpVisible == true ||
                 !session.TryApplyHumanAction(actionId)) return;
             ScheduleCpuTurn();
         }
 
         private void HandleContextHelpOpened() => StopCpuTurn();
         private void HandleContextHelpClosed() => ScheduleCpuTurn();
+
+        private void HandleSettingsHowToPlayRequested() =>
+            ShowHowToPlay(ScreenId.GameSettings, presentation: null);
+
+        private void HandleMatchRulesRequested()
+        {
+            GameSessionController? session = activeSession;
+            if (session == null) return;
+            StopCpuTurn();
+            ShowHowToPlay(ScreenId.Match, session.Snapshot);
+        }
+
+        private void HandleResultDetailsRequested()
+        {
+            GamePresentation? presentation = activeSession?.Snapshot;
+            if (presentation?.Result == null) return;
+            ShowHowToPlay(ScreenId.Result, presentation);
+        }
+
+        private void ShowHowToPlay(ScreenId returnScreen, GamePresentation? presentation)
+        {
+            if (howToPlayScreen == null)
+                throw new InvalidOperationException("How-to-play screen is not configured.");
+            howToPlayReturnScreen = returnScreen;
+            howToPlayScreen.Render(CrazyEightsHowToPlayPresenter.Create(presentation));
+            Router.Show(ScreenId.HowToPlay);
+        }
+
+        private void HandleHowToPlayBackRequested()
+        {
+            if (Router.Current != ScreenId.HowToPlay) return;
+            ScreenId destination = howToPlayReturnScreen;
+            Router.Show(destination);
+            if (destination == ScreenId.Match) ScheduleCpuTurn();
+        }
 
         private void HandleSnapshotChanged(GamePresentation presentation)
         {

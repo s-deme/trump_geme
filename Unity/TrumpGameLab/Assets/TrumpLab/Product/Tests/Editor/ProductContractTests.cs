@@ -305,6 +305,47 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void HowToPlayUsesStableOrderedPagesAndExplainsResultDetails()
+        {
+            HowToPlayViewModel rules = CrazyEightsHowToPlayPresenter.Create();
+
+            Assert.That(rules.Pages.Select(page => page.Id), Is.EqualTo(new[]
+            {
+                HowToPlayPageId.Objective,
+                HowToPlayPageId.LegalPlay,
+                HowToPlayPageId.Draw,
+                HowToPlayPageId.WildSuit,
+                HowToPlayPageId.Result
+            }));
+            Assert.That(rules.Pages.Select(page => page.TextKey), Is.EqualTo(new[]
+            {
+                "rules.crazy_eights.objective",
+                "rules.crazy_eights.legal_play",
+                "rules.crazy_eights.draw",
+                "rules.crazy_eights.wild_suit",
+                "rules.crazy_eights.result"
+            }));
+            Assert.That(rules.InitialPageIndex, Is.Zero);
+            Assert.That(rules.Pages[(int)HowToPlayPageId.Draw].Body,
+                Does.Contain("ends your turn"));
+            Assert.That(rules.Pages[(int)HowToPlayPageId.WildSuit].Body,
+                Does.Contain("called suit"));
+
+            var result = new GameResultPresentation(
+                winners: new[] { 0 }, scores: new[] { 18d, -18d },
+                reason: "empty hand", turns: 31);
+            HowToPlayViewModel resultGuide = CrazyEightsHowToPlayPresenter.Create(result: result);
+            HowToPlayPage resultPage = resultGuide.Pages[resultGuide.InitialPageIndex];
+
+            Assert.That(resultPage.Id, Is.EqualTo(HowToPlayPageId.Result));
+            Assert.That(resultPage.Body, Does.Contain("Current result"));
+            Assert.That(resultPage.Body, Does.Contain("You: 18"));
+            Assert.That(resultPage.Body, Does.Contain("CPU: -18"));
+            Assert.That(resultPage.Body, Does.Contain("a player emptied their hand"));
+            Assert.That(resultPage.Body, Does.Contain("Turns: 31"));
+        }
+
+        [Test]
         public void ProductPrefabsAndBootstrapSceneHaveNoMissingScripts()
         {
             string[] prefabs =
@@ -314,7 +355,8 @@ namespace TrumpLab.Product.Tests
                 "SessionLibraryScreen.prefab",
                 "MatchScreen.prefab",
                 "ReplayScreen.prefab",
-                "ResultScreen.prefab"
+                "ResultScreen.prefab",
+                "HowToPlayScreen.prefab"
             };
             foreach (string fileName in prefabs)
             {

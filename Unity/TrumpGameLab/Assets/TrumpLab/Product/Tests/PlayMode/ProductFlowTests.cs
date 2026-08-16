@@ -39,6 +39,18 @@ namespace TrumpLab.Product.Tests
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.GameSettings));
 
             var settings = (GameSettingsScreen)controller.Router.Get(ScreenId.GameSettings);
+            settings.HowToPlayButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.HowToPlay));
+            var preMatchRules = (HowToPlayScreen)controller.Router.Get(ScreenId.HowToPlay);
+            Assert.That(preMatchRules.CurrentPage.Id, Is.EqualTo(HowToPlayPageId.Objective));
+            Assert.That(preMatchRules.PageIndicatorLabel.text, Is.EqualTo("Page 1 / 5"));
+            preMatchRules.NextButton.onClick.Invoke();
+            Assert.That(preMatchRules.CurrentPage.Id, Is.EqualTo(HowToPlayPageId.LegalPlay));
+            preMatchRules.BackButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.GameSettings));
+
             settings.SeedInput.text = "23";
             settings.WildRankInput.text = "8";
             settings.DifficultyDropdown.value = settings.DifficultyDropdown.options
@@ -77,6 +89,19 @@ namespace TrumpLab.Product.Tests
             matchWithHelp.CloseHelpButton.onClick.Invoke();
             Assert.That(matchWithHelp.IsContextHelpVisible, Is.False);
 
+            string beforeRules = VisibleSnapshotSignature(session.Snapshot);
+            matchWithHelp.RulesButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.HowToPlay));
+            var matchRules = (HowToPlayScreen)controller.Router.Get(ScreenId.HowToPlay);
+            Assert.That(matchRules.CurrentPage.Id, Is.EqualTo(HowToPlayPageId.LegalPlay));
+            ActiveActionButton().onClick.Invoke();
+            Assert.That(VisibleSnapshotSignature(session.Snapshot), Is.EqualTo(beforeRules));
+            matchRules.BackButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
+            Assert.That(VisibleSnapshotSignature(session.Snapshot), Is.EqualTo(beforeRules));
+
             Button firstAction = ActiveActionButton();
             int turnsBeforeInput = session.Game.TurnCount;
             firstAction.onClick.Invoke();
@@ -93,6 +118,16 @@ namespace TrumpLab.Product.Tests
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Result));
             var result = (ResultScreen)controller.Router.Get(ScreenId.Result);
             Assert.That(result.SummaryLabel.text, Does.Contain("Turns:"));
+            Click(ScreenId.Result, "DetailsButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.HowToPlay));
+            var resultDetails = (HowToPlayScreen)controller.Router.Get(ScreenId.HowToPlay);
+            Assert.That(resultDetails.CurrentPage.Id, Is.EqualTo(HowToPlayPageId.Result));
+            Assert.That(resultDetails.PageBodyLabel.text, Does.Contain("Current result"));
+            Assert.That(resultDetails.PageBodyLabel.text, Does.Contain("Reason:"));
+            resultDetails.BackButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Result));
 
             Click(ScreenId.Result, "RematchButton");
             yield return null;
@@ -169,11 +204,14 @@ namespace TrumpLab.Product.Tests
             int turns = session.Game.TurnCount;
             int actions = session.Archive.Actions.Count;
 
-            match.HelpButton.onClick.Invoke();
+            match.RulesButton.onClick.Invoke();
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.HowToPlay));
             yield return new WaitForSecondsRealtime(0.5f);
             Assert.That(session.Game.TurnCount, Is.EqualTo(turns));
             Assert.That(session.Archive.Actions.Count, Is.EqualTo(actions));
-            match.CloseHelpButton.onClick.Invoke();
+            var rules = (HowToPlayScreen)controller.Router.Get(ScreenId.HowToPlay);
+            rules.BackButton.onClick.Invoke();
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
             yield return new WaitForSecondsRealtime(0.5f);
             Assert.That(session.Game.TurnCount, Is.GreaterThan(turns));
             Assert.That(session.State, Is.EqualTo(MatchSessionState.AwaitingHuman));

@@ -44,6 +44,7 @@ namespace TrumpLab.Product.Editor
             GameObject matchPrefab = CreateMatchPrefab(font);
             GameObject replayPrefab = CreateReplayPrefab(font);
             GameObject resultPrefab = CreateResultPrefab(font);
+            GameObject howToPlayPrefab = CreateHowToPlayPrefab(font);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateEventSystem();
@@ -55,13 +56,16 @@ namespace TrumpLab.Product.Editor
             var match = Instantiate<MatchScreen>(matchPrefab, canvas.transform);
             var replay = Instantiate<ReplayScreen>(replayPrefab, canvas.transform);
             var result = Instantiate<ResultScreen>(resultPrefab, canvas.transform);
+            var howToPlay = Instantiate<HowToPlayScreen>(howToPlayPrefab, canvas.transform);
             ProductErrorPanel errors = CreateErrorPanel(canvas.transform, font);
 
             var productRoot = new GameObject("ProductRoot");
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
-            router.Configure(new ProductScreen[] { title, settings, library, match, replay, result });
-            controller.Configure(router, title, settings, library, match, replay, result, errors);
+            router.Configure(new ProductScreen[]
+                { title, settings, library, match, replay, result, howToPlay });
+            controller.Configure(
+                router, title, settings, library, match, replay, result, howToPlay, errors);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
@@ -111,10 +115,14 @@ namespace TrumpLab.Product.Editor
             Text validation = CreateText(root.transform, "Validation", "", font, 24,
                 new Vector2(0.2f, 0.18f), new Vector2(0.8f, 0.25f));
             validation.color = new Color(1f, 0.55f, 0.45f, 1f);
-            Button start = CreateButton(root.transform, "StartButton", "Start", font, new Vector2(130f, -300f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font, new Vector2(-130f, -300f));
+            Button start = CreateButton(root.transform, "StartButton", "Start", font,
+                new Vector2(270f, -300f));
+            Button howToPlay = CreateButton(root.transform, "HowToPlayButton", "How to play", font,
+                new Vector2(0f, -300f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font,
+                new Vector2(-270f, -300f));
             root.GetComponent<GameSettingsScreen>().Configure(
-                summary, seed, wildRank, difficulty, validation, start, back);
+                summary, seed, wildRank, difficulty, validation, start, howToPlay, back);
             return SavePrefab(root, PrefabDirectory + "/GameSettingsScreen.prefab");
         }
 
@@ -163,6 +171,9 @@ namespace TrumpLab.Product.Editor
             Button help = CreateButton(root.transform, "HelpButton", "Help", font,
                 new Vector2(790f, 455f));
             help.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
+            Button rules = CreateButton(root.transform, "RulesButton", "Rules", font,
+                new Vector2(790f, 385f));
+            rules.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
             RectTransform helpPanel = CreatePanel(root.transform, "ContextHelpPanel",
                 new Vector2(0.16f, 0.12f), new Vector2(0.84f, 0.86f));
             Image helpBackground = helpPanel.gameObject.AddComponent<Image>();
@@ -176,7 +187,7 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0f, -330f));
             root.GetComponent<MatchScreen>().Configure(
                 status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate,
-                help, helpPanel.gameObject, helpText, closeHelp);
+                help, rules, helpPanel.gameObject, helpText, closeHelp);
             helpPanel.gameObject.SetActive(false);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
         }
@@ -227,10 +238,45 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0.2f, 0.7f), new Vector2(0.8f, 0.84f));
             Text summary = CreateText(root.transform, "Summary", "Player 1 wins\nReason: empty hand", font, 32,
                 new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.68f));
-            Button rematch = CreateButton(root.transform, "RematchButton", "Rematch", font, new Vector2(140f, -165f));
-            Button title = CreateButton(root.transform, "TitleButton", "Title", font, new Vector2(-140f, -165f));
-            root.GetComponent<ResultScreen>().Configure(summary, rematch, title);
+            Button details = CreateButton(root.transform, "DetailsButton", "Result details", font,
+                new Vector2(0f, -85f));
+            details.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 72f);
+            Button rematch = CreateButton(root.transform, "RematchButton", "Rematch", font,
+                new Vector2(140f, -190f));
+            Button title = CreateButton(root.transform, "TitleButton", "Title", font,
+                new Vector2(-140f, -190f));
+            root.GetComponent<ResultScreen>().Configure(summary, details, rematch, title);
             return SavePrefab(root, PrefabDirectory + "/ResultScreen.prefab");
+        }
+
+        private static GameObject CreateHowToPlayPrefab(Font font)
+        {
+            GameObject root = ScreenRoot<HowToPlayScreen>("HowToPlayScreen");
+            CreateText(root.transform, "ScreenTitle", "HOW TO PLAY", font, 48,
+                new Vector2(0.18f, 0.84f), new Vector2(0.82f, 0.94f));
+            Text context = CreateText(root.transform, "Context",
+                "Crazy Eights rules · Read-only guide", font, 23,
+                new Vector2(0.16f, 0.76f), new Vector2(0.84f, 0.83f));
+            Text indicator = CreateText(root.transform, "PageIndicator", "Page 1 / 5", font, 24,
+                new Vector2(0.17f, 0.68f), new Vector2(0.33f, 0.75f));
+            Text pageTitle = CreateText(root.transform, "PageTitle", "Objective", font, 38,
+                new Vector2(0.25f, 0.58f), new Vector2(0.75f, 0.68f));
+            Text body = CreateText(root.transform, "PageBody",
+                "Be the first player to empty your hand.", font, 28,
+                new Vector2(0.16f, 0.27f), new Vector2(0.84f, 0.57f));
+            body.alignment = TextAnchor.UpperLeft;
+            body.horizontalOverflow = HorizontalWrapMode.Wrap;
+            body.verticalOverflow = VerticalWrapMode.Overflow;
+            Button previous = CreateButton(root.transform, "PreviousButton", "Previous", font,
+                new Vector2(-300f, -330f));
+            Button next = CreateButton(root.transform, "NextButton", "Next", font,
+                new Vector2(0f, -330f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font,
+                new Vector2(300f, -330f));
+            root.GetComponent<HowToPlayScreen>().Configure(
+                indicator, pageTitle, body, context, previous, next, back);
+            root.GetComponent<HowToPlayScreen>().Render(CrazyEightsHowToPlayPresenter.Create());
+            return SavePrefab(root, PrefabDirectory + "/HowToPlayScreen.prefab");
         }
 
         private static ProductErrorPanel CreateErrorPanel(Transform parent, Font font)
@@ -498,7 +544,8 @@ namespace TrumpLab.Product.Editor
                 ("SessionLibraryScreen.prefab", typeof(SessionLibraryScreen)),
                 ("MatchScreen.prefab", typeof(MatchScreen)),
                 ("ReplayScreen.prefab", typeof(ReplayScreen)),
-                ("ResultScreen.prefab", typeof(ResultScreen))
+                ("ResultScreen.prefab", typeof(ResultScreen)),
+                ("HowToPlayScreen.prefab", typeof(HowToPlayScreen))
             };
             foreach ((string fileName, Type screenType) in expectedPrefabs)
             {

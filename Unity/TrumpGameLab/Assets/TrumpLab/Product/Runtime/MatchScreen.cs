@@ -20,6 +20,7 @@ namespace TrumpLab.Product
         [SerializeField] private RectTransform? actionRoot;
         [SerializeField] private Button? actionButtonTemplate;
         [SerializeField] private Button? helpButton;
+        [SerializeField] private Button? rulesButton;
         [SerializeField] private GameObject? contextHelpPanel;
         [SerializeField] private Text? contextHelpLabel;
         [SerializeField] private Button? closeHelpButton;
@@ -36,6 +37,7 @@ namespace TrumpLab.Product
         public Button ActionButtonTemplate => actionButtonTemplate ?? throw new InvalidOperationException(
             "Match action button template is not configured.");
         public Button HelpButton => helpButton ?? throw Missing(nameof(helpButton));
+        public Button RulesButton => rulesButton ?? throw Missing(nameof(rulesButton));
         public GameObject ContextHelpPanel => contextHelpPanel ??
             throw Missing(nameof(contextHelpPanel));
         public Text ContextHelpLabel => contextHelpLabel ?? throw Missing(nameof(contextHelpLabel));
@@ -45,10 +47,11 @@ namespace TrumpLab.Product
         public event System.Action<string>? ActionRequested;
         public event System.Action? ContextHelpOpened;
         public event System.Action? ContextHelpClosed;
+        public event System.Action? RulesRequested;
 
         public void Configure(Text status, Text opponentHand, Text stock, Text discard,
             Text humanHand, Text actionSummary, RectTransform actions, Button actionTemplate,
-            Button help, GameObject helpPanel, Text helpText, Button closeHelp)
+            Button help, Button rules, GameObject helpPanel, Text helpText, Button closeHelp)
         {
             statusLabel = status;
             opponentHandLabel = opponentHand;
@@ -59,6 +62,7 @@ namespace TrumpLab.Product
             actionRoot = actions;
             actionButtonTemplate = actionTemplate;
             helpButton = help;
+            rulesButton = rules;
             contextHelpPanel = helpPanel;
             contextHelpLabel = helpText;
             closeHelpButton = closeHelp;
@@ -67,6 +71,7 @@ namespace TrumpLab.Product
         private void Awake()
         {
             HelpButton.onClick.AddListener(ShowContextHelp);
+            RulesButton.onClick.AddListener(HandleRules);
             CloseHelpButton.onClick.AddListener(HideContextHelp);
             ContextHelpPanel.SetActive(false);
         }
@@ -146,9 +151,12 @@ namespace TrumpLab.Product
         private void OnDestroy()
         {
             if (helpButton != null) helpButton.onClick.RemoveListener(ShowContextHelp);
+            if (rulesButton != null) rulesButton.onClick.RemoveListener(HandleRules);
             if (closeHelpButton != null) closeHelpButton.onClick.RemoveListener(HideContextHelp);
             ClearActionButtons();
         }
+
+        private void HandleRules() => RulesRequested?.Invoke();
 
         private static Text Required(Text? value, string name) => value ??
             throw new InvalidOperationException("Match control is not configured: " + name);

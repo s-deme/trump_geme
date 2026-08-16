@@ -16,6 +16,7 @@ namespace TrumpLab.Product
         [SerializeField] private Dropdown? difficultyDropdown;
         [SerializeField] private Text? validationLabel;
         [SerializeField] private Button? startButton;
+        [SerializeField] private Button? howToPlayButton;
         [SerializeField] private Button? backButton;
 
         public override ScreenId Id => ScreenId.GameSettings;
@@ -29,11 +30,14 @@ namespace TrumpLab.Product
             throw new InvalidOperationException("Difficulty dropdown is not configured.");
         public Text ValidationLabel => validationLabel ?? throw new InvalidOperationException(
             "Settings validation label is not configured.");
+        public Button HowToPlayButton => howToPlayButton ?? throw new InvalidOperationException(
+            "Settings how-to-play button is not configured.");
         public event System.Action<GameStartRequest>? StartRequested;
+        public event System.Action? HowToPlayRequested;
         public event System.Action? BackRequested;
 
         public void Configure(Text summary, InputField seed, InputField wildRank,
-            Dropdown difficulty, Text validation, Button start, Button back)
+            Dropdown difficulty, Text validation, Button start, Button howToPlay, Button back)
         {
             summaryLabel = summary;
             seedInput = seed;
@@ -41,6 +45,7 @@ namespace TrumpLab.Product
             difficultyDropdown = difficulty;
             validationLabel = validation;
             startButton = start;
+            howToPlayButton = howToPlay;
             backButton = back;
             SetDifficultyOptions(CpuDifficulties.Standard);
         }
@@ -49,17 +54,20 @@ namespace TrumpLab.Product
         {
             if (summaryLabel == null || seedInput == null || wildRankInput == null ||
                 difficultyDropdown == null || validationLabel == null ||
-                startButton == null || backButton == null)
+                startButton == null || howToPlayButton == null || backButton == null)
                 throw new InvalidOperationException("Settings screen controls are not configured.");
             SetDifficultyOptions(SelectedDifficultyId());
             difficultyDropdown.onValueChanged.AddListener(HandleDifficultyChanged);
             startButton.onClick.AddListener(HandleStart);
+            howToPlayButton.onClick.AddListener(HandleHowToPlay);
             backButton.onClick.AddListener(HandleBack);
         }
 
         private void OnDestroy()
         {
             if (startButton != null) startButton.onClick.RemoveListener(HandleStart);
+            if (howToPlayButton != null)
+                howToPlayButton.onClick.RemoveListener(HandleHowToPlay);
             if (backButton != null) backButton.onClick.RemoveListener(HandleBack);
             if (difficultyDropdown != null)
                 difficultyDropdown.onValueChanged.RemoveListener(HandleDifficultyChanged);
@@ -172,6 +180,7 @@ namespace TrumpLab.Product
             ValidationLabel.text = string.Empty;
             StartRequested?.Invoke(request);
         }
+        private void HandleHowToPlay() => HowToPlayRequested?.Invoke();
         private void HandleBack() => BackRequested?.Invoke();
     }
 }

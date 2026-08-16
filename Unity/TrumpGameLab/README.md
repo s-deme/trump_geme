@@ -10,7 +10,7 @@ Unity 2021.3以上でこのディレクトリをprojectとして開く。現在�
 
 ## 画面骨格の再生成
 
-Unity menuの`Trump Lab > Regenerate Product Scaffold`を実行すると、6つのscreen Prefabと
+Unity menuの`Trump Lab > Regenerate Product Scaffold`を実行すると、7つのscreen Prefabと
 `Assets/TrumpLab/Product/Scenes/Bootstrap.unity`を再生成し、build settingsを更新する。
 command lineからは次のように実行できる。
 
