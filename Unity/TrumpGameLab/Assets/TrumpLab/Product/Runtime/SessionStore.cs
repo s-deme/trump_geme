@@ -84,6 +84,7 @@ namespace TrumpLab.Product
 
         public SessionArchive Load(string slotId)
         {
+            EnsureRoot();
             string path = SlotPath(slotId);
             var file = new FileInfo(path);
             if (!file.Exists) throw new FileNotFoundException("Session slot does not exist.");
@@ -133,6 +134,7 @@ namespace TrumpLab.Product
 
         public void Delete(string slotId)
         {
+            EnsureRoot();
             string target = SlotPath(slotId);
             if (!File.Exists(target)) throw new FileNotFoundException("Session slot does not exist.");
             var file = new FileInfo(target);
@@ -168,9 +170,16 @@ namespace TrumpLab.Product
             {
                 var file = new FileInfo(path);
                 string id = Path.GetFileNameWithoutExtension(file.Name);
-                if ((file.Attributes & FileAttributes.ReparsePoint) == 0 &&
-                    Guid.TryParseExact(id, "N", out _))
+                if ((file.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+                try
+                {
+                    SessionSlotIds.Require(id);
                     file.Delete();
+                }
+                catch (ArgumentException)
+                {
+                    // Only canonical Product-generated temp names are safe to remove.
+                }
             }
         }
     }

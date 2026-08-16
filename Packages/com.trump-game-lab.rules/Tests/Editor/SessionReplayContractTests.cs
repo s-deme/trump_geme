@@ -201,6 +201,25 @@ namespace TrumpLab.Tests
                 () => SessionArchiveCodec.Decode(SessionArchiveCodec.Encode(future)));
         }
 
+        [Test]
+        public void CodecClassifiesTruncatedOldAndPayloadTamperedArchives()
+        {
+            var configuration = new SessionConfiguration(
+                "crazy_eights", 2, seed: 59, difficulty: 1, humanPlayers: new[] { 0 },
+                options: new Dictionary<string, string> { ["wild_rank"] = "8" });
+            byte[] canonical = SessionArchiveCodec.Encode(
+                new SessionRecorder(configuration).Archive);
+            string json = Encoding.UTF8.GetString(canonical);
+
+            Assert.Throws<SessionFormatException>(() => SessionArchiveCodec.Decode(
+                canonical.Take(canonical.Length / 2).ToArray()));
+            Assert.Throws<UnsupportedSessionVersionException>(() => SessionArchiveCodec.Decode(
+                Encoding.UTF8.GetBytes(json.Replace(
+                    "\"rules_version\":1", "\"rules_version\":0"))));
+            Assert.Throws<SessionIntegrityException>(() => SessionArchiveCodec.Decode(
+                Encoding.UTF8.GetBytes(json.Replace("\"seed\":\"59\"", "\"seed\":\"58\""))));
+        }
+
         private static string PresentationSignature(GamePresentation presentation)
         {
             IEnumerable<string> players = presentation.Players.Select(player =>
