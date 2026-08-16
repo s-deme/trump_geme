@@ -220,6 +220,35 @@ namespace TrumpLab.Tests
                 Encoding.UTF8.GetBytes(json.Replace("\"seed\":\"59\"", "\"seed\":\"58\""))));
         }
 
+        [Test]
+        [Category("BroadSimulation")]
+        [Timeout(30000)]
+        public void FiveThousandActionSessionRoundTripsAndReplaysToTheSameTerminalState()
+        {
+            const int actionCount = 5000;
+            GameRegistry registry = LongCpuRegistry(actionCount);
+            var configuration = new SessionConfiguration(
+                "long_cpu_test", players: 1, seed: 8080, difficulty: 2,
+                humanPlayers: Array.Empty<int>());
+            var recorder = new SessionRecorder(configuration, registry);
+
+            for (int index = 0; index < actionCount; index++)
+                recorder.ApplyCpuAction();
+
+            byte[] encoded = SessionArchiveCodec.Encode(recorder.Archive);
+            SessionArchive decoded = SessionArchiveCodec.Decode(encoded);
+            SessionReplayResult replay = SessionReplayer.Replay(decoded, registry: registry);
+
+            Assert.That(encoded.Length, Is.GreaterThan(500000));
+            Assert.That(decoded.Actions.Count, Is.EqualTo(actionCount));
+            Assert.That(replay.Checkpoints.Count, Is.EqualTo(actionCount + 1));
+            Assert.That(replay.Game.IsTerminal, Is.True);
+            Assert.That(replay.Game.TurnCount, Is.EqualTo(actionCount));
+            Assert.That(replay.Game.Result().Turns, Is.EqualTo(recorder.Game.Result().Turns));
+            Assert.That(decoded.Actions.Select(record => record.Action),
+                Is.EqualTo(recorder.Archive.Actions.Select(record => record.Action)));
+        }
+
         private static string PresentationSignature(GamePresentation presentation)
         {
             IEnumerable<string> players = presentation.Players.Select(player =>
@@ -305,6 +334,16 @@ namespace TrumpLab.Tests
             return registry;
         }
 
+        private static GameRegistry LongCpuRegistry(int targetActions)
+        {
+            var registry = new GameRegistry();
+            registry.Register(
+                new GameInfo("long_cpu_test", "Long CPU Test", 1, 1,
+                    "test", "test", "test"),
+                (players, random, options) => new LongCpuGame(targetActions));
+            return registry;
+        }
+
         private sealed class RandomCpuGame : GameBase
         {
             private int steps;
@@ -351,6 +390,57 @@ namespace TrumpLab.Tests
                 return new GameResult(new[] { 0 }, new[] { 1d }, "five choices", TurnCount);
             }
             public override string View(int? player = null) => "steps=" + steps;
+        }
+
+        private sealed class LongCpuGame : GameBase
+        {
+            private readonly int targetActions;
+            private int appliedActions;
+
+            public LongCpuGame(int targetActions)
+            {
+                this.targetActions = targetActions;
+                Players = 1;
+                CurrentPlayer = 0;
+            }
+
+            public override string GameId => "long_cpu_test";
+            public override string Name => "Long CPU Test";
+            public override IReadOnlyList<Action> LegalActions(int? player = null)
+            {
+                ValidateTurn(player);
+                return new[]
+                {
+                    new Action("advance", value: "0"),
+                    new Action("advance", value: "1"),
+                    new Action("advance", value: "2")
+                };
+            }
+
+            public override void Apply(Action action)
+            {
+                ValidateTurn(null);
+                if (!LegalActions().Contains(action))
+                    throw new InvalidOperationException("Illegal action.");
+                appliedActions++;
+                TurnCount++;
+            }
+
+            public override Action ChooseCpuAction(
+                int player, DeterministicRandom random, int difficulty = 1)
+            {
+                IReadOnlyList<Action> actions = LegalActions(player);
+                return actions[random.Next(actions.Count)];
+            }
+
+            public override bool IsTerminal => appliedActions >= targetActions;
+            public override GameResult Result()
+            {
+                if (!IsTerminal) throw new InvalidOperationException("Game is not over.");
+                return new GameResult(new[] { 0 }, new[] { 1d },
+                    "target actions", TurnCount);
+            }
+            public override string View(int? player = null) => "actions=" + appliedActions;
         }
     }
 }

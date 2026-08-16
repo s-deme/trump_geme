@@ -2,8 +2,8 @@
 
 ## 状態
 
-- マイルストーン：`In Progress`
-- 次のタスク：`M03-T06`
+- マイルストーン：`Done`
+- 次のタスク：なし（全タスク完了）
 - 参照ゲーム：`crazy_eights`
 - 依存：`M02`
 
@@ -36,7 +36,7 @@
 | M03-T03 | Done | 途中保存と復元を実装する | T02 | Crazy Eightsの各主要phaseから同じ状態へ復元できる |
 | M03-T04 | Done | Unityへ保存、再開、リプレイ選択画面を追加する | T03 | UIから保存データを選び、安全に開始・削除できる |
 | M03-T05 | Done | 破損、旧版、改ざん、不完全書込みのテストを追加する | T04 | 不正データを明示エラーで拒否し、既存保存を上書きしない |
-| M03-T06 | Ready | 長時間再生と通常の必須検証を行いM03を完了する | T05 | 完了条件を満たし、保存と再生の利用方法が文書化されている |
+| M03-T06 | Done | 長時間再生と通常の必須検証を行いM03を完了する | T05 | 完了条件を満たし、保存と再生の利用方法が文書化されている |
 
 ## 完了条件
 
@@ -60,6 +60,18 @@
 - 保存のためにゲームごとの非公開内部状態を無制限に公開する必要がある場合
 - 既存のActionまたはseed再現性を破壊する形式変更が必要になった場合
 - クラウドや外部サービスを追加しなければ要件を満たせない場合
+
+## 完了時検証
+
+- `dotnet build TrumpGameLab.sln -m:1`：成功（警告0、エラー0）
+- `dotnet test tests/TrumpLab.Tests`：247/247合格
+- Bash版・PowerShell版migration verification：成功
+- 製品Edit Mode：13/13合格
+- 製品Play Mode：1/1合格
+- Unity Standard：245/245合格
+- 5,000 Actionのcanonical encode、decode、5,001 checkpoint replay：成功
+- Crazy Eightsのstarter suit、play、終端からの合法手・構造化表示復元：成功
+- 破損、旧版、改ざん、再生不一致、incomplete tempの安全な拒否・保持：成功
 
 ## 次への遷移
 
