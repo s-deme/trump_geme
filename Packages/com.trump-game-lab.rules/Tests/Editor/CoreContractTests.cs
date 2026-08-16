@@ -911,7 +911,7 @@ namespace TrumpLab.Tests
         }
 
         [Test]
-        public void SimulatorAcceptsOnlyTheDocumentedCpuDifficulty()
+        public void SimulatorAcceptsOnlyEachGamesDocumentedCpuDifficulties()
         {
             SimulationReport report = Simulator.Simulate("war", 1, seed: 901,
                 difficulty: Simulator.SupportedDifficulty);
@@ -921,6 +921,10 @@ namespace TrumpLab.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() =>
                 Simulator.RunGame(BuiltInGames.Registry.Create("war", seed: 901), 902,
                     difficulty: 2));
+            Assert.That(Simulator.Simulate("crazy_eights", 1, seed: 901,
+                difficulty: CpuDifficulties.Easy).Completed, Is.EqualTo(1));
+            Assert.That(Simulator.Simulate("crazy_eights", 1, seed: 901,
+                difficulty: CpuDifficulties.Hard).Completed, Is.EqualTo(1));
         }
 
         [Test]

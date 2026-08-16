@@ -49,5 +49,7 @@
              Link="StructuredPresentationContractTests.cs" />
     <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/SessionReplayContractTests.cs"
              Link="SessionReplayContractTests.cs" />
+    <Compile Include="../../Packages/com.trump-game-lab.rules/Tests/Editor/CpuDifficultyContractTests.cs"
+             Link="CpuDifficultyContractTests.cs" />
   </ItemGroup>
 </Project>

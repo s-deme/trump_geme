@@ -58,7 +58,6 @@ internal static class Program
     {
         int games=IntOption(args,"-n","--games",100),seed=IntOption(args,null,"--seed",1);
         int difficulty=IntOption(args,null,"--difficulty",Simulator.SupportedDifficulty);
-        Simulator.ValidateDifficulty(difficulty);
         string[] requested=RepeatedStringOption(args,"--game");
         bool all=args.Contains("--all"),pending=args.Contains("--pending");
         if(new[]{requested.Length>0,all,pending}.Count(selected=>selected)>1)
@@ -140,7 +139,7 @@ internal static class Program
         if(args.Length==0)throw new ArgumentException("play requires a game id");int seed=IntOption(args,null,"--seed",1);
         IGame game=BuiltInGames.Registry.Create(args[0],NullableIntOption(args,"-p","--players"),seed,Options(args));
         var rng=new DeterministicRandom(seed+99991);int difficulty=IntOption(args,null,"--difficulty",Simulator.SupportedDifficulty);
-        Simulator.ValidateDifficulty(difficulty);
+        Simulator.ValidateDifficulty(game.GameId,difficulty);
         while(!game.IsTerminal)
         {
             Console.WriteLine("\n"+game.View(0));IReadOnlyList<TrumpLab.Action> actions=game.LegalActions();TrumpLab.Action action;

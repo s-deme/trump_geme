@@ -15,15 +15,28 @@ namespace TrumpLab
         public string Description { get; }
         public string Source { get; }
         public IReadOnlyDictionary<string, string> Options { get; }
+        public IReadOnlyList<int> SupportedCpuDifficulties { get; }
 
         public GameInfo(string gameId, string name, int minPlayers, int maxPlayers,
             string category, string description, string source,
-            IReadOnlyDictionary<string, string>? options = null)
+            IReadOnlyDictionary<string, string>? options = null,
+            IEnumerable<int>? supportedCpuDifficulties = null)
         {
             GameId = gameId; Name = name; MinPlayers = minPlayers; MaxPlayers = maxPlayers;
             Category = category; Description = description; Source = source;
             Options = options ?? new Dictionary<string, string>();
+            int[] difficulties = (supportedCpuDifficulties ??
+                new[] { CpuDifficulties.Standard }).ToArray();
+            if (difficulties.Length == 0 || difficulties.Distinct().Count() != difficulties.Length)
+                throw new ArgumentException(
+                    "Supported CPU difficulties must be non-empty and unique.",
+                    nameof(supportedCpuDifficulties));
+            foreach (int difficulty in difficulties) CpuDifficulties.Get(difficulty);
+            SupportedCpuDifficulties = Array.AsReadOnly(difficulties);
         }
+
+        public bool SupportsCpuDifficulty(int difficulty) =>
+            SupportedCpuDifficulties.Contains(difficulty);
     }
 
     public sealed class GameRegistry
@@ -43,6 +56,15 @@ namespace TrumpLab
 
         public GameInfo Info(string gameId) => entries[gameId].Item1;
         public bool Contains(string gameId) => entries.ContainsKey(gameId);
+        public CpuDifficultyInfo ValidateCpuDifficulty(string gameId, int difficulty)
+        {
+            CpuDifficultyInfo descriptor = CpuDifficulties.Get(difficulty);
+            GameInfo info = Info(gameId);
+            if (!info.SupportsCpuDifficulty(difficulty))
+                throw new ArgumentOutOfRangeException(nameof(difficulty), difficulty,
+                    info.GameId + " does not support CPU difficulty " + difficulty + ".");
+            return descriptor;
+        }
         public IReadOnlyList<GameInfo> All() =>
             entries.Values.Select(value => value.Item1).OrderBy(info => info.GameId).ToArray();
 

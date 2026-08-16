@@ -46,7 +46,7 @@ namespace TrumpLab
 
     public static class Simulator
     {
-        public const int SupportedDifficulty = 1;
+        public const int SupportedDifficulty = CpuDifficulties.Standard;
 
         public static void ValidateDifficulty(int difficulty)
         {
@@ -55,10 +55,16 @@ namespace TrumpLab
                     "Only CPU difficulty 1 is currently supported.");
         }
 
+        public static CpuDifficultyInfo ValidateDifficulty(string gameId, int difficulty) =>
+            BuiltInGames.Registry.ValidateCpuDifficulty(gameId, difficulty);
+
         public static GameResult RunGame(IGame game, long policySeed, int turnLimit = 50000,
             int difficulty = SupportedDifficulty)
         {
-            ValidateDifficulty(difficulty);
+            if (BuiltInGames.Registry.Contains(game.GameId))
+                ValidateDifficulty(game.GameId, difficulty);
+            else
+                CpuDifficulties.Get(difficulty);
             var rng = new DeterministicRandom(policySeed);
             while (!game.IsTerminal)
             {
@@ -83,7 +89,7 @@ namespace TrumpLab
             long seed = 1, IReadOnlyDictionary<string, string>? options = null,
             int difficulty = SupportedDifficulty)
         {
-            ValidateDifficulty(difficulty);
+            ValidateDifficulty(gameId, difficulty);
             if (games <= 0) throw new ArgumentOutOfRangeException(nameof(games));
             var winners = new Dictionary<int, int>();
             var failures = new List<string>();
@@ -118,10 +124,10 @@ namespace TrumpLab
             int games = 100, long seed = 1, int difficulty = SupportedDifficulty)
         {
             if (gameIds == null) throw new ArgumentNullException(nameof(gameIds));
-            ValidateDifficulty(difficulty);
             var rows = new List<ComparisonRow>();
             foreach (string gameId in gameIds.Distinct(StringComparer.Ordinal))
             {
+                ValidateDifficulty(gameId, difficulty);
                 var stopwatch = Stopwatch.StartNew();
                 SimulationReport simulation = Simulate(gameId, games, seed: seed,
                     difficulty: difficulty);

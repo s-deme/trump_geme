@@ -239,6 +239,7 @@ namespace TrumpLab
             if (!registry.Contains(configuration.GameId))
                 throw new ArgumentException("Unknown game ID: " + configuration.GameId,
                     nameof(configuration));
+            registry.ValidateCpuDifficulty(configuration.GameId, configuration.Difficulty);
             return registry.Create(configuration.GameId, configuration.Players,
                 configuration.Seed, configuration.Options);
         }
@@ -278,6 +279,8 @@ namespace TrumpLab
             IGame game;
             try
             {
+                registry.ValidateCpuDifficulty(configuration.GameId,
+                    configuration.Difficulty);
                 game = registry.Create(configuration.GameId, configuration.Players,
                     configuration.Seed, configuration.Options);
             }

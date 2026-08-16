@@ -98,20 +98,174 @@ namespace TrumpLab.Games
         }
         private void DrawPenalty(int player,int count){for(int i=0;i<count;i++){Refill();if(stock.Count==0)return;hands[player].Add(Pop(stock));}}
 
-        public override Action ChooseCpuAction(int player, DeterministicRandom random, int difficulty = 1)
+        public override Action ChooseCpuAction(int player, DeterministicRandom random,
+            int difficulty = CpuDifficulties.Standard)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
-            if(phase=="choose_starter_suit")
-            {Suit starterSuit=Enum.GetValues(typeof(Suit)).Cast<Suit>().OrderByDescending(suit=>hands[player].Count(card=>card.Suit==suit)).First();return actions.First(action=>action.Value==Card.SuitCode(starterSuit));}
-            Action[] plays = actions.Where(action => action.Kind == "play"||action.Kind=="play_last_card").ToArray();
+            var observation = new CpuObservation(
+                player,
+                phase,
+                hands[player],
+                hands.Select(hand => hand.Count),
+                stock.Count,
+                discard[discard.Count - 1],
+                calledSuit,
+                wildRank,
+                actions);
+            switch (difficulty)
+            {
+                case CpuDifficulties.Standard: return ChooseStandardAction(observation);
+                case CpuDifficulties.Easy: return actions[random.Next(actions.Count)];
+                case CpuDifficulties.Hard: return ChooseHardAction(observation, random);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(difficulty), difficulty,
+                        "Crazy Eights supports CPU difficulties 1, 2, and 3.");
+            }
+        }
+
+        private static Action ChooseStandardAction(CpuObservation observation)
+        {
+            IReadOnlyList<Action> actions = observation.Actions;
+            if (observation.Phase == "choose_starter_suit")
+            {
+                Suit starterSuit = MostCommonSuit(observation);
+                return actions.First(action => action.Value == Card.SuitCode(starterSuit));
+            }
+            Action[] plays = actions.Where(action =>
+                action.Kind == "play" || action.Kind == "play_last_card").ToArray();
             if (plays.Length == 0) return actions[0];
-            Action[] nonWild = plays.Where(action => action.Card!.Value.Rank != wildRank).ToArray();
+            Action[] nonWild = plays.Where(action =>
+                action.Card!.Value.Rank != observation.WildRank).ToArray();
             if (nonWild.Length > 0)
-                return nonWild.OrderByDescending(action =>
-                    hands[player].Count(card => card.Suit == action.Card!.Value.Suit)).First();
-            Suit best = Enum.GetValues(typeof(Suit)).Cast<Suit>()
-                .OrderByDescending(suit => hands[player].Count(card => card.Suit == suit)).First();
+            {
+                Action selected = nonWild[0];
+                int selectedCount = observation.SuitCounts[(int)selected.Card!.Value.Suit];
+                for (int index = 1; index < nonWild.Length; index++)
+                {
+                    int count = observation.SuitCounts[(int)nonWild[index].Card!.Value.Suit];
+                    if (count <= selectedCount) continue;
+                    selected = nonWild[index];
+                    selectedCount = count;
+                }
+                return selected;
+            }
+            Suit best = MostCommonSuit(observation);
             return plays.First(action => action.Value == Card.SuitCode(best));
+        }
+
+        private static Suit MostCommonSuit(CpuObservation observation)
+        {
+            Suit selected = Suit.Clubs;
+            int selectedCount = observation.SuitCounts[(int)selected];
+            foreach (Suit suit in Enum.GetValues(typeof(Suit)))
+            {
+                int count = observation.SuitCounts[(int)suit];
+                if (count <= selectedCount) continue;
+                selected = suit;
+                selectedCount = count;
+            }
+            return selected;
+        }
+
+        private static Action ChooseHardAction(
+            CpuObservation observation, DeterministicRandom random)
+        {
+            int bestScore = int.MinValue;
+            var best = new List<Action>();
+            foreach (Action action in observation.Actions)
+            {
+                int score = HardScore(observation, action);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best.Clear();
+                    best.Add(action);
+                }
+                else if (score == bestScore)
+                {
+                    best.Add(action);
+                }
+            }
+            return best.Count == 1 ? best[0] : best[random.Next(best.Count)];
+        }
+
+        private static int HardScore(CpuObservation observation, Action action)
+        {
+            if (observation.Phase == "choose_starter_suit")
+            {
+                Suit suit = Card.ParseSuit(action.Value!);
+                return observation.SuitCounts[(int)suit] * 100 +
+                    observation.SuitPenaltySums[(int)suit];
+            }
+            if (action.Kind == "draw") return -5000;
+            if (action.Kind == "pass") return -6000;
+            if (action.Kind != "play" && action.Kind != "play_last_card") return -7000;
+
+            Card played = action.Card!.Value;
+            bool wild = played.Rank == observation.WildRank;
+            int score = 10000 + Penalty(played, observation.WildRank) * 30;
+            if (observation.Hand.Count == 1) score += 100000;
+
+            Suit continuationSuit = wild
+                ? Card.ParseSuit(action.Value!)
+                : played.Suit;
+            int continuationCards = observation.SuitCounts[(int)continuationSuit] -
+                (played.Suit == continuationSuit ? 1 : 0);
+            score += continuationCards * 120;
+
+            if (wild && observation.HasNonWildPlay &&
+                observation.NearestOpponentHandCount > 2) score -= 1200;
+            if (observation.NearestOpponentHandCount <= 2)
+                score += wild ? 900 : Penalty(played, observation.WildRank) * 20;
+            if (action.Kind == "play_last_card") score += 600;
+            return score;
+        }
+
+        private static int Penalty(Card card, int configuredWildRank) =>
+            card.Rank == configuredWildRank ? 50 : Math.Min(card.Rank, 10);
+
+        private sealed class CpuObservation
+        {
+            public int Player { get; }
+            public string Phase { get; }
+            public IReadOnlyList<Card> Hand { get; }
+            public IReadOnlyList<int> HandCounts { get; }
+            public int StockCount { get; }
+            public Card DiscardTop { get; }
+            public Suit? CalledSuit { get; }
+            public int WildRank { get; }
+            public IReadOnlyList<Action> Actions { get; }
+            public IReadOnlyList<int> SuitCounts { get; }
+            public IReadOnlyList<int> SuitPenaltySums { get; }
+            public int NearestOpponentHandCount { get; }
+            public bool HasNonWildPlay { get; }
+
+            public CpuObservation(int player, string phase, IEnumerable<Card> hand,
+                IEnumerable<int> handCounts, int stockCount, Card discardTop,
+                Suit? calledSuit, int configuredWildRank, IEnumerable<Action> actions)
+            {
+                Player = player;
+                Phase = phase;
+                Hand = Array.AsReadOnly(hand.ToArray());
+                HandCounts = Array.AsReadOnly(handCounts.ToArray());
+                StockCount = stockCount;
+                DiscardTop = discardTop;
+                CalledSuit = calledSuit;
+                WildRank = configuredWildRank;
+                Actions = Array.AsReadOnly(actions.ToArray());
+                SuitCounts = Array.AsReadOnly(Enum.GetValues(typeof(Suit)).Cast<Suit>()
+                    .Select(suit => Hand.Count(card => card.Suit == suit)).ToArray());
+                SuitPenaltySums = Array.AsReadOnly(Enum.GetValues(typeof(Suit)).Cast<Suit>()
+                    .Select(suit => Hand.Where(card => card.Suit == suit)
+                        .Sum(card => Penalty(card, configuredWildRank))).ToArray());
+                NearestOpponentHandCount = HandCounts
+                    .Where((count, otherPlayer) => otherPlayer != player)
+                    .DefaultIfEmpty(0)
+                    .Min();
+                HasNonWildPlay = Actions.Any(candidate =>
+                    (candidate.Kind == "play" || candidate.Kind == "play_last_card") &&
+                    candidate.Card!.Value.Rank != configuredWildRank);
+            }
         }
 
         public override bool IsTerminal => winner.HasValue;
@@ -207,7 +361,13 @@ namespace TrumpLab.Games
         public static void Register(GameRegistry registry) => registry.Register(
             new GameInfo("crazy_eights", "クレイジーエイト", 2, 5, "shedding",
                 "Pagat基本版。2人は7枚、3人以上は5枚。場札と同じsuitかrankを出し、8は任意suitになる。play可能でも1枚drawを選べ、stock枯渇時はtop以外の捨札を再利用する。残り1枚宣言を含む。", "Pagat Crazy Eights basic game",
-                new Dictionary<string, string> { ["wild_rank"] = "ワイルドとして扱うランク（既定8）" }),
+                new Dictionary<string, string> { ["wild_rank"] = "ワイルドとして扱うランク（既定8）" },
+                supportedCpuDifficulties: new[]
+                {
+                    CpuDifficulties.Easy,
+                    CpuDifficulties.Standard,
+                    CpuDifficulties.Hard
+                }),
             (players, rng, options) => new CrazyEightsGame(players, rng, options));
     }
 }

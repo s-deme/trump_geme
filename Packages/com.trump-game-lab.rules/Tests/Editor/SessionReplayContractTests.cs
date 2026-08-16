@@ -339,7 +339,7 @@ namespace TrumpLab.Tests
             var registry = new GameRegistry();
             registry.Register(
                 new GameInfo("long_cpu_test", "Long CPU Test", 1, 1,
-                    "test", "test", "test"),
+                    "test", "test", "test", supportedCpuDifficulties: new[] { 2 }),
                 (players, random, options) => new LongCpuGame(targetActions));
             return registry;
         }

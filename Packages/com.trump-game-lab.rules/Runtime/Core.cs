@@ -7,6 +7,46 @@ namespace TrumpLab
 {
     public enum Suit { Clubs, Diamonds, Hearts, Spades }
 
+    public sealed class CpuDifficultyInfo
+    {
+        public int Id { get; }
+        public string Key { get; }
+        public string DisplayName { get; }
+
+        internal CpuDifficultyInfo(int id, string key, string displayName)
+        {
+            Id = id;
+            Key = key;
+            DisplayName = displayName;
+        }
+    }
+
+    public static class CpuDifficulties
+    {
+        public const int Standard = 1;
+        public const int Easy = 2;
+        public const int Hard = 3;
+
+        private static readonly CpuDifficultyInfo StandardInfo =
+            new CpuDifficultyInfo(Standard, "standard", "Standard");
+        private static readonly CpuDifficultyInfo EasyInfo =
+            new CpuDifficultyInfo(Easy, "easy", "Easy");
+        private static readonly CpuDifficultyInfo HardInfo =
+            new CpuDifficultyInfo(Hard, "hard", "Hard");
+
+        public static IReadOnlyList<CpuDifficultyInfo> All { get; } =
+            Array.AsReadOnly(new[] { StandardInfo, EasyInfo, HardInfo });
+        public static IReadOnlyList<CpuDifficultyInfo> ProductOrder { get; } =
+            Array.AsReadOnly(new[] { EasyInfo, StandardInfo, HardInfo });
+
+        public static CpuDifficultyInfo Get(int id)
+        {
+            CpuDifficultyInfo? difficulty = All.FirstOrDefault(value => value.Id == id);
+            return difficulty ?? throw new ArgumentOutOfRangeException(
+                nameof(id), id, "Unknown CPU difficulty ID.");
+        }
+    }
+
     public readonly struct Card : IEquatable<Card>, IComparable<Card>
     {
         public Suit Suit { get; }
@@ -136,7 +176,8 @@ namespace TrumpLab
         bool IsTerminal { get; }
         GameResult Result();
         string View(int? player = null);
-        Action ChooseCpuAction(int player, DeterministicRandom rng, int difficulty = 1);
+        Action ChooseCpuAction(int player, DeterministicRandom rng,
+            int difficulty = CpuDifficulties.Standard);
     }
 
     public abstract class GameBase : IGame
@@ -152,7 +193,8 @@ namespace TrumpLab
         public abstract GameResult Result();
         public abstract string View(int? player = null);
 
-        public virtual Action ChooseCpuAction(int player, DeterministicRandom rng, int difficulty = 1)
+        public virtual Action ChooseCpuAction(int player, DeterministicRandom rng,
+            int difficulty = CpuDifficulties.Standard)
         {
             IReadOnlyList<Action> actions = LegalActions(player);
             if (actions.Count == 0) throw new InvalidOperationException(
