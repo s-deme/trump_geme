@@ -3,7 +3,7 @@
 ## 現在地
 
 - 現在のマイルストーン：`M06 製品品質`
-- 現在のタスク：`M06-T01`（`Ready`）
+- 現在のタスク：`M06-T02`（`Ready`）
 - 参照ゲーム：`crazy_eights`
 - 最終更新日：2026-08-16
 
@@ -20,7 +20,7 @@
 | M03 | Done | [セーブ・リプレイ](milestones/M03-save-and-replay.md) | 中断再開と決定的な行動再生ができる | M02 |
 | M04 | Done | [CPU難易度](milestones/M04-cpu-difficulty.md) | 弱・標準・強を観測可能情報と固定seedで検証できる | M03 |
 | M05 | Done | [チュートリアル](milestones/M05-tutorial.md) | 初見プレイヤーがゲーム内説明だけで1局を完走できる | M04 |
-| M06 | Ready | [製品品質](milestones/M06-product-quality.md) | 設定、入力、音、演出、多言語化、アクセシビリティを備える | M05 |
+| M06 | In Progress | [製品品質](milestones/M06-product-quality.md) | 設定、入力、音、演出、多言語化、アクセシビリティを備える | M05 |
 | M07 | Backlog | [Steam対応](milestones/M07-steam-release.md) | 配布ビルド、実績、製品設定、リリース確認を完了する | M06 |
 | M08 | Backlog | [対戦機能](milestones/M08-multiplayer.md) | 必要性を再評価し、採用時はローカル対戦から段階導入する | M07 |
 
