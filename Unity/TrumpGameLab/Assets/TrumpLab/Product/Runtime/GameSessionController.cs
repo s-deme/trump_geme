@@ -19,44 +19,48 @@ namespace TrumpLab.Product
     public sealed class GameSessionController
     {
         private const int HumanPlayer = 0;
-        private readonly IGame game;
+        private readonly SessionRecorder recorder;
         private readonly IGamePresentationProvider provider;
-        private readonly DeterministicRandom cpuRandom;
-        private readonly int difficulty;
         private GamePresentation? snapshot;
 
         public GameSessionController(long seed, int wildRank = 8, int difficulty = 1)
-            : this(
-                BuiltInGames.Registry.Create(
-                    "crazy_eights",
-                    players: 2,
-                    seed: seed,
-                    options: new Dictionary<string, string>
-                    {
-                        ["wild_rank"] = wildRank.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    }),
-                new DeterministicRandom(seed + 99991),
-                difficulty)
+            : this(new SessionRecorder(new SessionConfiguration(
+                "crazy_eights",
+                players: 2,
+                seed: seed,
+                difficulty: difficulty,
+                humanPlayers: new[] { HumanPlayer },
+                options: new Dictionary<string, string>
+                {
+                    ["wild_rank"] = wildRank.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                })))
         {
         }
 
-        public GameSessionController(IGame configuredGame,
-            DeterministicRandom configuredCpuRandom, int difficulty = 1)
+        public GameSessionController(SessionArchive archive)
+            : this(SessionRecorder.Resume(archive ?? throw new ArgumentNullException(nameof(archive))))
         {
-            game = configuredGame ?? throw new ArgumentNullException(nameof(configuredGame));
-            provider = configuredGame as IGamePresentationProvider ??
+        }
+
+        public GameSessionController(SessionRecorder configuredRecorder)
+        {
+            recorder = configuredRecorder ?? throw new ArgumentNullException(nameof(configuredRecorder));
+            IGame game = recorder.Game;
+            provider = game as IGamePresentationProvider ??
                 throw new ArgumentException(
-                    "Game must provide structured presentation.", nameof(configuredGame));
-            cpuRandom = configuredCpuRandom ?? throw new ArgumentNullException(nameof(configuredCpuRandom));
+                    "Game must provide structured presentation.", nameof(configuredRecorder));
             if (game.GameId != "crazy_eights" || game.Players != 2)
                 throw new ArgumentException(
                     "The product session requires a two-player Crazy Eights game.",
-                    nameof(configuredGame));
-            if (difficulty < 1) throw new ArgumentOutOfRangeException(nameof(difficulty));
-            this.difficulty = difficulty;
+                    nameof(configuredRecorder));
+            if (!recorder.Configuration.HumanPlayers.SequenceEqual(new[] { HumanPlayer }))
+                throw new ArgumentException(
+                    "The product session requires player 1 to be the only human player.",
+                    nameof(configuredRecorder));
         }
 
-        public IGame Game => game;
+        public IGame Game => recorder.Game;
+        public SessionArchive Archive => recorder.Archive;
         public MatchSessionState State { get; private set; } = MatchSessionState.Starting;
         public GamePresentation Snapshot => snapshot ?? throw new InvalidOperationException(
             "The session has not produced its first snapshot.");
@@ -89,15 +93,11 @@ namespace TrumpLab.Product
             if (State != MatchSessionState.WaitingForCpu) return false;
             try
             {
-                int player = game.CurrentPlayer;
+                int player = Game.CurrentPlayer;
                 if (player == HumanPlayer)
                     throw new InvalidOperationException("CPU turn cannot run for the human player.");
-                IReadOnlyList<TrumpLab.Action> legalActions = game.LegalActions(player);
-                TrumpLab.Action selected = game.ChooseCpuAction(player, cpuRandom, difficulty);
-                if (!legalActions.Contains(selected))
-                    throw new InvalidOperationException("CPU selected an action outside LegalActions().");
                 State = MatchSessionState.Applying;
-                game.Apply(selected);
+                recorder.ApplyCpuAction();
                 return TryRefresh();
             }
             catch (Exception exception)
@@ -110,7 +110,7 @@ namespace TrumpLab.Product
         {
             try
             {
-                game.Apply(action);
+                recorder.ApplyHumanAction(HumanPlayer, action);
                 return TryRefresh();
             }
             catch (Exception exception)
@@ -124,7 +124,7 @@ namespace TrumpLab.Product
             try
             {
                 GamePresentation next = provider.Present(HumanPlayer);
-                if (next.CurrentPlayer != game.CurrentPlayer || next.IsTerminal != game.IsTerminal)
+                if (next.CurrentPlayer != Game.CurrentPlayer || next.IsTerminal != Game.IsTerminal)
                     throw new InvalidOperationException(
                         "Structured snapshot does not match the active game state.");
                 snapshot = next;

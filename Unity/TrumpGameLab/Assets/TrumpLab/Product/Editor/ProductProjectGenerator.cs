@@ -40,7 +40,9 @@ namespace TrumpLab.Product.Editor
             Font font = BuiltInFont();
             GameObject titlePrefab = CreateTitlePrefab(font);
             GameObject settingsPrefab = CreateSettingsPrefab(font);
+            GameObject libraryPrefab = CreateSessionLibraryPrefab(font);
             GameObject matchPrefab = CreateMatchPrefab(font);
+            GameObject replayPrefab = CreateReplayPrefab(font);
             GameObject resultPrefab = CreateResultPrefab(font);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -49,15 +51,17 @@ namespace TrumpLab.Product.Editor
 
             var title = Instantiate<TitleScreen>(titlePrefab, canvas.transform);
             var settings = Instantiate<GameSettingsScreen>(settingsPrefab, canvas.transform);
+            var library = Instantiate<SessionLibraryScreen>(libraryPrefab, canvas.transform);
             var match = Instantiate<MatchScreen>(matchPrefab, canvas.transform);
+            var replay = Instantiate<ReplayScreen>(replayPrefab, canvas.transform);
             var result = Instantiate<ResultScreen>(resultPrefab, canvas.transform);
             ProductErrorPanel errors = CreateErrorPanel(canvas.transform, font);
 
             var productRoot = new GameObject("ProductRoot");
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
-            router.Configure(new ProductScreen[] { title, settings, match, result });
-            controller.Configure(router, title, settings, match, result, errors);
+            router.Configure(new ProductScreen[] { title, settings, library, match, replay, result });
+            controller.Configure(router, title, settings, library, match, replay, result, errors);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
@@ -75,9 +79,11 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.84f));
             CreateText(root.transform, "Subtitle", "Crazy Eights vertical slice", font, 28,
                 new Vector2(0.2f, 0.58f), new Vector2(0.8f, 0.68f));
-            Button play = CreateButton(root.transform, "PlayButton", "Play", font, new Vector2(0f, 10f));
-            Button quit = CreateButton(root.transform, "QuitButton", "Quit", font, new Vector2(0f, -95f));
-            root.GetComponent<TitleScreen>().Configure(play, quit);
+            Button play = CreateButton(root.transform, "PlayButton", "Play", font, new Vector2(0f, 35f));
+            Button sessions = CreateButton(root.transform, "SessionsButton", "Saved sessions", font,
+                new Vector2(0f, -65f));
+            Button quit = CreateButton(root.transform, "QuitButton", "Quit", font, new Vector2(0f, -165f));
+            root.GetComponent<TitleScreen>().Configure(play, sessions, quit);
             return SavePrefab(root, PrefabDirectory + "/TitleScreen.prefab");
         }
 
@@ -152,6 +158,45 @@ namespace TrumpLab.Product.Editor
             root.GetComponent<MatchScreen>().Configure(
                 status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
+        }
+
+        private static GameObject CreateSessionLibraryPrefab(Font font)
+        {
+            GameObject root = ScreenRoot<SessionLibraryScreen>("SessionLibraryScreen");
+            CreateText(root.transform, "Title", "SAVED SESSIONS", font, 52,
+                new Vector2(0.2f, 0.79f), new Vector2(0.8f, 0.91f));
+            Dropdown dropdown = CreateDropdown(root.transform, "SlotDropdown", font,
+                new Vector2(0f, 180f));
+            Text detail = CreateText(root.transform, "Detail",
+                "No saved sessions are available.", font, 25,
+                new Vector2(0.16f, 0.43f), new Vector2(0.84f, 0.56f));
+            Button resume = CreateButton(root.transform, "ResumeButton", "Resume", font,
+                new Vector2(-270f, -30f));
+            Button replay = CreateButton(root.transform, "ReplayButton", "Replay", font,
+                new Vector2(0f, -30f));
+            Button delete = CreateButton(root.transform, "DeleteButton", "Delete", font,
+                new Vector2(270f, -30f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font,
+                new Vector2(0f, -160f));
+            root.GetComponent<SessionLibraryScreen>().Configure(
+                dropdown, detail, resume, replay, delete, back);
+            return SavePrefab(root, PrefabDirectory + "/SessionLibraryScreen.prefab");
+        }
+
+        private static GameObject CreateReplayPrefab(Font font)
+        {
+            GameObject root = ScreenRoot<ReplayScreen>("ReplayScreen");
+            CreateText(root.transform, "Title", "REPLAY", font, 52,
+                new Vector2(0.2f, 0.8f), new Vector2(0.8f, 0.92f));
+            Text status = CreateText(root.transform, "Status", "Replayed 0 actions", font, 30,
+                new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.78f));
+            Text table = CreateText(root.transform, "Table", "Saved table state", font, 28,
+                new Vector2(0.12f, 0.24f), new Vector2(0.88f, 0.66f));
+            Button back = CreateButton(root.transform, "BackButton", "Back to sessions", font,
+                new Vector2(0f, -230f));
+            back.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
+            root.GetComponent<ReplayScreen>().Configure(status, table, back);
+            return SavePrefab(root, PrefabDirectory + "/ReplayScreen.prefab");
         }
 
         private static GameObject CreateResultPrefab(Font font)
@@ -300,6 +345,86 @@ namespace TrumpLab.Product.Editor
             return input;
         }
 
+        private static Dropdown CreateDropdown(Transform parent, string name, Font font,
+            Vector2 anchoredPosition)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(Dropdown));
+            root.transform.SetParent(parent, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(620f, 72f);
+            rect.anchoredPosition = anchoredPosition;
+            Image background = root.GetComponent<Image>();
+            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+            Text caption = CreateText(root.transform, "Label", "No saved sessions", font, 26,
+                new Vector2(0.04f, 0.08f), new Vector2(0.9f, 0.92f));
+            caption.alignment = TextAnchor.MiddleLeft;
+            caption.color = new Color(0.05f, 0.08f, 0.06f, 1f);
+            Text arrow = CreateText(root.transform, "Arrow", "▼", font, 25,
+                new Vector2(0.9f, 0.08f), new Vector2(0.98f, 0.92f));
+            arrow.color = caption.color;
+
+            var templateObject = new GameObject("Template", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
+            templateObject.transform.SetParent(root.transform, false);
+            RectTransform template = templateObject.GetComponent<RectTransform>();
+            template.anchorMin = new Vector2(0f, 0f);
+            template.anchorMax = new Vector2(1f, 0f);
+            template.pivot = new Vector2(0.5f, 1f);
+            template.anchoredPosition = new Vector2(0f, -4f);
+            template.sizeDelta = new Vector2(0f, 280f);
+            templateObject.GetComponent<Image>().color = new Color(0.9f, 0.9f, 0.84f, 1f);
+
+            var viewportObject = new GameObject("Viewport", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image), typeof(Mask));
+            viewportObject.transform.SetParent(template, false);
+            RectTransform viewport = viewportObject.GetComponent<RectTransform>();
+            Stretch(viewport);
+            viewportObject.GetComponent<Image>().color = Color.white;
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentObject = new GameObject("Content", typeof(RectTransform),
+                typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentObject.transform.SetParent(viewport, false);
+            RectTransform content = contentObject.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.sizeDelta = Vector2.zero;
+            var layout = contentObject.GetComponent<VerticalLayoutGroup>();
+            layout.childControlHeight = true;
+            layout.childForceExpandHeight = false;
+            contentObject.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+
+            var itemObject = new GameObject("Item", typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Image), typeof(Toggle), typeof(LayoutElement));
+            itemObject.transform.SetParent(content, false);
+            itemObject.GetComponent<LayoutElement>().preferredHeight = 60f;
+            Image itemBackground = itemObject.GetComponent<Image>();
+            itemBackground.color = new Color(0.18f, 0.38f, 0.27f, 1f);
+            Toggle item = itemObject.GetComponent<Toggle>();
+            item.targetGraphic = itemBackground;
+            Text itemLabel = CreateText(itemObject.transform, "Item Label", "Session", font, 24,
+                new Vector2(0.04f, 0f), new Vector2(0.96f, 1f));
+            itemLabel.alignment = TextAnchor.MiddleLeft;
+
+            ScrollRect scroll = templateObject.GetComponent<ScrollRect>();
+            scroll.content = content;
+            scroll.viewport = viewport;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            Dropdown dropdown = root.GetComponent<Dropdown>();
+            dropdown.targetGraphic = background;
+            dropdown.template = template;
+            dropdown.captionText = caption;
+            dropdown.itemText = itemLabel;
+            dropdown.options.Add(new Dropdown.OptionData("No saved sessions"));
+            templateObject.SetActive(false);
+            return dropdown;
+        }
+
         private static RectTransform CreatePanel(Transform parent, string name,
             Vector2 anchorMin, Vector2 anchorMax)
         {
@@ -349,7 +474,9 @@ namespace TrumpLab.Product.Editor
             {
                 ("TitleScreen.prefab", typeof(TitleScreen)),
                 ("GameSettingsScreen.prefab", typeof(GameSettingsScreen)),
+                ("SessionLibraryScreen.prefab", typeof(SessionLibraryScreen)),
                 ("MatchScreen.prefab", typeof(MatchScreen)),
+                ("ReplayScreen.prefab", typeof(ReplayScreen)),
                 ("ResultScreen.prefab", typeof(ResultScreen))
             };
             foreach ((string fileName, Type screenType) in expectedPrefabs)

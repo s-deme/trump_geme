@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,6 +15,7 @@ namespace TrumpLab.Product.Tests
     public sealed class ProductFlowTests
     {
         private ProductAppController controller = null!;
+        private MemorySessionStore store = null!;
 
         [UnitySetUp]
         public IEnumerator LoadBootstrap()
@@ -22,6 +24,8 @@ namespace TrumpLab.Product.Tests
             yield return null;
             controller = Resources.FindObjectsOfTypeAll<ProductAppController>()
                 .Single(candidate => candidate.gameObject.scene == SceneManager.GetActiveScene());
+            store = new MemorySessionStore();
+            controller.SetSessionStore(store);
             Assert.That(controller, Is.Not.Null);
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
         }
@@ -41,6 +45,8 @@ namespace TrumpLab.Product.Tests
             yield return null;
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
             Assert.That(controller.LastRequest, Is.EqualTo(new GameStartRequest(23, 8)));
+            Assert.That(controller.ActiveSlotId, Is.Not.Null);
+            Assert.That(store.List().Count, Is.EqualTo(1));
             string initialSignature = VisibleSnapshotSignature(controller.ActiveSession!.Snapshot);
 
             GameSessionController session = controller.ActiveSession!;
@@ -81,6 +87,36 @@ namespace TrumpLab.Product.Tests
             yield return null;
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
             Assert.That(controller.ActiveSession, Is.Null);
+
+            Click(ScreenId.Title, "SessionsButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.SessionLibrary));
+            var library = (SessionLibraryScreen)controller.Router.Get(ScreenId.SessionLibrary);
+            Assert.That(library.SelectedSlotId, Is.Not.Null);
+
+            Click(ScreenId.SessionLibrary, "ReplayButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Replay));
+            var replay = (ReplayScreen)controller.Router.Get(ScreenId.Replay);
+            Assert.That(replay.StatusLabel.text, Does.StartWith("Replayed "));
+            Assert.That(replay.TableLabel.text, Does.Contain("CPU hand:"));
+            Click(ScreenId.Replay, "BackButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.SessionLibrary));
+
+            Click(ScreenId.SessionLibrary, "ResumeButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Result));
+            Click(ScreenId.Result, "TitleButton");
+            yield return null;
+            Click(ScreenId.Title, "SessionsButton");
+            yield return null;
+            int slotsBeforeDelete = store.List().Count;
+            Click(ScreenId.SessionLibrary, "DeleteButton");
+            Assert.That(store.List().Count, Is.EqualTo(slotsBeforeDelete));
+            Click(ScreenId.SessionLibrary, "DeleteButton");
+            yield return null;
+            Assert.That(store.List().Count, Is.EqualTo(slotsBeforeDelete - 1));
 
             controller.ErrorPanel.Show("Synthetic safe error");
             yield return null;
@@ -129,5 +165,34 @@ namespace TrumpLab.Product.Tests
                 snapshot.CardZones.Select(zone => zone.Id + ":" + zone.Count + ":" +
                     string.Join(",", zone.Cards.Select(card =>
                         ((int)card.Suit) + "-" + card.Rank))));
+
+        private sealed class MemorySessionStore : ISessionStore
+        {
+            private readonly Dictionary<string, SessionArchive> archives =
+                new Dictionary<string, SessionArchive>();
+            private readonly Dictionary<string, System.DateTime> saved =
+                new Dictionary<string, System.DateTime>();
+
+            public IReadOnlyList<SessionSlotInfo> List() => archives.Keys
+                .OrderBy(id => id, System.StringComparer.Ordinal)
+                .Select(id => new SessionSlotInfo(id, saved[id]))
+                .ToArray();
+
+            public SessionArchive Load(string slotId) => archives[SessionSlotIds.Require(slotId)];
+
+            public void Save(string slotId, SessionArchive archive)
+            {
+                string id = SessionSlotIds.Require(slotId);
+                archives[id] = archive;
+                saved[id] = System.DateTime.UtcNow;
+            }
+
+            public void Delete(string slotId)
+            {
+                string id = SessionSlotIds.Require(slotId);
+                archives.Remove(id);
+                saved.Remove(id);
+            }
+        }
     }
 }

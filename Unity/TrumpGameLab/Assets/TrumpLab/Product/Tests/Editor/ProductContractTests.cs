@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
@@ -94,6 +95,73 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void RecordedProductSessionResumesWithTheSameVisibleState()
+        {
+            var session = new GameSessionController(seed: 31, wildRank: 8);
+            session.Begin();
+            for (int step = 0; step < 8 && !session.Game.IsTerminal; step++)
+            {
+                if (session.State == MatchSessionState.AwaitingHuman)
+                    Assert.That(session.TryApplyHumanAction(session.Snapshot.Actions[0].Id), Is.True);
+                else if (session.State == MatchSessionState.WaitingForCpu)
+                    Assert.That(session.TryApplyCpuAction(), Is.True);
+            }
+
+            byte[] encoded = SessionArchiveCodec.Encode(session.Archive);
+            var resumed = new GameSessionController(SessionArchiveCodec.Decode(encoded));
+            resumed.Begin();
+
+            Assert.That(SnapshotSignature(resumed.Snapshot),
+                Is.EqualTo(SnapshotSignature(session.Snapshot)));
+            Assert.That(resumed.Archive.Actions.Count, Is.EqualTo(session.Archive.Actions.Count));
+        }
+
+        [Test]
+        public void SessionSlotIdsAreGeneratedCanonicallyAndRejectPaths()
+        {
+            string id = SessionSlotIds.Create();
+            Assert.That(SessionSlotIds.Require(id), Is.EqualTo(id));
+            Assert.That(id, Does.Match("^[0-9a-f]{32}$"));
+            Assert.Throws<ArgumentException>(() => SessionSlotIds.Require("../save"));
+            Assert.Throws<ArgumentException>(() => SessionSlotIds.Require(id.ToUpperInvariant()));
+        }
+
+        [Test]
+        public void FileSessionStoreSavesUpdatesLoadsAndExplicitlyDeletesSlot()
+        {
+            string temporaryRoot = Path.Combine(Path.GetTempPath(),
+                "TrumpLab-T04-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(temporaryRoot);
+            try
+            {
+                var store = new FileSessionStore(temporaryRoot);
+                string slotId = SessionSlotIds.Create();
+                var session = new GameSessionController(seed: 47, wildRank: 8);
+                session.Begin();
+
+                store.Save(slotId, session.Archive);
+                Assert.That(store.List().Select(slot => slot.Id), Is.EqualTo(new[] { slotId }));
+                Assert.That(store.Load(slotId).Actions.Count, Is.Zero);
+
+                if (session.State == MatchSessionState.AwaitingHuman)
+                    Assert.That(session.TryApplyHumanAction(session.Snapshot.Actions[0].Id), Is.True);
+                else
+                    Assert.That(session.TryApplyCpuAction(), Is.True);
+                store.Save(slotId, session.Archive);
+                Assert.That(store.Load(slotId).Actions.Count,
+                    Is.EqualTo(session.Archive.Actions.Count));
+
+                store.Delete(slotId);
+                Assert.That(store.List(), Is.Empty);
+            }
+            finally
+            {
+                if (Directory.Exists(temporaryRoot))
+                    Directory.Delete(temporaryRoot, recursive: true);
+            }
+        }
+
+        [Test]
         public void ResultPresenterReportsHumanOutcomeAndScores()
         {
             var result = new GameResultPresentation(
@@ -115,7 +183,9 @@ namespace TrumpLab.Product.Tests
             {
                 "TitleScreen.prefab",
                 "GameSettingsScreen.prefab",
+                "SessionLibraryScreen.prefab",
                 "MatchScreen.prefab",
+                "ReplayScreen.prefab",
                 "ResultScreen.prefab"
             };
             foreach (string fileName in prefabs)
