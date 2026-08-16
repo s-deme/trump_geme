@@ -51,6 +51,9 @@ namespace TrumpLab.Product.Tests
             Assert.That(model.Actions.Select(action => action.Id),
                 Is.EqualTo(presentation.Actions.Select(action => action.Id)));
             Assert.That(model.Actions.All(action => !string.IsNullOrWhiteSpace(action.Label)), Is.True);
+            Assert.That(model.Actions.All(action => !string.IsNullOrWhiteSpace(action.Reason)), Is.True);
+            Assert.That(model.ContextHelp, Does.Contain("Every shown action is legal"));
+            Assert.That(model.ActionSummary, Does.Contain("legal action"));
             Assert.That(model.OpponentHand, Does.StartWith("CPU hand: "));
             Assert.That(model.OpponentHand, Does.Not.Contain("♣"));
             Assert.That(model.OpponentHand, Does.Not.Contain("♦"));

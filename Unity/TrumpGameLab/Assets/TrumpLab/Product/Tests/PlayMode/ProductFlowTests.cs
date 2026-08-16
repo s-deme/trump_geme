@@ -66,6 +66,17 @@ namespace TrumpLab.Product.Tests
             }
 
             Assert.That(session.State, Is.EqualTo(MatchSessionState.AwaitingHuman));
+            var matchWithHelp = (MatchScreen)controller.Router.Get(ScreenId.Match);
+            int turnsBeforeHelp = session.Game.TurnCount;
+            matchWithHelp.HelpButton.onClick.Invoke();
+            Assert.That(matchWithHelp.IsContextHelpVisible, Is.True);
+            Assert.That(matchWithHelp.ContextHelpLabel.text,
+                Does.Contain("Every shown action is legal"));
+            ActiveActionButton().onClick.Invoke();
+            Assert.That(session.Game.TurnCount, Is.EqualTo(turnsBeforeHelp));
+            matchWithHelp.CloseHelpButton.onClick.Invoke();
+            Assert.That(matchWithHelp.IsContextHelpVisible, Is.False);
+
             Button firstAction = ActiveActionButton();
             int turnsBeforeInput = session.Game.TurnCount;
             firstAction.onClick.Invoke();
@@ -140,7 +151,7 @@ namespace TrumpLab.Product.Tests
 
         [UnityTest]
         [Timeout(10000)]
-        public IEnumerator CpuThinkingWaitIsCancelledWhenTheAppControllerIsDestroyed()
+        public IEnumerator ContextHelpPausesCpuAndDestroyCancelsTheResumedWait()
         {
             long seed = FindCpuOpeningSeed();
             Click(ScreenId.Title, "PlayButton");
@@ -157,6 +168,20 @@ namespace TrumpLab.Product.Tests
             Assert.That(match.StatusLabel.text, Does.StartWith("CPU is choosing"));
             int turns = session.Game.TurnCount;
             int actions = session.Archive.Actions.Count;
+
+            match.HelpButton.onClick.Invoke();
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.That(session.Game.TurnCount, Is.EqualTo(turns));
+            Assert.That(session.Archive.Actions.Count, Is.EqualTo(actions));
+            match.CloseHelpButton.onClick.Invoke();
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.That(session.Game.TurnCount, Is.GreaterThan(turns));
+            Assert.That(session.State, Is.EqualTo(MatchSessionState.AwaitingHuman));
+
+            ActiveActionButton().onClick.Invoke();
+            Assert.That(session.State, Is.EqualTo(MatchSessionState.WaitingForCpu));
+            turns = session.Game.TurnCount;
+            actions = session.Archive.Actions.Count;
 
             UnityEngine.Object.Destroy(controller.gameObject);
             yield return null;

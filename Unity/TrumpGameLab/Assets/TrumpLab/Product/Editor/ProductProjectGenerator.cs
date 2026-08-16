@@ -130,9 +130,9 @@ namespace TrumpLab.Product.Editor
             Text discard = CreateText(root.transform, "Discard", "Discard: 7H", font, 30,
                 new Vector2(0.6f, 0.48f), new Vector2(0.8f, 0.62f));
             Text hand = CreateText(root.transform, "HumanHand", "Your hand: AC 3D 4H 7S 8C 10D KH", font, 30,
-                new Vector2(0.12f, 0.22f), new Vector2(0.88f, 0.36f));
+                new Vector2(0.12f, 0.25f), new Vector2(0.88f, 0.37f));
             RectTransform actionViewport = CreatePanel(root.transform, "ActionViewport",
-                new Vector2(0.18f, 0.04f), new Vector2(0.82f, 0.18f));
+                new Vector2(0.18f, 0.04f), new Vector2(0.82f, 0.2f));
             Image viewportImage = actionViewport.gameObject.AddComponent<Image>();
             viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
             var mask = actionViewport.gameObject.AddComponent<Mask>();
@@ -144,7 +144,7 @@ namespace TrumpLab.Product.Editor
             actions.pivot = new Vector2(0.5f, 1f);
             actions.sizeDelta = Vector2.zero;
             GridLayoutGroup actionGrid = actions.gameObject.AddComponent<GridLayoutGroup>();
-            actionGrid.cellSize = new Vector2(225f, 52f);
+            actionGrid.cellSize = new Vector2(225f, 72f);
             actionGrid.spacing = new Vector2(10f, 8f);
             actionGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             actionGrid.constraintCount = 5;
@@ -157,11 +157,27 @@ namespace TrumpLab.Product.Editor
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 32f;
             Text actionSummary = CreateText(root.transform, "ActionSummary", "Legal action buttons appear here", font, 22,
-                new Vector2(0.18f, 0.18f), new Vector2(0.82f, 0.22f));
+                new Vector2(0.18f, 0.2f), new Vector2(0.82f, 0.25f));
             Button actionTemplate = CreateButton(actions, "ActionButtonTemplate", "Action", font, Vector2.zero);
             actionTemplate.gameObject.SetActive(false);
+            Button help = CreateButton(root.transform, "HelpButton", "Help", font,
+                new Vector2(790f, 455f));
+            help.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
+            RectTransform helpPanel = CreatePanel(root.transform, "ContextHelpPanel",
+                new Vector2(0.16f, 0.12f), new Vector2(0.84f, 0.86f));
+            Image helpBackground = helpPanel.gameObject.AddComponent<Image>();
+            helpBackground.color = new Color(0.035f, 0.12f, 0.09f, 0.98f);
+            Text helpText = CreateText(helpPanel, "ContextHelpText",
+                "Current legal actions and their reasons appear here.", font, 24,
+                new Vector2(0.06f, 0.16f), new Vector2(0.94f, 0.92f));
+            helpText.alignment = TextAnchor.UpperLeft;
+            helpText.verticalOverflow = VerticalWrapMode.Overflow;
+            Button closeHelp = CreateButton(helpPanel, "CloseHelpButton", "Close", font,
+                new Vector2(0f, -330f));
             root.GetComponent<MatchScreen>().Configure(
-                status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate);
+                status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate,
+                help, helpPanel.gameObject, helpText, closeHelp);
+            helpPanel.gameObject.SetActive(false);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
         }
 

@@ -73,6 +73,8 @@ namespace TrumpLab.Product
             sessionLibraryScreen.DeleteRequested += HandleDeleteRequested;
             sessionLibraryScreen.BackRequested += HandleTitleRequested;
             matchScreen.ActionRequested += HandleActionRequested;
+            matchScreen.ContextHelpOpened += HandleContextHelpOpened;
+            matchScreen.ContextHelpClosed += HandleContextHelpClosed;
             replayScreen.BackRequested += HandleSessionsRequested;
             resultScreen.RematchRequested += HandleRematchRequested;
             resultScreen.TitleRequested += HandleTitleRequested;
@@ -101,7 +103,12 @@ namespace TrumpLab.Product
                 sessionLibraryScreen.DeleteRequested -= HandleDeleteRequested;
                 sessionLibraryScreen.BackRequested -= HandleTitleRequested;
             }
-            if (matchScreen != null) matchScreen.ActionRequested -= HandleActionRequested;
+            if (matchScreen != null)
+            {
+                matchScreen.ActionRequested -= HandleActionRequested;
+                matchScreen.ContextHelpOpened -= HandleContextHelpOpened;
+                matchScreen.ContextHelpClosed -= HandleContextHelpClosed;
+            }
             if (replayScreen != null) replayScreen.BackRequested -= HandleSessionsRequested;
             if (resultScreen != null)
             {
@@ -115,6 +122,12 @@ namespace TrumpLab.Product
         private void Update()
         {
             if (!Input.GetKeyDown(KeyCode.Escape)) return;
+            if (Router.Current == ScreenId.Match && matchScreen != null &&
+                matchScreen.IsContextHelpVisible)
+            {
+                matchScreen.HideContextHelp();
+                return;
+            }
             if (errorPanel != null && errorPanel.gameObject.activeSelf)
             {
                 HandleErrorDismissed();
@@ -260,9 +273,13 @@ namespace TrumpLab.Product
         private void HandleActionRequested(string actionId)
         {
             GameSessionController? session = activeSession;
-            if (session == null || !session.TryApplyHumanAction(actionId)) return;
+            if (session == null || matchScreen?.IsContextHelpVisible == true ||
+                !session.TryApplyHumanAction(actionId)) return;
             ScheduleCpuTurn();
         }
+
+        private void HandleContextHelpOpened() => StopCpuTurn();
+        private void HandleContextHelpClosed() => ScheduleCpuTurn();
 
         private void HandleSnapshotChanged(GamePresentation presentation)
         {
@@ -314,7 +331,7 @@ namespace TrumpLab.Product
         private void ScheduleCpuTurn()
         {
             if (activeSession?.State != MatchSessionState.WaitingForCpu ||
-                cpuTurnCoroutine != null) return;
+                cpuTurnCoroutine != null || matchScreen?.IsContextHelpVisible == true) return;
             cpuTurnCoroutine = StartCoroutine(RunCpuTurn(activeSession));
         }
 
@@ -338,6 +355,7 @@ namespace TrumpLab.Product
         private void EndSession()
         {
             StopCpuTurn();
+            matchScreen?.HideContextHelp(notify: false);
             if (activeSession == null) return;
             activeSession.SnapshotChanged -= HandleSnapshotChanged;
             activeSession.Finished -= HandleSessionFinished;

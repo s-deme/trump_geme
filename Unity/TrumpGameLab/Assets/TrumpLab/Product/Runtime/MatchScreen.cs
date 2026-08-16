@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace TrumpLab.Product
@@ -18,6 +19,10 @@ namespace TrumpLab.Product
         [SerializeField] private Text? actionSummaryLabel;
         [SerializeField] private RectTransform? actionRoot;
         [SerializeField] private Button? actionButtonTemplate;
+        [SerializeField] private Button? helpButton;
+        [SerializeField] private GameObject? contextHelpPanel;
+        [SerializeField] private Text? contextHelpLabel;
+        [SerializeField] private Button? closeHelpButton;
 
         public override ScreenId Id => ScreenId.Match;
         public Text StatusLabel => Required(statusLabel, nameof(statusLabel));
@@ -30,11 +35,20 @@ namespace TrumpLab.Product
             "Match action root is not configured.");
         public Button ActionButtonTemplate => actionButtonTemplate ?? throw new InvalidOperationException(
             "Match action button template is not configured.");
+        public Button HelpButton => helpButton ?? throw Missing(nameof(helpButton));
+        public GameObject ContextHelpPanel => contextHelpPanel ??
+            throw Missing(nameof(contextHelpPanel));
+        public Text ContextHelpLabel => contextHelpLabel ?? throw Missing(nameof(contextHelpLabel));
+        public Button CloseHelpButton => closeHelpButton ?? throw Missing(nameof(closeHelpButton));
+        public bool IsContextHelpVisible => contextHelpPanel != null && contextHelpPanel.activeSelf;
         public IReadOnlyList<string> RenderedActionIds { get; private set; } = Array.Empty<string>();
         public event System.Action<string>? ActionRequested;
+        public event System.Action? ContextHelpOpened;
+        public event System.Action? ContextHelpClosed;
 
         public void Configure(Text status, Text opponentHand, Text stock, Text discard,
-            Text humanHand, Text actionSummary, RectTransform actions, Button actionTemplate)
+            Text humanHand, Text actionSummary, RectTransform actions, Button actionTemplate,
+            Button help, GameObject helpPanel, Text helpText, Button closeHelp)
         {
             statusLabel = status;
             opponentHandLabel = opponentHand;
@@ -44,6 +58,17 @@ namespace TrumpLab.Product
             actionSummaryLabel = actionSummary;
             actionRoot = actions;
             actionButtonTemplate = actionTemplate;
+            helpButton = help;
+            contextHelpPanel = helpPanel;
+            contextHelpLabel = helpText;
+            closeHelpButton = closeHelp;
+        }
+
+        private void Awake()
+        {
+            HelpButton.onClick.AddListener(ShowContextHelp);
+            CloseHelpButton.onClick.AddListener(HideContextHelp);
+            ContextHelpPanel.SetActive(false);
         }
 
         public void Render(MatchViewModel model)
@@ -55,6 +80,7 @@ namespace TrumpLab.Product
             DiscardLabel.text = model.Discard;
             HumanHandLabel.text = model.HumanHand;
             ActionSummaryLabel.text = model.ActionSummary;
+            ContextHelpLabel.text = model.ContextHelp;
             RenderActions(model);
         }
 
@@ -71,7 +97,13 @@ namespace TrumpLab.Product
                 Text? label = button.GetComponentInChildren<Text>(true);
                 if (label == null)
                     throw new InvalidOperationException("Action button template requires a Text label.");
-                label.text = action.Label;
+                label.text = "✓ " + action.Label + "\n" + action.Reason;
+                label.fontSize = 17;
+                Image? image = button.GetComponent<Image>();
+                if (image != null)
+                    image.color = model.InputEnabled
+                        ? new Color(0.12f, 0.52f, 0.31f, 1f)
+                        : new Color(0.25f, 0.31f, 0.27f, 1f);
                 string actionId = action.Id;
                 button.onClick.AddListener(() => ActionRequested?.Invoke(actionId));
             }
@@ -91,9 +123,36 @@ namespace TrumpLab.Product
             }
         }
 
-        private void OnDestroy() => ClearActionButtons();
+        public void ShowContextHelp()
+        {
+            if (IsContextHelpVisible) return;
+            ContextHelpPanel.SetActive(true);
+            EventSystem.current?.SetSelectedGameObject(CloseHelpButton.gameObject);
+            ContextHelpOpened?.Invoke();
+        }
+
+        public void HideContextHelp() => HideContextHelp(notify: true);
+
+        public void HideContextHelp(bool notify)
+        {
+            if (!IsContextHelpVisible) return;
+            ContextHelpPanel.SetActive(false);
+            EventSystem.current?.SetSelectedGameObject(
+                ActionRoot.GetComponentsInChildren<Button>(false)
+                    .FirstOrDefault()?.gameObject ?? HelpButton.gameObject);
+            if (notify) ContextHelpClosed?.Invoke();
+        }
+
+        private void OnDestroy()
+        {
+            if (helpButton != null) helpButton.onClick.RemoveListener(ShowContextHelp);
+            if (closeHelpButton != null) closeHelpButton.onClick.RemoveListener(HideContextHelp);
+            ClearActionButtons();
+        }
 
         private static Text Required(Text? value, string name) => value ??
             throw new InvalidOperationException("Match control is not configured: " + name);
+        private static InvalidOperationException Missing(string name) =>
+            new InvalidOperationException("Match control is not configured: " + name);
     }
 }
