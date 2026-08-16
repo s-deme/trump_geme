@@ -314,6 +314,44 @@ namespace TrumpLab.Product.Tests
             Assert.That(progressStore.Load().IsTutorialCompleted(tutorial.Definition), Is.True);
         }
 
+        [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator TutorialHelpPausesCpuAndExitCancelsThePendingAction()
+        {
+            var title = (TitleScreen)controller.Router.Get(ScreenId.Title);
+            PointerClick(title.TutorialButton);
+            yield return null;
+            var match = (MatchScreen)controller.Router.Get(ScreenId.Match);
+            PointerClick(match.TutorialContinueButton);
+            TutorialSessionController tutorial = controller.ActiveTutorial!;
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.AwaitingHuman));
+
+            Button expected = match.ActionRoot.GetComponentsInChildren<Button>(false)
+                .Single(button => button.name == "Action_" + tutorial.ExpectedActionId);
+            PointerClick(expected);
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.WaitingForCpu));
+            int turns = tutorial.Game.TurnCount;
+            int actions = tutorial.Archive.Actions.Count;
+
+            PointerClick(match.HelpButton);
+            Assert.That(match.IsContextHelpVisible, Is.True);
+            yield return new WaitForSecondsRealtime(0.5f);
+            Assert.That(tutorial.Game.TurnCount, Is.EqualTo(turns));
+            Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(actions));
+
+            PointerClick(match.CloseHelpButton);
+            Assert.That(match.IsContextHelpVisible, Is.False);
+            PointerClick(match.TutorialExitButton);
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.Cancelled));
+            Assert.That(tutorial.Game.TurnCount, Is.EqualTo(turns));
+            Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(actions));
+            Assert.That(controller.ActiveTutorial, Is.Null);
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+            Assert.That(progressStore.Load().IsTutorialCompleted(tutorial.Definition), Is.False);
+        }
+
         private void CompleteActiveMatchSynchronously()
         {
             for (int step = 0; step < 1000 && controller.Router.Current == ScreenId.Match; step++)
