@@ -198,6 +198,113 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void TutorialDefinitionUsesTheCanonicalNormalGameTrace()
+        {
+            TutorialDefinition definition = TutorialDefinition.CrazyEightsBasic;
+
+            Assert.That(definition.Id, Is.EqualTo("crazy_eights_basic_v1"));
+            Assert.That(definition.Version, Is.EqualTo(1));
+            Assert.That(definition.Seed, Is.EqualTo(29));
+            Assert.That(definition.WildRank, Is.EqualTo(8));
+            Assert.That(definition.Difficulty, Is.EqualTo(CpuDifficulties.Standard));
+            Assert.That(definition.Trace.Select(TutorialTraceSignature), Is.EqualTo(new[]
+            {
+                "0|play|3H|-|MatchingPlay",
+                "1|play|8H|S|-",
+                "0|draw|-|-|Draw",
+                "1|play|2S|-|-",
+                "0|play|8C|C|WildSuit",
+                "1|play|KC|-|-",
+                "0|play|5C|-|GuidedPlay",
+                "1|play|5S|-|-",
+                "0|play|JS|-|GuidedPlay",
+                "1|play|7S|-|-",
+                "0|play|9S|-|GuidedPlay",
+                "1|play_last_card|KS|-|-",
+                "0|play|8S|H|GuidedPlay",
+                "1|draw|-|-|-",
+                "0|play_last_card|4H|-|GuidedPlay",
+                "1|draw|-|-|-",
+                "0|play|2H|-|Win"
+            }));
+        }
+
+        [Test]
+        public void TutorialRejectsUnexpectedAndStaleActionsThenCompletes()
+        {
+            var tutorial = new TutorialSessionController();
+            tutorial.Begin();
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.AwaitingIntro));
+            Assert.That(tutorial.Lesson, Is.EqualTo(TutorialLesson.Intro));
+            Assert.That(tutorial.AcknowledgeIntro(), Is.True, tutorial.FaultMessage);
+
+            bool rejectedUnexpected = false;
+            bool rejectedStale = false;
+            for (int step = 0; step < 100 &&
+                tutorial.State != TutorialSessionState.AwaitingResultConfirmation; step++)
+            {
+                if (tutorial.State == TutorialSessionState.AwaitingHuman)
+                {
+                    int turns = tutorial.Game.TurnCount;
+                    int recorded = tutorial.Archive.Actions.Count;
+                    string expectedActionId = tutorial.ExpectedActionId!;
+                    ActionPresentation? unexpected = tutorial.Snapshot.Actions.FirstOrDefault(
+                        action => action.Id != expectedActionId);
+                    if (!rejectedUnexpected && unexpected != null)
+                    {
+                        Assert.That(tutorial.TryApplyHumanAction(unexpected.Id), Is.False);
+                        Assert.That(tutorial.FeedbackKey,
+                            Does.StartWith("tutorial.feedback.expected_"));
+                        Assert.That(tutorial.Game.TurnCount, Is.EqualTo(turns));
+                        Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(recorded));
+                        rejectedUnexpected = true;
+                    }
+                    if (!rejectedStale)
+                    {
+                        Assert.That(tutorial.TryApplyHumanAction("stale_action"), Is.False);
+                        Assert.That(tutorial.FeedbackKey,
+                            Is.EqualTo("tutorial.feedback.stale_action"));
+                        Assert.That(tutorial.Game.TurnCount, Is.EqualTo(turns));
+                        Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(recorded));
+                        rejectedStale = true;
+                    }
+
+                    Assert.That(tutorial.TryApplyHumanAction(expectedActionId), Is.True,
+                        tutorial.FaultMessage);
+                    Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(recorded + 1));
+                    Assert.That(tutorial.TryApplyHumanAction(expectedActionId), Is.False);
+                    Assert.That(tutorial.Archive.Actions.Count, Is.EqualTo(recorded + 1));
+                }
+                else if (tutorial.State == TutorialSessionState.WaitingForCpu)
+                {
+                    Assert.That(tutorial.TryApplyCpuAction(), Is.True, tutorial.FaultMessage);
+                }
+                else
+                {
+                    Assert.Fail("Unexpected tutorial state: " + tutorial.State + " " +
+                        tutorial.FaultMessage);
+                }
+            }
+
+            Assert.That(rejectedUnexpected, Is.True);
+            Assert.That(rejectedStale, Is.True);
+            Assert.That(tutorial.State,
+                Is.EqualTo(TutorialSessionState.AwaitingResultConfirmation),
+                tutorial.FaultMessage);
+            Assert.That(tutorial.AppliedActions,
+                Is.EqualTo(tutorial.Definition.Trace.Count));
+            Assert.That(tutorial.Game.IsTerminal, Is.True);
+            Assert.That(tutorial.Game.Result().Winners, Is.EqualTo(new[] { 0 }));
+            Assert.That(tutorial.Game.Result().Reason, Is.EqualTo("empty hand"));
+            Assert.That(tutorial.Lesson, Is.EqualTo(TutorialLesson.Win));
+            Assert.That(tutorial.Archive.Configuration.Seed, Is.EqualTo(29));
+            Assert.That(tutorial.Archive.Configuration.Difficulty,
+                Is.EqualTo(CpuDifficulties.Standard));
+            Assert.That(tutorial.ConfirmResult(), Is.True);
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.Finished));
+        }
+
+        [Test]
         public void ProductPrefabsAndBootstrapSceneHaveNoMissingScripts()
         {
             string[] prefabs =
@@ -233,6 +340,16 @@ namespace TrumpLab.Product.Tests
                     : "-") + ":" + (action.Action.Value ?? "-"));
             return snapshot.CurrentPlayer + "|" + snapshot.Phase + "|" +
                 string.Join("|", zones) + "|" + string.Join("|", actions);
+        }
+
+        private static string TutorialTraceSignature(TutorialTraceEntry entry)
+        {
+            string card = entry.Action.Card.HasValue
+                ? entry.Action.Card.Value.ToString()
+                : "-";
+            return entry.Actor + "|" + entry.Action.Kind + "|" + card + "|" +
+                (entry.Action.Value ?? "-") + "|" +
+                (entry.Lesson.HasValue ? entry.Lesson.Value.ToString() : "-");
         }
     }
 }
