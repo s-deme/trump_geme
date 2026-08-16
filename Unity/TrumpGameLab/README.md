@@ -42,6 +42,17 @@ ID、観測境界、互換性、強度基準は
 [ADR-0004](../../docs/product/decisions/ADR-0004-cpu-difficulty-contract.md)、固定800局の結果と
 再現コマンドは[M04 CPU難易度評価](../../docs/product/reports/M04-cpu-difficulty-evaluation.md)を参照する。
 
+## チュートリアルと遊び方
+
+初回状態ではTitleの`Tutorial`が優先focusになり、通常のCrazy Eights Runtimeを固定seedで
+6 step進める。期待Actionは`★`と色で強調し、別の合法Actionや古いIDは盤面を変更せず案内する。
+完了後はTitleの`Play`が優先focusになり、`How to play`またはGame Settingsの同名buttonから
+ルール5ページを確認して再実行できる。
+
+完了記録は`Application.persistentDataPath/TrumpGameLab/progress.v1`へ、format version、tutorial ID、
+definition version、完了flagだけをatomic保存する。tutorial対局はSaved sessionsへ保存しない。
+破損・未知versionは未完了として扱うが、再完了時にも元fileを黙って上書き・削除しない。
+
 ## 保存・再開・リプレイ
 
 対局開始時と各Action適用後に同じslotへ自動保存する。アプリを再起動した後はタイトルの
@@ -66,4 +77,5 @@ pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
 
 Edit Modeは設定・難易度・presenter・session・Prefab・atomic保存と破損拒否の契約、Play Modeは
 Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel、二重入力lock、人間対CPUの
-1局完走、保存一覧、再開、リプレイ、2段階削除、error modalを検証する。
+1局完走、保存一覧、再開、リプレイ、2段階削除、error modalに加え、pointerとSubmitによる
+tutorial完走、優先focus、完了記録、再実行を検証する。

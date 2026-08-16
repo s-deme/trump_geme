@@ -346,6 +346,43 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void ProductProgressRoundTripsAndRefusesToOverwriteCorruption()
+        {
+            string temporaryRoot = Path.Combine(Path.GetTempPath(),
+                "TrumpLab-M05-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(temporaryRoot);
+            try
+            {
+                var store = new FileProductProgressStore(temporaryRoot);
+                TutorialDefinition definition = TutorialDefinition.CrazyEightsBasic;
+                Assert.That(store.Load().IsTutorialCompleted(definition), Is.False);
+
+                store.SaveTutorialCompleted(definition);
+                ProductProgress loaded = store.Load();
+                Assert.That(loaded.FormatVersion,
+                    Is.EqualTo(ProductProgress.CurrentFormatVersion));
+                Assert.That(loaded.TutorialId, Is.EqualTo(definition.Id));
+                Assert.That(loaded.TutorialVersion, Is.EqualTo(definition.Version));
+                Assert.That(loaded.IsTutorialCompleted(definition), Is.True);
+                byte[] completed = File.ReadAllBytes(store.ProgressPath);
+                store.SaveTutorialCompleted(definition);
+                Assert.That(File.ReadAllBytes(store.ProgressPath), Is.EqualTo(completed));
+
+                File.WriteAllText(store.ProgressPath, "corrupt progress");
+                byte[] corrupt = File.ReadAllBytes(store.ProgressPath);
+                Assert.Throws<ProductProgressFormatException>(() => store.Load());
+                Assert.Throws<ProductProgressFormatException>(() =>
+                    store.SaveTutorialCompleted(definition));
+                Assert.That(File.ReadAllBytes(store.ProgressPath), Is.EqualTo(corrupt));
+            }
+            finally
+            {
+                if (Directory.Exists(temporaryRoot))
+                    Directory.Delete(temporaryRoot, recursive: true);
+            }
+        }
+
+        [Test]
         public void ProductPrefabsAndBootstrapSceneHaveNoMissingScripts()
         {
             string[] prefabs =

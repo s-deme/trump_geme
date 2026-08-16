@@ -13,6 +13,7 @@ namespace TrumpLab.Product
         [SerializeField] private Text? pageTitleLabel;
         [SerializeField] private Text? pageBodyLabel;
         [SerializeField] private Text? contextLabel;
+        [SerializeField] private Button? startTutorialButton;
         [SerializeField] private Button? previousButton;
         [SerializeField] private Button? nextButton;
         [SerializeField] private Button? backButton;
@@ -24,6 +25,8 @@ namespace TrumpLab.Product
         public Text PageTitleLabel => Required(pageTitleLabel, nameof(pageTitleLabel));
         public Text PageBodyLabel => Required(pageBodyLabel, nameof(pageBodyLabel));
         public Text ContextLabel => Required(contextLabel, nameof(contextLabel));
+        public Button StartTutorialButton => Required(
+            startTutorialButton, nameof(startTutorialButton));
         public Button PreviousButton => Required(previousButton, nameof(previousButton));
         public Button NextButton => Required(nextButton, nameof(nextButton));
         public Button BackButton => Required(backButton, nameof(backButton));
@@ -32,14 +35,16 @@ namespace TrumpLab.Product
             throw new InvalidOperationException("How-to-play content has not been rendered.");
 
         public event System.Action? BackRequested;
+        public event System.Action? StartTutorialRequested;
 
         public void Configure(Text pageIndicator, Text pageTitle, Text pageBody, Text context,
-            Button previous, Button next, Button back)
+            Button startTutorial, Button previous, Button next, Button back)
         {
             pageIndicatorLabel = pageIndicator;
             pageTitleLabel = pageTitle;
             pageBodyLabel = pageBody;
             contextLabel = context;
+            startTutorialButton = startTutorial;
             previousButton = previous;
             nextButton = next;
             backButton = back;
@@ -69,6 +74,7 @@ namespace TrumpLab.Product
 
         private void Awake()
         {
+            StartTutorialButton.onClick.AddListener(HandleStartTutorial);
             PreviousButton.onClick.AddListener(HandlePrevious);
             NextButton.onClick.AddListener(HandleNext);
             BackButton.onClick.AddListener(HandleBack);
@@ -76,11 +82,14 @@ namespace TrumpLab.Product
 
         private void OnDestroy()
         {
+            if (startTutorialButton != null)
+                startTutorialButton.onClick.RemoveListener(HandleStartTutorial);
             if (previousButton != null) previousButton.onClick.RemoveListener(HandlePrevious);
             if (nextButton != null) nextButton.onClick.RemoveListener(HandleNext);
             if (backButton != null) backButton.onClick.RemoveListener(HandleBack);
         }
 
+        private void HandleStartTutorial() => StartTutorialRequested?.Invoke();
         private void HandlePrevious() => ShowPage(CurrentPageIndex - 1);
         private void HandleNext() => ShowPage(CurrentPageIndex + 1);
         private void HandleBack() => BackRequested?.Invoke();

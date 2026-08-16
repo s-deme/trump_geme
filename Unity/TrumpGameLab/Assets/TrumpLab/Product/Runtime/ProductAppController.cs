@@ -21,23 +21,28 @@ namespace TrumpLab.Product
         [SerializeField] private ProductErrorPanel? errorPanel;
 
         private GameSessionController? activeSession;
+        private TutorialSessionController? activeTutorial;
         private Coroutine? cpuTurnCoroutine;
         private GameStartRequest? lastRequest;
         private ISessionStore? sessionStore;
+        private IProductProgressStore? progressStore;
         private string? activeSlotId;
         private ScreenId errorReturnScreen = ScreenId.Title;
         private ScreenId howToPlayReturnScreen = ScreenId.Title;
 
         public ScreenRouter Router => router ?? throw new InvalidOperationException(
             "Screen router is not configured.");
-        public IGame? ActiveGame => activeSession?.Game;
+        public IGame? ActiveGame => activeSession?.Game ?? activeTutorial?.Game;
         public GameSessionController? ActiveSession => activeSession;
+        public TutorialSessionController? ActiveTutorial => activeTutorial;
         public string? ActiveSlotId => activeSlotId;
         public ProductErrorPanel ErrorPanel => errorPanel ?? throw new InvalidOperationException(
             "Product error panel is not configured.");
         public GameStartRequest? LastRequest => lastRequest;
         public ISessionStore SessionStore => sessionStore ?? throw new InvalidOperationException(
             "Session store is not configured.");
+        public IProductProgressStore ProgressStore => progressStore ??
+            throw new InvalidOperationException("Product progress store is not configured.");
 
         public void Configure(ScreenRouter configuredRouter, TitleScreen title,
             GameSettingsScreen settings, SessionLibraryScreen library, MatchScreen match,
@@ -58,6 +63,12 @@ namespace TrumpLab.Product
         public void SetSessionStore(ISessionStore store) =>
             sessionStore = store ?? throw new ArgumentNullException(nameof(store));
 
+        public void SetProgressStore(IProductProgressStore store)
+        {
+            progressStore = store ?? throw new ArgumentNullException(nameof(store));
+            RefreshTutorialProgress();
+        }
+
         private void Awake()
         {
             if (router == null || titleScreen == null || settingsScreen == null ||
@@ -66,7 +77,11 @@ namespace TrumpLab.Product
                 throw new InvalidOperationException("Product app controller is not configured.");
 
             if (sessionStore == null) sessionStore = new FileSessionStore(Application.persistentDataPath);
+            if (progressStore == null)
+                progressStore = new FileProductProgressStore(Application.persistentDataPath);
+            RefreshTutorialProgress();
 
+            titleScreen.TutorialRequested += HandleTitleTutorialRequested;
             titleScreen.PlayRequested += HandlePlayRequested;
             titleScreen.SessionsRequested += HandleSessionsRequested;
             titleScreen.QuitRequested += HandleQuitRequested;
@@ -81,11 +96,14 @@ namespace TrumpLab.Product
             matchScreen.ContextHelpOpened += HandleContextHelpOpened;
             matchScreen.ContextHelpClosed += HandleContextHelpClosed;
             matchScreen.RulesRequested += HandleMatchRulesRequested;
+            matchScreen.TutorialContinueRequested += HandleTutorialContinueRequested;
+            matchScreen.TutorialExitRequested += HandleTutorialExitRequested;
             replayScreen.BackRequested += HandleSessionsRequested;
             resultScreen.RematchRequested += HandleRematchRequested;
             resultScreen.DetailsRequested += HandleResultDetailsRequested;
             resultScreen.TitleRequested += HandleTitleRequested;
             howToPlayScreen.BackRequested += HandleHowToPlayBackRequested;
+            howToPlayScreen.StartTutorialRequested += HandleStartTutorialRequested;
             errorPanel.Dismissed += HandleErrorDismissed;
             errorPanel.Hide();
             router.Show(ScreenId.Title);
@@ -95,6 +113,7 @@ namespace TrumpLab.Product
         {
             if (titleScreen != null)
             {
+                titleScreen.TutorialRequested -= HandleTitleTutorialRequested;
                 titleScreen.PlayRequested -= HandlePlayRequested;
                 titleScreen.SessionsRequested -= HandleSessionsRequested;
                 titleScreen.QuitRequested -= HandleQuitRequested;
@@ -118,6 +137,8 @@ namespace TrumpLab.Product
                 matchScreen.ContextHelpOpened -= HandleContextHelpOpened;
                 matchScreen.ContextHelpClosed -= HandleContextHelpClosed;
                 matchScreen.RulesRequested -= HandleMatchRulesRequested;
+                matchScreen.TutorialContinueRequested -= HandleTutorialContinueRequested;
+                matchScreen.TutorialExitRequested -= HandleTutorialExitRequested;
             }
             if (replayScreen != null) replayScreen.BackRequested -= HandleSessionsRequested;
             if (resultScreen != null)
@@ -127,9 +148,13 @@ namespace TrumpLab.Product
                 resultScreen.TitleRequested -= HandleTitleRequested;
             }
             if (howToPlayScreen != null)
+            {
                 howToPlayScreen.BackRequested -= HandleHowToPlayBackRequested;
+                howToPlayScreen.StartTutorialRequested -= HandleStartTutorialRequested;
+            }
             if (errorPanel != null) errorPanel.Dismissed -= HandleErrorDismissed;
             EndSession();
+            EndTutorial();
         }
 
         private void Update()
@@ -144,6 +169,11 @@ namespace TrumpLab.Product
                 matchScreen.IsContextHelpVisible)
             {
                 matchScreen.HideContextHelp();
+                return;
+            }
+            if (Router.Current == ScreenId.Match && activeTutorial != null)
+            {
+                HandleTutorialExitRequested();
                 return;
             }
             if (errorPanel != null && errorPanel.gameObject.activeSelf)
@@ -163,10 +193,19 @@ namespace TrumpLab.Product
             settingsScreen.SetValues(lastRequest ?? new GameStartRequest(seed: 1, wildRank: 8));
         }
 
+        private void HandleTitleTutorialRequested()
+        {
+            if (titleScreen?.TutorialCompleted == true)
+                ShowHowToPlay(ScreenId.Title, presentation: null);
+            else
+                BeginTutorial();
+        }
+
         private void HandleStartRequested(GameStartRequest request)
         {
             if (matchScreen == null) throw new InvalidOperationException("Match screen is not configured.");
             if (request == null) throw new ArgumentNullException(nameof(request));
+            EndTutorial();
             EndSession();
             ErrorPanel.Hide();
             lastRequest = request;
@@ -178,6 +217,7 @@ namespace TrumpLab.Product
         private void BeginSession(GameSessionController session, string slotId)
         {
             if (matchScreen == null) throw new InvalidOperationException("Match screen is not configured.");
+            EndTutorial();
             EndSession();
             activeSession = session;
             activeSlotId = SessionSlotIds.Require(slotId);
@@ -195,6 +235,7 @@ namespace TrumpLab.Product
 
         private void HandleSessionsRequested()
         {
+            EndTutorial();
             EndSession();
             ErrorPanel.Hide();
             try
@@ -283,6 +324,7 @@ namespace TrumpLab.Product
 
         private void HandleTitleRequested()
         {
+            EndTutorial();
             EndSession();
             if (errorPanel != null) errorPanel.Hide();
             Router.Show(ScreenId.Title);
@@ -290,6 +332,15 @@ namespace TrumpLab.Product
 
         private void HandleActionRequested(string actionId)
         {
+            TutorialSessionController? tutorial = activeTutorial;
+            if (tutorial != null)
+            {
+                if (Router.Current != ScreenId.Match ||
+                    matchScreen?.IsContextHelpVisible == true ||
+                    !tutorial.TryApplyHumanAction(actionId)) return;
+                ScheduleTutorialCpuTurn();
+                return;
+            }
             GameSessionController? session = activeSession;
             if (session == null || Router.Current != ScreenId.Match ||
                 matchScreen?.IsContextHelpVisible == true ||
@@ -298,17 +349,21 @@ namespace TrumpLab.Product
         }
 
         private void HandleContextHelpOpened() => StopCpuTurn();
-        private void HandleContextHelpClosed() => ScheduleCpuTurn();
+        private void HandleContextHelpClosed()
+        {
+            ScheduleCpuTurn();
+            ScheduleTutorialCpuTurn();
+        }
 
         private void HandleSettingsHowToPlayRequested() =>
             ShowHowToPlay(ScreenId.GameSettings, presentation: null);
 
         private void HandleMatchRulesRequested()
         {
-            GameSessionController? session = activeSession;
-            if (session == null) return;
+            GamePresentation? presentation = activeSession?.Snapshot ?? activeTutorial?.Snapshot;
+            if (presentation == null) return;
             StopCpuTurn();
-            ShowHowToPlay(ScreenId.Match, session.Snapshot);
+            ShowHowToPlay(ScreenId.Match, presentation);
         }
 
         private void HandleResultDetailsRequested()
@@ -333,6 +388,81 @@ namespace TrumpLab.Product
             ScreenId destination = howToPlayReturnScreen;
             Router.Show(destination);
             if (destination == ScreenId.Match) ScheduleCpuTurn();
+            if (destination == ScreenId.Match) ScheduleTutorialCpuTurn();
+        }
+
+        private void HandleStartTutorialRequested() => BeginTutorial();
+
+        private void BeginTutorial()
+        {
+            if (matchScreen == null)
+                throw new InvalidOperationException("Match screen is not configured.");
+            EndSession();
+            EndTutorial();
+            ErrorPanel.Hide();
+            var tutorial = new TutorialSessionController();
+            activeTutorial = tutorial;
+            tutorial.Changed += HandleTutorialChanged;
+            tutorial.Completed += HandleTutorialCompleted;
+            tutorial.Faulted += HandleTutorialFaulted;
+            Router.Show(ScreenId.Match);
+            tutorial.Begin();
+            if (activeTutorial != tutorial || tutorial.State == TutorialSessionState.Faulted)
+                return;
+        }
+
+        private void HandleTutorialChanged()
+        {
+            TutorialSessionController? tutorial = activeTutorial;
+            if (tutorial == null || matchScreen == null ||
+                tutorial.State == TutorialSessionState.Faulted) return;
+            bool inputEnabled = tutorial.State == TutorialSessionState.AwaitingHuman;
+            matchScreen.RenderTutorial(
+                CrazyEightsMatchPresenter.Create(tutorial.Snapshot, inputEnabled),
+                TutorialOverlayPresenter.Create(tutorial));
+            ScheduleTutorialCpuTurn();
+        }
+
+        private void HandleTutorialContinueRequested()
+        {
+            TutorialSessionController? tutorial = activeTutorial;
+            if (tutorial == null || Router.Current != ScreenId.Match) return;
+            if (tutorial.State == TutorialSessionState.AwaitingIntro)
+                tutorial.AcknowledgeIntro();
+            else if (tutorial.State == TutorialSessionState.AwaitingResultConfirmation)
+                tutorial.ConfirmResult();
+        }
+
+        private void HandleTutorialExitRequested()
+        {
+            if (activeTutorial == null) return;
+            EndTutorial();
+            RefreshTutorialProgress();
+            Router.Show(ScreenId.Title);
+        }
+
+        private void HandleTutorialCompleted()
+        {
+            TutorialSessionController? tutorial = activeTutorial;
+            if (tutorial == null) return;
+            try
+            {
+                ProgressStore.SaveTutorialCompleted(tutorial.Definition);
+            }
+            catch (Exception)
+            {
+                ShowSafeError("Tutorial completed, but progress could not be saved safely.");
+                return;
+            }
+            EndTutorial();
+            RefreshTutorialProgress();
+            Router.Show(ScreenId.Title);
+        }
+
+        private void HandleTutorialFaulted(string _)
+        {
+            Debug.LogError("Crazy Eights tutorial stopped safely.");
+            ShowSafeError("The tutorial stopped safely.");
         }
 
         private void HandleSnapshotChanged(GamePresentation presentation)
@@ -370,6 +500,7 @@ namespace TrumpLab.Product
 
         private void ShowSafeError(string message, ScreenId returnScreen = ScreenId.Title)
         {
+            EndTutorial();
             EndSession();
             errorReturnScreen = returnScreen;
             Router.Show(returnScreen);
@@ -387,6 +518,25 @@ namespace TrumpLab.Product
             if (activeSession?.State != MatchSessionState.WaitingForCpu ||
                 cpuTurnCoroutine != null || matchScreen?.IsContextHelpVisible == true) return;
             cpuTurnCoroutine = StartCoroutine(RunCpuTurn(activeSession));
+        }
+
+        private void ScheduleTutorialCpuTurn()
+        {
+            if (activeTutorial?.State != TutorialSessionState.WaitingForCpu ||
+                cpuTurnCoroutine != null || Router.Current != ScreenId.Match ||
+                matchScreen?.IsContextHelpVisible == true) return;
+            cpuTurnCoroutine = StartCoroutine(RunTutorialCpuTurn(activeTutorial));
+        }
+
+        private IEnumerator RunTutorialCpuTurn(TutorialSessionController tutorial)
+        {
+            yield return new WaitForSecondsRealtime(0.35f);
+            cpuTurnCoroutine = null;
+            if (activeTutorial != tutorial ||
+                tutorial.State != TutorialSessionState.WaitingForCpu ||
+                Router.Current != ScreenId.Match) yield break;
+            tutorial.TryApplyCpuAction();
+            ScheduleTutorialCpuTurn();
         }
 
         private IEnumerator RunCpuTurn(GameSessionController session)
@@ -416,6 +566,37 @@ namespace TrumpLab.Product
             activeSession.Faulted -= HandleSessionFaulted;
             activeSession = null;
             activeSlotId = null;
+        }
+
+        private void EndTutorial()
+        {
+            StopCpuTurn();
+            matchScreen?.HideContextHelp(notify: false);
+            matchScreen?.HideTutorial();
+            TutorialSessionController? tutorial = activeTutorial;
+            if (tutorial == null) return;
+            activeTutorial = null;
+            tutorial.Changed -= HandleTutorialChanged;
+            tutorial.Completed -= HandleTutorialCompleted;
+            tutorial.Faulted -= HandleTutorialFaulted;
+            tutorial.Cancel();
+        }
+
+        private void RefreshTutorialProgress()
+        {
+            if (titleScreen == null || progressStore == null) return;
+            bool completed = false;
+            try
+            {
+                completed = progressStore.Load().IsTutorialCompleted(
+                    TutorialDefinition.CrazyEightsBasic);
+            }
+            catch (Exception)
+            {
+                Debug.LogWarning("Product progress could not be read safely.");
+            }
+            titleScreen.SetTutorialCompleted(completed);
+            if (router?.Current == ScreenId.Title) router.Show(ScreenId.Title);
         }
         private static void HandleQuitRequested() => Application.Quit();
     }

@@ -16,6 +16,7 @@ namespace TrumpLab.Product.Tests
     {
         private ProductAppController controller = null!;
         private MemorySessionStore store = null!;
+        private MemoryProductProgressStore progressStore = null!;
 
         [UnitySetUp]
         public IEnumerator LoadBootstrap()
@@ -26,6 +27,8 @@ namespace TrumpLab.Product.Tests
                 .Single(candidate => candidate.gameObject.scene == SceneManager.GetActiveScene());
             store = new MemorySessionStore();
             controller.SetSessionStore(store);
+            progressStore = new MemoryProductProgressStore();
+            controller.SetProgressStore(progressStore);
             Assert.That(controller, Is.Not.Null);
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
         }
@@ -229,6 +232,88 @@ namespace TrumpLab.Product.Tests
             Assert.That(session.Archive.Actions.Count, Is.EqualTo(actions));
         }
 
+        [UnityTest]
+        [Timeout(30000)]
+        public IEnumerator TutorialCompletesWithPointerAndSubmitThenCanBeRestarted()
+        {
+            var title = (TitleScreen)controller.Router.Get(ScreenId.Title);
+            Assert.That(title.TutorialCompleted, Is.False);
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(title.TutorialButton.gameObject));
+
+            Submit(title.TutorialButton);
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
+            Assert.That(controller.ActiveSession, Is.Null);
+            TutorialSessionController tutorial = controller.ActiveTutorial!;
+            var match = (MatchScreen)controller.Router.Get(ScreenId.Match);
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.AwaitingIntro));
+            Assert.That(match.IsTutorialVisible, Is.True);
+            Assert.That(match.TutorialProgressLabel.text, Is.EqualTo("Step 1 / 6"));
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(match.TutorialContinueButton.gameObject));
+
+            Submit(match.TutorialContinueButton);
+            int humanActions = 0;
+            for (int step = 0; step < 100 && controller.ActiveTutorial != null; step++)
+            {
+                if (tutorial.State == TutorialSessionState.AwaitingHuman)
+                {
+                    string expectedActionId = tutorial.ExpectedActionId!;
+                    Button expected = match.ActionRoot.GetComponentsInChildren<Button>(false)
+                        .Single(button => button.name == "Action_" + expectedActionId);
+                    Assert.That(expected.GetComponentInChildren<Text>(true).text,
+                        Does.StartWith("★ "));
+                    Assert.That(EventSystem.current.currentSelectedGameObject,
+                        Is.EqualTo(expected.gameObject));
+                    if (humanActions % 2 == 0) PointerClick(expected);
+                    else Submit(expected);
+                    humanActions++;
+                }
+                else if (tutorial.State == TutorialSessionState.WaitingForCpu)
+                {
+                    yield return new WaitForSecondsRealtime(0.45f);
+                }
+                else if (tutorial.State == TutorialSessionState.AwaitingResultConfirmation)
+                {
+                    Assert.That(match.TutorialProgressLabel.text, Is.EqualTo("Step 6 / 6"));
+                    Assert.That(match.TutorialGuidanceLabel.text, Does.Contain("Reason: empty hand"));
+                    Submit(match.TutorialContinueButton);
+                    yield return null;
+                }
+                else
+                {
+                    Assert.Fail("Unexpected tutorial state: " + tutorial.State + " " +
+                        tutorial.FaultMessage);
+                }
+            }
+
+            Assert.That(humanActions, Is.GreaterThan(0));
+            Assert.That(tutorial.State, Is.EqualTo(TutorialSessionState.Finished));
+            Assert.That(controller.ActiveTutorial, Is.Null);
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+            Assert.That(store.List(), Is.Empty, "Tutorial sessions must not be autosaved.");
+            Assert.That(progressStore.Load().IsTutorialCompleted(tutorial.Definition), Is.True);
+            Assert.That(title.TutorialCompleted, Is.True);
+            Assert.That(title.TutorialButton.GetComponentInChildren<Text>(true).text,
+                Is.EqualTo("How to play"));
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(title.PlayButton.gameObject));
+
+            PointerClick(title.TutorialButton);
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.HowToPlay));
+            var rules = (HowToPlayScreen)controller.Router.Get(ScreenId.HowToPlay);
+            PointerClick(rules.StartTutorialButton);
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Match));
+            Assert.That(controller.ActiveTutorial, Is.Not.Null);
+            PointerClick(match.TutorialExitButton);
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+            Assert.That(progressStore.Load().IsTutorialCompleted(tutorial.Definition), Is.True);
+        }
+
         private void CompleteActiveMatchSynchronously()
         {
             for (int step = 0; step < 1000 && controller.Router.Current == ScreenId.Match; step++)
@@ -274,6 +359,22 @@ namespace TrumpLab.Product.Tests
             button.onClick.Invoke();
         }
 
+        private static void Submit(Button button)
+        {
+            EventSystem.current.SetSelectedGameObject(button.gameObject);
+            ExecuteEvents.Execute(button.gameObject,
+                new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+        }
+
+        private static void PointerClick(Button button)
+        {
+            var data = new PointerEventData(EventSystem.current)
+            {
+                button = PointerEventData.InputButton.Left
+            };
+            ExecuteEvents.Execute(button.gameObject, data, ExecuteEvents.pointerClickHandler);
+        }
+
         private static string VisibleSnapshotSignature(GamePresentation snapshot) =>
             snapshot.CurrentPlayer + "|" + snapshot.Phase + "|" + string.Join("|",
                 snapshot.CardZones.Select(zone => zone.Id + ":" + zone.Count + ":" +
@@ -306,6 +407,22 @@ namespace TrumpLab.Product.Tests
                 string id = SessionSlotIds.Require(slotId);
                 archives.Remove(id);
                 saved.Remove(id);
+            }
+        }
+
+        private sealed class MemoryProductProgressStore : IProductProgressStore
+        {
+            private ProductProgress progress = ProductProgress.Empty;
+
+            public ProductProgress Load() => progress;
+
+            public void SaveTutorialCompleted(TutorialDefinition definition)
+            {
+                progress = new ProductProgress(
+                    ProductProgress.CurrentFormatVersion,
+                    definition.Id,
+                    definition.Version,
+                    tutorialCompleted: true);
             }
         }
     }

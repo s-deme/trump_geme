@@ -9,6 +9,11 @@ using UnityEngine.UI;
 
 namespace TrumpLab.Product
 {
+    public interface IPreferredFocusProvider
+    {
+        Selectable? PreferredFocus { get; }
+    }
+
     public sealed class ScreenRouter : MonoBehaviour
     {
         [SerializeField] private ProductScreen[] screens = Array.Empty<ProductScreen>();
@@ -47,7 +52,10 @@ namespace TrumpLab.Product
             EventSystem? eventSystem = EventSystem.current;
             if (eventSystem == null) return;
             eventSystem.SetSelectedGameObject(null);
-            Selectable? first = screen.GetComponentsInChildren<Selectable>(true)
+            Selectable? preferred = (screen as IPreferredFocusProvider)?.PreferredFocus;
+            Selectable? first = preferred != null && preferred.IsInteractable()
+                ? preferred
+                : screen.GetComponentsInChildren<Selectable>(true)
                 .FirstOrDefault(control => control.IsInteractable());
             if (first != null) eventSystem.SetSelectedGameObject(first.gameObject);
         }

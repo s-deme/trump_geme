@@ -83,11 +83,15 @@ namespace TrumpLab.Product.Editor
                 new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.84f));
             CreateText(root.transform, "Subtitle", "Crazy Eights vertical slice", font, 28,
                 new Vector2(0.2f, 0.58f), new Vector2(0.8f, 0.68f));
-            Button play = CreateButton(root.transform, "PlayButton", "Play", font, new Vector2(0f, 35f));
+            Button tutorial = CreateButton(root.transform, "TutorialButton", "Tutorial", font,
+                new Vector2(0f, 60f));
+            Button play = CreateButton(root.transform, "PlayButton", "Play", font,
+                new Vector2(0f, -30f));
             Button sessions = CreateButton(root.transform, "SessionsButton", "Saved sessions", font,
-                new Vector2(0f, -65f));
-            Button quit = CreateButton(root.transform, "QuitButton", "Quit", font, new Vector2(0f, -165f));
-            root.GetComponent<TitleScreen>().Configure(play, sessions, quit);
+                new Vector2(0f, -120f));
+            Button quit = CreateButton(root.transform, "QuitButton", "Quit", font,
+                new Vector2(0f, -210f));
+            root.GetComponent<TitleScreen>().Configure(tutorial, play, sessions, quit);
             return SavePrefab(root, PrefabDirectory + "/TitleScreen.prefab");
         }
 
@@ -185,10 +189,36 @@ namespace TrumpLab.Product.Editor
             helpText.verticalOverflow = VerticalWrapMode.Overflow;
             Button closeHelp = CreateButton(helpPanel, "CloseHelpButton", "Close", font,
                 new Vector2(0f, -330f));
+            RectTransform tutorialPanel = CreatePanel(root.transform, "TutorialPanel",
+                new Vector2(0.12f, 0.55f), new Vector2(0.88f, 0.86f));
+            Image tutorialBackground = tutorialPanel.gameObject.AddComponent<Image>();
+            tutorialBackground.color = new Color(0.08f, 0.18f, 0.14f, 0.98f);
+            Text tutorialProgress = CreateText(tutorialPanel, "TutorialProgress", "Step 1 / 6",
+                font, 22, new Vector2(0.04f, 0.78f), new Vector2(0.2f, 0.96f));
+            tutorialProgress.alignment = TextAnchor.MiddleLeft;
+            Text tutorialHeading = CreateText(tutorialPanel, "TutorialHeading", "Meet the table",
+                font, 30, new Vector2(0.2f, 0.72f), new Vector2(0.78f, 0.98f));
+            Text tutorialInstruction = CreateText(tutorialPanel, "TutorialInstruction",
+                "Find your hand, the CPU count, stock, discard, and turn label.", font, 22,
+                new Vector2(0.04f, 0.43f), new Vector2(0.96f, 0.74f));
+            tutorialInstruction.alignment = TextAnchor.UpperLeft;
+            Text tutorialGuidance = CreateText(tutorialPanel, "TutorialGuidance",
+                "This guide uses a normal Crazy Eights game with a fixed seed.", font, 20,
+                new Vector2(0.04f, 0.08f), new Vector2(0.65f, 0.43f));
+            tutorialGuidance.alignment = TextAnchor.UpperLeft;
+            Button tutorialContinue = CreateButton(tutorialPanel, "TutorialContinueButton",
+                "Start guided match", font, new Vector2(315f, -95f));
+            tutorialContinue.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 64f);
+            Button tutorialExit = CreateButton(tutorialPanel, "TutorialExitButton", "Exit tutorial",
+                font, new Vector2(545f, -95f));
+            tutorialExit.GetComponent<RectTransform>().sizeDelta = new Vector2(200f, 64f);
             root.GetComponent<MatchScreen>().Configure(
                 status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate,
-                help, rules, helpPanel.gameObject, helpText, closeHelp);
+                help, rules, helpPanel.gameObject, helpText, closeHelp,
+                tutorialPanel.gameObject, tutorialProgress, tutorialHeading,
+                tutorialInstruction, tutorialGuidance, tutorialContinue, tutorialExit);
             helpPanel.gameObject.SetActive(false);
+            tutorialPanel.gameObject.SetActive(false);
             return SavePrefab(root, PrefabDirectory + "/MatchScreen.prefab");
         }
 
@@ -267,14 +297,17 @@ namespace TrumpLab.Product.Editor
             body.alignment = TextAnchor.UpperLeft;
             body.horizontalOverflow = HorizontalWrapMode.Wrap;
             body.verticalOverflow = VerticalWrapMode.Overflow;
+            Button startTutorial = CreateButton(root.transform, "StartTutorialButton",
+                "Start tutorial", font, new Vector2(0f, -245f));
+            startTutorial.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 72f);
             Button previous = CreateButton(root.transform, "PreviousButton", "Previous", font,
-                new Vector2(-300f, -330f));
+                new Vector2(-300f, -350f));
             Button next = CreateButton(root.transform, "NextButton", "Next", font,
-                new Vector2(0f, -330f));
+                new Vector2(0f, -350f));
             Button back = CreateButton(root.transform, "BackButton", "Back", font,
-                new Vector2(300f, -330f));
+                new Vector2(300f, -350f));
             root.GetComponent<HowToPlayScreen>().Configure(
-                indicator, pageTitle, body, context, previous, next, back);
+                indicator, pageTitle, body, context, startTutorial, previous, next, back);
             root.GetComponent<HowToPlayScreen>().Render(CrazyEightsHowToPlayPresenter.Create());
             return SavePrefab(root, PrefabDirectory + "/HowToPlayScreen.prefab");
         }
