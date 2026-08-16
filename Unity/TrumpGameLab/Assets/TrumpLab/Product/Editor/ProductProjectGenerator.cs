@@ -9,6 +9,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -40,6 +41,7 @@ namespace TrumpLab.Product.Editor
             Font font = BuiltInFont();
             GameObject titlePrefab = CreateTitlePrefab(font);
             GameObject settingsPrefab = CreateSettingsPrefab(font);
+            GameObject productSettingsPrefab = CreateProductSettingsPrefab(font);
             GameObject libraryPrefab = CreateSessionLibraryPrefab(font);
             GameObject matchPrefab = CreateMatchPrefab(font);
             GameObject replayPrefab = CreateReplayPrefab(font);
@@ -47,11 +49,13 @@ namespace TrumpLab.Product.Editor
             GameObject howToPlayPrefab = CreateHowToPlayPrefab(font);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            CreateEventSystem();
+            InputSystemUIInputModule inputModule = CreateEventSystem();
             Canvas canvas = CreateCanvas();
 
             var title = Instantiate<TitleScreen>(titlePrefab, canvas.transform);
             var settings = Instantiate<GameSettingsScreen>(settingsPrefab, canvas.transform);
+            var productSettings = Instantiate<ProductSettingsScreen>(
+                productSettingsPrefab, canvas.transform);
             var library = Instantiate<SessionLibraryScreen>(libraryPrefab, canvas.transform);
             var match = Instantiate<MatchScreen>(matchPrefab, canvas.transform);
             var replay = Instantiate<ReplayScreen>(replayPrefab, canvas.transform);
@@ -61,11 +65,14 @@ namespace TrumpLab.Product.Editor
 
             var productRoot = new GameObject("ProductRoot");
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
+            ProductInputController input = productRoot.AddComponent<ProductInputController>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
+            input.Configure(inputModule);
             router.Configure(new ProductScreen[]
-                { title, settings, library, match, replay, result, howToPlay });
+                { title, settings, productSettings, library, match, replay, result, howToPlay });
             controller.Configure(
-                router, title, settings, library, match, replay, result, howToPlay, errors);
+                router, title, settings, productSettings, library, match, replay, result,
+                howToPlay, input, errors);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
 
@@ -84,14 +91,17 @@ namespace TrumpLab.Product.Editor
             CreateText(root.transform, "Subtitle", "Crazy Eights vertical slice", font, 28,
                 new Vector2(0.2f, 0.58f), new Vector2(0.8f, 0.68f));
             Button tutorial = CreateButton(root.transform, "TutorialButton", "Tutorial", font,
-                new Vector2(0f, 60f));
+                new Vector2(0f, 110f));
             Button play = CreateButton(root.transform, "PlayButton", "Play", font,
-                new Vector2(0f, -30f));
+                new Vector2(0f, 20f));
             Button sessions = CreateButton(root.transform, "SessionsButton", "Saved sessions", font,
-                new Vector2(0f, -120f));
+                new Vector2(0f, -70f));
+            Button settings = CreateButton(root.transform, "SettingsButton", "Settings", font,
+                new Vector2(0f, -160f));
             Button quit = CreateButton(root.transform, "QuitButton", "Quit", font,
-                new Vector2(0f, -210f));
-            root.GetComponent<TitleScreen>().Configure(tutorial, play, sessions, quit);
+                new Vector2(0f, -250f));
+            root.GetComponent<TitleScreen>().Configure(
+                tutorial, play, sessions, settings, quit);
             return SavePrefab(root, PrefabDirectory + "/TitleScreen.prefab");
         }
 
@@ -128,6 +138,94 @@ namespace TrumpLab.Product.Editor
             root.GetComponent<GameSettingsScreen>().Configure(
                 summary, seed, wildRank, difficulty, validation, start, howToPlay, back);
             return SavePrefab(root, PrefabDirectory + "/GameSettingsScreen.prefab");
+        }
+
+        private static GameObject CreateProductSettingsPrefab(Font font)
+        {
+            GameObject root = ScreenRoot<ProductSettingsScreen>("ProductSettingsScreen");
+            CreateText(root.transform, "Title", "PRODUCT SETTINGS", font, 52,
+                new Vector2(0.2f, 0.84f), new Vector2(0.8f, 0.94f));
+            Button generalPage = CreateButton(root.transform, "GeneralPageButton", "General", font,
+                new Vector2(-145f, 360f));
+            Button bindingsPage = CreateButton(root.transform, "BindingsPageButton", "Bindings", font,
+                new Vector2(145f, 360f));
+
+            RectTransform general = CreatePanel(root.transform, "GeneralPanel",
+                Vector2.zero, Vector2.one);
+            CreateText(general, "DisplayModeLabel", "Display mode", font, 25,
+                new Vector2(0.18f, 0.67f), new Vector2(0.43f, 0.74f));
+            Dropdown displayMode = CreateDropdown(
+                general, "DisplayModeDropdown", font, new Vector2(260f, 230f));
+            displayMode.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
+            CreateText(general, "ResolutionLabel", "Resolution", font, 25,
+                new Vector2(0.18f, 0.58f), new Vector2(0.43f, 0.65f));
+            Dropdown resolution = CreateDropdown(
+                general, "ResolutionDropdown", font, new Vector2(260f, 130f));
+            resolution.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
+            Toggle vSync = CreateToggle(general, "VSyncToggle", "VSync (60 Hz)", font,
+                new Vector2(180f, 30f));
+            CreateText(general, "PresentationSpeedLabel", "Presentation speed", font, 25,
+                new Vector2(0.18f, 0.39f), new Vector2(0.43f, 0.46f));
+            Dropdown presentationSpeed = CreateDropdown(
+                general, "PresentationSpeedDropdown", font, new Vector2(260f, -70f));
+            presentationSpeed.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
+            Text masterLabel = CreateText(general, "MasterVolumeLabel", "Master 80%", font, 24,
+                new Vector2(0.18f, 0.27f), new Vector2(0.4f, 0.34f));
+            Slider master = CreateSlider(general, "MasterVolumeSlider", new Vector2(250f, -180f));
+            Text musicLabel = CreateText(general, "MusicVolumeLabel", "Music 60%", font, 24,
+                new Vector2(0.18f, 0.19f), new Vector2(0.4f, 0.26f));
+            Slider music = CreateSlider(general, "MusicVolumeSlider", new Vector2(250f, -265f));
+            Text sfxLabel = CreateText(general, "SfxVolumeLabel", "SFX 80%", font, 24,
+                new Vector2(0.18f, 0.11f), new Vector2(0.4f, 0.18f));
+            Slider sfx = CreateSlider(general, "SfxVolumeSlider", new Vector2(250f, -350f));
+
+            RectTransform bindings = CreatePanel(root.transform, "BindingsPanel",
+                Vector2.zero, Vector2.one);
+            CreateText(bindings, "KeyboardHeader", "KEYBOARD", font, 25,
+                new Vector2(0.2f, 0.7f), new Vector2(0.46f, 0.77f));
+            CreateText(bindings, "GamepadHeader", "GAMEPAD", font, 25,
+                new Vector2(0.54f, 0.7f), new Vector2(0.8f, 0.77f));
+            string[] commands = { "Up", "Down", "Left", "Right", "Submit", "Back", "Help" };
+            var keyboardButtons = new Button[commands.Length];
+            var gamepadButtons = new Button[commands.Length];
+            for (int index = 0; index < commands.Length; index++)
+            {
+                float y = 235f - index * 70f;
+                keyboardButtons[index] = CreateButton(bindings,
+                    "Keyboard" + commands[index] + "Button", commands[index], font,
+                    new Vector2(-300f, y));
+                gamepadButtons[index] = CreateButton(bindings,
+                    "Gamepad" + commands[index] + "Button", commands[index], font,
+                    new Vector2(300f, y));
+                keyboardButtons[index].GetComponent<RectTransform>().sizeDelta =
+                    new Vector2(520f, 58f);
+                gamepadButtons[index].GetComponent<RectTransform>().sizeDelta =
+                    new Vector2(520f, 58f);
+                keyboardButtons[index].GetComponentInChildren<Text>(true).fontSize = 20;
+                gamepadButtons[index].GetComponentInChildren<Text>(true).fontSize = 20;
+            }
+            Button cancelRebind = CreateButton(bindings, "CancelRebindButton", "Cancel rebind", font,
+                new Vector2(0f, -285f));
+            cancelRebind.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 60f);
+
+            Text feedback = CreateText(root.transform, "Feedback", "", font, 22,
+                new Vector2(0.12f, 0.1f), new Vector2(0.88f, 0.16f));
+            Button back = CreateButton(root.transform, "BackButton", "Back", font,
+                new Vector2(-290f, -460f));
+            Button reset = CreateButton(root.transform, "ResetButton", "Reset defaults", font,
+                new Vector2(0f, -460f));
+            reset.GetComponent<RectTransform>().sizeDelta = new Vector2(280f, 72f);
+            Button apply = CreateButton(root.transform, "ApplyButton", "Apply", font,
+                new Vector2(290f, -460f));
+
+            root.GetComponent<ProductSettingsScreen>().Configure(
+                general.gameObject, bindings.gameObject, generalPage, bindingsPage,
+                displayMode, resolution, vSync, master, music, sfx,
+                masterLabel, musicLabel, sfxLabel, presentationSpeed,
+                keyboardButtons, gamepadButtons, cancelRebind, feedback, apply, reset, back);
+            bindings.gameObject.SetActive(false);
+            cancelRebind.gameObject.SetActive(false);
+            return SavePrefab(root, PrefabDirectory + "/ProductSettingsScreen.prefab");
         }
 
         private static GameObject CreateMatchPrefab(Font font)
@@ -327,6 +425,9 @@ namespace TrumpLab.Product.Editor
             Button dismiss = CreateButton(root.transform, "DismissButton", "Return to title", font,
                 new Vector2(0f, -180f));
             dismiss.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
+            Navigation navigation = dismiss.navigation;
+            navigation.mode = Navigation.Mode.None;
+            dismiss.navigation = navigation;
             ProductErrorPanel panel = root.GetComponent<ProductErrorPanel>();
             panel.Configure(message, dismiss);
             panel.Hide();
@@ -372,9 +473,13 @@ namespace TrumpLab.Product.Editor
             return canvas;
         }
 
-        private static void CreateEventSystem()
+        private static InputSystemUIInputModule CreateEventSystem()
         {
-            new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            var root = new GameObject("EventSystem", typeof(EventSystem),
+                typeof(InputSystemUIInputModule));
+            InputSystemUIInputModule module = root.GetComponent<InputSystemUIInputModule>();
+            module.UnassignActions();
+            return module;
         }
 
         private static Text CreateText(Transform parent, string name, string value, Font font,
@@ -413,6 +518,102 @@ namespace TrumpLab.Product.Editor
             button.targetGraphic = image;
             CreateText(root.transform, "Label", label, font, 28, Vector2.zero, Vector2.one);
             return button;
+        }
+
+        private static Toggle CreateToggle(Transform parent, string name, string label, Font font,
+            Vector2 anchoredPosition)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            root.transform.SetParent(parent, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(420f, 64f);
+            rect.anchoredPosition = anchoredPosition;
+
+            var backgroundObject = new GameObject("Background", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            backgroundObject.transform.SetParent(root.transform, false);
+            RectTransform backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.anchorMin = backgroundRect.anchorMax = new Vector2(0f, 0.5f);
+            backgroundRect.pivot = new Vector2(0f, 0.5f);
+            backgroundRect.sizeDelta = new Vector2(52f, 52f);
+            Image background = backgroundObject.GetComponent<Image>();
+            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+
+            var checkmarkObject = new GameObject("Checkmark", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            checkmarkObject.transform.SetParent(backgroundObject.transform, false);
+            RectTransform checkmarkRect = checkmarkObject.GetComponent<RectTransform>();
+            checkmarkRect.anchorMin = new Vector2(0.18f, 0.18f);
+            checkmarkRect.anchorMax = new Vector2(0.82f, 0.82f);
+            checkmarkRect.offsetMin = checkmarkRect.offsetMax = Vector2.zero;
+            Image checkmark = checkmarkObject.GetComponent<Image>();
+            checkmark.color = new Color(0.12f, 0.46f, 0.25f, 1f);
+
+            Text text = CreateText(root.transform, "Label", label, font, 25,
+                new Vector2(0.16f, 0f), Vector2.one);
+            text.alignment = TextAnchor.MiddleLeft;
+            Toggle toggle = root.GetComponent<Toggle>();
+            toggle.targetGraphic = background;
+            toggle.graphic = checkmark;
+            toggle.isOn = true;
+            return toggle;
+        }
+
+        private static Slider CreateSlider(Transform parent, string name,
+            Vector2 anchoredPosition)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Slider));
+            root.transform.SetParent(parent, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(440f, 52f);
+            rect.anchoredPosition = anchoredPosition;
+
+            var backgroundObject = new GameObject("Background", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            backgroundObject.transform.SetParent(root.transform, false);
+            RectTransform backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.anchorMin = new Vector2(0f, 0.38f);
+            backgroundRect.anchorMax = new Vector2(1f, 0.62f);
+            backgroundRect.offsetMin = backgroundRect.offsetMax = Vector2.zero;
+            Image background = backgroundObject.GetComponent<Image>();
+            background.color = new Color(0.22f, 0.3f, 0.25f, 1f);
+
+            RectTransform fillArea = CreatePanel(root.transform, "Fill Area",
+                new Vector2(0f, 0.28f), new Vector2(1f, 0.72f));
+            fillArea.offsetMin = new Vector2(8f, 0f);
+            fillArea.offsetMax = new Vector2(-8f, 0f);
+            var fillObject = new GameObject("Fill", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            fillObject.transform.SetParent(fillArea, false);
+            RectTransform fillRect = fillObject.GetComponent<RectTransform>();
+            Stretch(fillRect);
+            Image fill = fillObject.GetComponent<Image>();
+            fill.color = new Color(0.2f, 0.68f, 0.38f, 1f);
+
+            RectTransform handleArea = CreatePanel(root.transform, "Handle Slide Area",
+                Vector2.zero, Vector2.one);
+            handleArea.offsetMin = new Vector2(16f, 0f);
+            handleArea.offsetMax = new Vector2(-16f, 0f);
+            var handleObject = new GameObject("Handle", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image));
+            handleObject.transform.SetParent(handleArea, false);
+            RectTransform handleRect = handleObject.GetComponent<RectTransform>();
+            handleRect.sizeDelta = new Vector2(38f, 52f);
+            Image handle = handleObject.GetComponent<Image>();
+            handle.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+
+            Slider slider = root.GetComponent<Slider>();
+            slider.fillRect = fillRect;
+            slider.handleRect = handleRect;
+            slider.targetGraphic = handle;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 100f;
+            slider.wholeNumbers = true;
+            slider.value = 80f;
+            return slider;
         }
 
         private static InputField CreateInputField(Transform parent, string name, string value,
@@ -563,6 +764,7 @@ namespace TrumpLab.Product.Editor
             PlayerSettings.defaultScreenHeight = 720;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             PlayerSettings.resizableWindow = true;
+            QualitySettings.vSyncCount = 1;
         }
 
         private static void ValidateGeneratedAssets()
@@ -574,6 +776,7 @@ namespace TrumpLab.Product.Editor
             {
                 ("TitleScreen.prefab", typeof(TitleScreen)),
                 ("GameSettingsScreen.prefab", typeof(GameSettingsScreen)),
+                ("ProductSettingsScreen.prefab", typeof(ProductSettingsScreen)),
                 ("SessionLibraryScreen.prefab", typeof(SessionLibraryScreen)),
                 ("MatchScreen.prefab", typeof(MatchScreen)),
                 ("ReplayScreen.prefab", typeof(ReplayScreen)),
@@ -597,8 +800,14 @@ namespace TrumpLab.Product.Editor
                 .FirstOrDefault(component => component != null);
             EventSystem? eventSystem = roots.Select(root => root.GetComponent<EventSystem>())
                 .FirstOrDefault(component => component != null);
-            if (controller == null || canvas == null || eventSystem == null)
+            ProductInputController? input = roots.Select(root =>
+                root.GetComponent<ProductInputController>()).FirstOrDefault(component => component != null);
+            if (controller == null || canvas == null || eventSystem == null || input == null)
                 throw new InvalidOperationException("Bootstrap scene is missing a required root component.");
+            if (eventSystem.GetComponent<InputSystemUIInputModule>() == null ||
+                eventSystem.GetComponent<StandaloneInputModule>() != null)
+                throw new InvalidOperationException(
+                    "Bootstrap scene must use only the Input System UI module.");
             if (controller.ErrorPanel == null || controller.ErrorPanel.gameObject.activeSelf)
                 throw new InvalidOperationException("Bootstrap error panel is missing or initially visible.");
             if (controller.Router.Screens.Count != expectedPrefabs.Length ||

@@ -4,7 +4,9 @@
   "references": [
     "TrumpLab.Product",
     "TrumpLab.Core",
-    "UnityEngine.UI"
+    "UnityEngine.UI",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
   ],
   "includePlatforms": [
     "Editor"

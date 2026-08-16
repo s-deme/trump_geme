@@ -5,12 +5,13 @@ Crazy Eights製品縦切り版のUnity project。ルールRuntimeは複製せず
 
 ## 開く
 
-Unity 2021.3以上でこのディレクトリをprojectとして開く。現在保存済みのEditor versionは
-`ProjectSettings/ProjectVersion.txt`を参照する。
+この製品projectは`ProjectSettings/ProjectVersion.txt`に保存されたUnity 6 Editor versionで開く。
+`com.trump-game-lab.rules`単体のUnity 2021.3以上という公開契約とは別であり、製品projectは固定した
+Input System packageを含むため古いEditorへdowngradeしない。
 
 ## 画面骨格の再生成
 
-Unity menuの`Trump Lab > Regenerate Product Scaffold`を実行すると、7つのscreen Prefabと
+Unity menuの`Trump Lab > Regenerate Product Scaffold`を実行すると、8つのscreen Prefabと
 `Assets/TrumpLab/Product/Scenes/Bootstrap.unity`を再生成し、build settingsを更新する。
 command lineからは次のように実行できる。
 
@@ -35,8 +36,9 @@ CLIで使う安定IDは表示順と異なり、`Standard = 1`、`Easy = 2`、`Ha
 - Hard：自分の手札、公開された手札枚数、捨札、山札枚数だけを評価するbounded heuristic。
 
 選択IDは新規対局のsession設定へ入り、自動保存、再戦、再開、リプレイでも維持される。CPU手番は
-`CPU is thinking…`表示から0.35秒待って適用し、画面終了、session終了、再開時は未適用の待機を
-cancelする。この待機は演出であり、方策の計算時間には含めない。
+`CPU is thinking…`表示から演出速度に応じて`Reduced = 0.1秒`、`Normal = 0.35秒`、
+`Fast = 0.05秒`待って適用し、画面終了、session終了、再開時は未適用の待機をcancelする。
+この待機は演出であり、方策の計算時間には含めない。
 
 ID、観測境界、互換性、強度基準は
 [ADR-0004](../../docs/product/decisions/ADR-0004-cpu-difficulty-contract.md)、固定800局の結果と
@@ -67,6 +69,19 @@ definition version、完了flagだけをatomic保存する。tutorial対局はSa
 内容を`.bak`へ残す。破損、改ざん、未知version、再生不一致は自動修復・削除・上書きせず、
 画面には安全なエラーだけを表示する。
 
+## 製品設定と入力
+
+Titleの`Settings`ではwindowed / borderless、対応解像度、VSync、master / music / SFX音量、
+演出速度とkeyboard / gamepadのnavigation、決定、戻る、helpを変更できる。Applyした値は
+`Application.persistentDataPath/TrumpGameLab/settings.v1`へatomic保存し、Resetはこの設定fileだけを
+安全な既定値へ戻す。破損・未知versionでは原本を書き換えず既定値で起動し、明示Apply / Reset時も
+原byteを`.invalid`へ保全する。
+
+製品projectはInput System 1.17.0と`InputSystemUIInputModule`だけを使い、legacy inputとの二重入力を
+許さない。mouse、keyboard、gamepadは同じuGUI focus経路を使い、rebind中のcancelやgamepad切断後も
+keyboard / mouseへ復帰する。詳細は
+[ADR-0007](../../docs/product/decisions/ADR-0007-product-settings-and-input-contract.md)を参照する。
+
 ## 製品テスト
 
 Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
@@ -75,7 +90,8 @@ Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
 pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
 ```
 
-Edit Modeは設定・難易度・presenter・session・Prefab・atomic保存と破損拒否の契約、Play Modeは
+Edit Modeは製品設定、入力Actionとrebind、難易度、presenter、session、Prefab、atomic保存と
+破損拒否の契約、Play Modeは設定画面の保存・再読込・Resetを含む
 Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel、二重入力lock、人間対CPUの
 1局完走、保存一覧、再開、リプレイ、2段階削除、error modalに加え、pointerとSubmitによる
 tutorial完走、優先focus、完了記録、再実行を検証する。

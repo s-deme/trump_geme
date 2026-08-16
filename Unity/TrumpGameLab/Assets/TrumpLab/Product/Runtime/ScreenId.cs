@@ -4,6 +4,7 @@ namespace TrumpLab.Product
     {
         Title,
         GameSettings,
+        ProductSettings,
         SessionLibrary,
         Match,
         Replay,

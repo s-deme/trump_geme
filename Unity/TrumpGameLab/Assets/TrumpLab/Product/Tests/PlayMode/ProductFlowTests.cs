@@ -6,6 +6,7 @@ using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -17,6 +18,7 @@ namespace TrumpLab.Product.Tests
         private ProductAppController controller = null!;
         private MemorySessionStore store = null!;
         private MemoryProductProgressStore progressStore = null!;
+        private MemoryProductSettingsStore productSettingsStore = null!;
 
         [UnitySetUp]
         public IEnumerator LoadBootstrap()
@@ -29,6 +31,9 @@ namespace TrumpLab.Product.Tests
             controller.SetSessionStore(store);
             progressStore = new MemoryProductProgressStore();
             controller.SetProgressStore(progressStore);
+            productSettingsStore = new MemoryProductSettingsStore(
+                ProductSettings.CreateDefaults());
+            controller.SetProductSettingsStore(productSettingsStore);
             Assert.That(controller, Is.Not.Null);
             Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
         }
@@ -352,6 +357,160 @@ namespace TrumpLab.Product.Tests
             Assert.That(progressStore.Load().IsTutorialCompleted(tutorial.Definition), Is.False);
         }
 
+        [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator ProductSettingsApplyReloadResetAndBackUseScreenControls()
+        {
+            ProductSettings defaults = controller.CurrentProductSettings;
+            var title = (TitleScreen)controller.Router.Get(ScreenId.Title);
+
+            title.SettingsButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.ProductSettings));
+
+            var settings = (ProductSettingsScreen)controller.Router.Get(
+                ScreenId.ProductSettings);
+            settings.VSyncToggle.isOn = !defaults.VSyncEnabled;
+            settings.MasterVolumeSlider.value = 37f;
+            settings.MusicVolumeSlider.value = 28f;
+            settings.SfxVolumeSlider.value = 49f;
+            int fastIndex = settings.PresentationSpeedDropdown.options.FindIndex(
+                option => option.text == "Fast");
+            Assert.That(fastIndex, Is.GreaterThanOrEqualTo(0));
+            settings.PresentationSpeedDropdown.value = fastIndex;
+
+            Click(ScreenId.ProductSettings, "ApplyButton");
+            yield return null;
+
+            ProductSettings expected = defaults
+                .WithVSync(!defaults.VSyncEnabled)
+                .WithVolumes(37, 28, 49)
+                .WithPresentationSpeed(ProductPresentationSpeed.Fast);
+            Assert.That(productSettingsStore.Current, Is.EqualTo(expected));
+            Assert.That(controller.CurrentProductSettings, Is.EqualTo(expected));
+            Assert.That(productSettingsStore.SaveCount, Is.EqualTo(1));
+
+            Click(ScreenId.ProductSettings, "BackButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+
+            controller.SetProductSettingsStore(productSettingsStore);
+            title.SettingsButton.onClick.Invoke();
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.ProductSettings));
+            Assert.That(settings.VSyncToggle.isOn, Is.EqualTo(expected.VSyncEnabled));
+            Assert.That(settings.MasterVolumeSlider.value,
+                Is.EqualTo((float)expected.MasterVolume));
+            Assert.That(settings.MusicVolumeSlider.value,
+                Is.EqualTo((float)expected.MusicVolume));
+            Assert.That(settings.SfxVolumeSlider.value,
+                Is.EqualTo((float)expected.SfxVolume));
+            Assert.That(settings.PresentationSpeedDropdown.value, Is.EqualTo(fastIndex));
+
+            Click(ScreenId.ProductSettings, "ResetButton");
+            yield return null;
+            Assert.That(productSettingsStore.ResetCount, Is.EqualTo(1));
+            Assert.That(productSettingsStore.Current, Is.EqualTo(defaults));
+            Assert.That(controller.CurrentProductSettings, Is.EqualTo(defaults));
+            Assert.That(settings.VSyncToggle.isOn, Is.EqualTo(defaults.VSyncEnabled));
+            Assert.That(settings.MasterVolumeSlider.value,
+                Is.EqualTo((float)defaults.MasterVolume));
+            Assert.That(settings.PresentationSpeedDropdown.value,
+                Is.EqualTo((int)defaults.PresentationSpeed));
+
+            Click(ScreenId.ProductSettings, "BackButton");
+            yield return null;
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+        }
+
+        [UnityTest]
+        public IEnumerator ProductControllerRunsDisplayGuardWithoutChangingGameState()
+        {
+            var guard = new RecordingDisplayGuard();
+            ProductSettings before = controller.CurrentProductSettings;
+
+            controller.SetProductSettingsApplier(guard);
+            yield return null;
+
+            Assert.That(guard.ApplyCount, Is.EqualTo(1));
+            Assert.That(guard.MaintainCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(guard.LastSettings, Is.EqualTo(before));
+            Assert.That(controller.Router.Current, Is.EqualTo(ScreenId.Title));
+        }
+
+        [UnityTest]
+        public IEnumerator GamepadReconnectDoesNotMoveFocusBehindAnotherErrorModal()
+        {
+            ProductErrorPanel panel = controller.ErrorPanel;
+            panel.Show("A different recoverable error.");
+            yield return null;
+            GameObject selectedBefore = EventSystem.current.currentSelectedGameObject;
+            Assert.That(selectedBefore.transform.IsChildOf(panel.transform), Is.True);
+            Gamepad? gamepad = null;
+            try
+            {
+                gamepad = InputSystem.AddDevice<Gamepad>();
+                yield return null;
+
+                Assert.That(panel.gameObject.activeSelf, Is.True);
+                Assert.That(panel.MessageLabel.text, Is.EqualTo("A different recoverable error."));
+                Assert.That(EventSystem.current.currentSelectedGameObject,
+                    Is.SameAs(selectedBefore));
+            }
+            finally
+            {
+                if (gamepad != null && gamepad.added) InputSystem.RemoveDevice(gamepad);
+                panel.Hide();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ErrorModalTrapsFocusAndRestoresBackgroundControls()
+        {
+            ProductErrorPanel panel = controller.ErrorPanel;
+            var title = (TitleScreen)controller.Router.Get(ScreenId.Title);
+            title.SettingsButton.interactable = false;
+            Selectable[] backgroundControls = title.GetComponentsInChildren<Selectable>(false);
+            var originalStates = backgroundControls.ToDictionary(
+                control => control, control => control.interactable);
+            EventSystem.current.SetSelectedGameObject(title.PlayButton.gameObject);
+
+            panel.Show("A recoverable modal error.");
+            yield return null;
+
+            Assert.That(backgroundControls, Has.All.Matches<Selectable>(
+                control => !control.interactable));
+            GameObject selected = EventSystem.current.currentSelectedGameObject;
+            Assert.That(selected.transform.IsChildOf(panel.transform), Is.True);
+            Button dismiss = selected.GetComponent<Button>();
+            Assert.That(dismiss, Is.Not.Null);
+            Assert.That(dismiss.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+
+            var move = new AxisEventData(EventSystem.current)
+            {
+                moveDir = MoveDirection.Down,
+                moveVector = Vector2.down
+            };
+            ExecuteEvents.Execute(selected, move, ExecuteEvents.moveHandler);
+            yield return null;
+            Assert.That(EventSystem.current.currentSelectedGameObject.transform
+                .IsChildOf(panel.transform), Is.True);
+
+            EventSystem.current.SetSelectedGameObject(title.PlayButton.gameObject);
+            yield return null;
+            Assert.That(EventSystem.current.currentSelectedGameObject.transform
+                .IsChildOf(panel.transform), Is.True);
+
+            panel.Hide();
+            yield return null;
+
+            foreach (KeyValuePair<Selectable, bool> state in originalStates)
+                Assert.That(state.Key.interactable, Is.EqualTo(state.Value), state.Key.name);
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.SameAs(title.PlayButton.gameObject));
+            title.SettingsButton.interactable = true;
+        }
+
         private void CompleteActiveMatchSynchronously()
         {
             for (int step = 0; step < 1000 && controller.Router.Current == ScreenId.Match; step++)
@@ -418,6 +577,52 @@ namespace TrumpLab.Product.Tests
                 snapshot.CardZones.Select(zone => zone.Id + ":" + zone.Count + ":" +
                     string.Join(",", zone.Cards.Select(card =>
                         ((int)card.Suit) + "-" + card.Rank))));
+
+        private sealed class MemoryProductSettingsStore : IProductSettingsStore
+        {
+            public ProductSettings Current { get; private set; }
+            public int SaveCount { get; private set; }
+            public int ResetCount { get; private set; }
+
+            public MemoryProductSettingsStore(ProductSettings initial) => Current = initial;
+
+            public ProductSettingsLoadResult Load() => new ProductSettingsLoadResult(
+                ProductSettingsLoadStatus.Loaded, Current, error: null);
+
+            public ProductSettingsSaveResult Save(ProductSettings settings)
+            {
+                Current = settings;
+                SaveCount++;
+                return ProductSettingsSaveResult.Success();
+            }
+
+            public ProductSettingsSaveResult Reset(ProductSettings defaults)
+            {
+                Current = defaults;
+                ResetCount++;
+                return ProductSettingsSaveResult.Success();
+            }
+        }
+
+        private sealed class RecordingDisplayGuard : IProductSettingsApplier,
+            IProductDisplayGuard
+        {
+            public int ApplyCount { get; private set; }
+            public int MaintainCount { get; private set; }
+            public ProductSettings? LastSettings { get; private set; }
+
+            public void Apply(ProductSettings settings)
+            {
+                ApplyCount++;
+                LastSettings = settings;
+            }
+
+            public void MaintainValidDisplay(ProductSettings settings)
+            {
+                MaintainCount++;
+                LastSettings = settings;
+            }
+        }
 
         private sealed class MemorySessionStore : ISessionStore
         {

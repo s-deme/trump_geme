@@ -3,7 +3,8 @@
   "rootNamespace": "TrumpLab.Product",
   "references": [
     "TrumpLab.Core",
-    "UnityEngine.UI"
+    "UnityEngine.UI",
+    "Unity.InputSystem"
   ],
   "autoReferenced": true
 }

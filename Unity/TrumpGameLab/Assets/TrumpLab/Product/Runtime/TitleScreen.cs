@@ -11,6 +11,7 @@ namespace TrumpLab.Product
         [SerializeField] private Button? tutorialButton;
         [SerializeField] private Button? playButton;
         [SerializeField] private Button? sessionsButton;
+        [SerializeField] private Button? settingsButton;
         [SerializeField] private Button? quitButton;
 
         public override ScreenId Id => ScreenId.Title;
@@ -18,29 +19,35 @@ namespace TrumpLab.Product
             "Title tutorial button is not configured.");
         public Button PlayButton => playButton ?? throw new InvalidOperationException(
             "Title play button is not configured.");
+        public Button SettingsButton => settingsButton ?? throw new InvalidOperationException(
+            "Title settings button is not configured.");
         public bool TutorialCompleted { get; private set; }
         public Selectable? PreferredFocus => TutorialCompleted ? PlayButton : TutorialButton;
         public event System.Action? TutorialRequested;
         public event System.Action? PlayRequested;
         public event System.Action? SessionsRequested;
+        public event System.Action? SettingsRequested;
         public event System.Action? QuitRequested;
 
-        public void Configure(Button tutorial, Button play, Button sessions, Button quit)
+        public void Configure(Button tutorial, Button play, Button sessions, Button settings,
+            Button quit)
         {
             tutorialButton = tutorial;
             playButton = play;
             sessionsButton = sessions;
+            settingsButton = settings;
             quitButton = quit;
         }
 
         private void Awake()
         {
             if (tutorialButton == null || playButton == null || sessionsButton == null ||
-                quitButton == null)
+                settingsButton == null || quitButton == null)
                 throw new InvalidOperationException("Title screen buttons are not configured.");
             tutorialButton.onClick.AddListener(HandleTutorial);
             playButton.onClick.AddListener(HandlePlay);
             sessionsButton.onClick.AddListener(HandleSessions);
+            settingsButton.onClick.AddListener(HandleSettings);
             quitButton.onClick.AddListener(HandleQuit);
         }
 
@@ -50,6 +57,7 @@ namespace TrumpLab.Product
                 tutorialButton.onClick.RemoveListener(HandleTutorial);
             if (playButton != null) playButton.onClick.RemoveListener(HandlePlay);
             if (sessionsButton != null) sessionsButton.onClick.RemoveListener(HandleSessions);
+            if (settingsButton != null) settingsButton.onClick.RemoveListener(HandleSettings);
             if (quitButton != null) quitButton.onClick.RemoveListener(HandleQuit);
         }
 
@@ -65,6 +73,7 @@ namespace TrumpLab.Product
         private void HandleTutorial() => TutorialRequested?.Invoke();
         private void HandlePlay() => PlayRequested?.Invoke();
         private void HandleSessions() => SessionsRequested?.Invoke();
+        private void HandleSettings() => SettingsRequested?.Invoke();
         private void HandleQuit() => QuitRequested?.Invoke();
     }
 }

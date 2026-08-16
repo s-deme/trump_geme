@@ -30,6 +30,21 @@ namespace TrumpLab.Product
 
         public ProductScreen Get(ScreenId id) => screens.Single(screen => screen.Id == id);
 
+        public void RestoreFocus()
+        {
+            if (Current.HasValue) FocusFirstControl(Get(Current.Value));
+        }
+
+        public static Selectable? FindFocusTarget(ProductScreen screen)
+        {
+            if (screen == null) throw new ArgumentNullException(nameof(screen));
+            Selectable? preferred = (screen as IPreferredFocusProvider)?.PreferredFocus;
+            return preferred != null && preferred.IsActive() && preferred.IsInteractable()
+                ? preferred
+                : screen.GetComponentsInChildren<Selectable>(includeInactive: false)
+                    .FirstOrDefault(control => control.IsActive() && control.IsInteractable());
+        }
+
         public void Show(ScreenId id)
         {
             ValidateScreens();
@@ -52,11 +67,7 @@ namespace TrumpLab.Product
             EventSystem? eventSystem = EventSystem.current;
             if (eventSystem == null) return;
             eventSystem.SetSelectedGameObject(null);
-            Selectable? preferred = (screen as IPreferredFocusProvider)?.PreferredFocus;
-            Selectable? first = preferred != null && preferred.IsInteractable()
-                ? preferred
-                : screen.GetComponentsInChildren<Selectable>(true)
-                .FirstOrDefault(control => control.IsInteractable());
+            Selectable? first = FindFocusTarget(screen);
             if (first != null) eventSystem.SetSelectedGameObject(first.gameObject);
         }
     }

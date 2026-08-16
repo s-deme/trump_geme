@@ -6,7 +6,11 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 
 namespace TrumpLab.Product.Tests
 {
@@ -389,6 +393,7 @@ namespace TrumpLab.Product.Tests
             {
                 "TitleScreen.prefab",
                 "GameSettingsScreen.prefab",
+                "ProductSettingsScreen.prefab",
                 "SessionLibraryScreen.prefab",
                 "MatchScreen.prefab",
                 "ReplayScreen.prefab",
@@ -403,8 +408,52 @@ namespace TrumpLab.Product.Tests
                 Assert.That(GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(prefab),
                     Is.Zero, fileName);
             }
-            Assert.That(AssetDatabase.LoadAssetAtPath<SceneAsset>(
-                "Assets/TrumpLab/Product/Scenes/Bootstrap.unity"), Is.Not.Null);
+
+            const string scenePath = "Assets/TrumpLab/Product/Scenes/Bootstrap.unity";
+            Assert.That(AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath), Is.Not.Null);
+
+            SceneSetup[] previousSetup = EditorSceneManager.GetSceneManagerSetup();
+            try
+            {
+                Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                GameObject[] roots = scene.GetRootGameObjects();
+                InputSystemUIInputModule[] inputModules = roots.SelectMany(root =>
+                    root.GetComponentsInChildren<InputSystemUIInputModule>(true)).ToArray();
+                StandaloneInputModule[] legacyInputModules = roots.SelectMany(root =>
+                    root.GetComponentsInChildren<StandaloneInputModule>(true)).ToArray();
+
+                Assert.That(inputModules, Has.Length.EqualTo(1));
+                Assert.That(legacyInputModules, Is.Empty);
+
+                GameObject? productRoot = roots.SingleOrDefault(root =>
+                    root.name == "ProductRoot");
+                Assert.That(productRoot, Is.Not.Null);
+                Assert.That(productRoot!.GetComponent<ProductInputController>(), Is.Not.Null);
+
+                ScreenRouter? router = productRoot!.GetComponent<ScreenRouter>();
+                Assert.That(router, Is.Not.Null);
+                ScreenId[] expectedIds = Enum.GetValues(typeof(ScreenId))
+                    .Cast<ScreenId>().ToArray();
+                Assert.That(router!.Screens.Count, Is.EqualTo(expectedIds.Length));
+                Assert.That(router.Screens.Select(screen => screen.Id),
+                    Is.EquivalentTo(expectedIds));
+
+                var library = (SessionLibraryScreen)router.Get(ScreenId.SessionLibrary);
+                library.SetSlots(Array.Empty<SessionSlotInfo>());
+                router.Show(ScreenId.SessionLibrary);
+                UnityEngine.UI.Selectable? selectable =
+                    ScreenRouter.FindFocusTarget(library);
+                Assert.That(selectable, Is.Not.Null);
+                Assert.That(selectable!.gameObject.activeInHierarchy, Is.True);
+                Assert.That(selectable!.IsActive() && selectable.IsInteractable(), Is.True);
+            }
+            finally
+            {
+                if (previousSetup.Any(setup => setup.isLoaded))
+                    EditorSceneManager.RestoreSceneManagerSetup(previousSetup);
+                else
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
         }
 
         private static string SnapshotSignature(GamePresentation snapshot)

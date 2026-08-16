@@ -13,11 +13,13 @@ namespace TrumpLab.Product
         [SerializeField] private ScreenRouter? router;
         [SerializeField] private TitleScreen? titleScreen;
         [SerializeField] private GameSettingsScreen? settingsScreen;
+        [SerializeField] private ProductSettingsScreen? productSettingsScreen;
         [SerializeField] private SessionLibraryScreen? sessionLibraryScreen;
         [SerializeField] private MatchScreen? matchScreen;
         [SerializeField] private ReplayScreen? replayScreen;
         [SerializeField] private ResultScreen? resultScreen;
         [SerializeField] private HowToPlayScreen? howToPlayScreen;
+        [SerializeField] private ProductInputController? inputController;
         [SerializeField] private ProductErrorPanel? errorPanel;
 
         private GameSessionController? activeSession;
@@ -26,9 +28,14 @@ namespace TrumpLab.Product
         private GameStartRequest? lastRequest;
         private ISessionStore? sessionStore;
         private IProductProgressStore? progressStore;
+        private IProductSettingsStore? productSettingsStore;
+        private IProductSettingsApplier? productSettingsApplier;
+        private ProductSettingsService? productSettingsService;
         private string? activeSlotId;
         private ScreenId errorReturnScreen = ScreenId.Title;
         private ScreenId howToPlayReturnScreen = ScreenId.Title;
+        private string settingsLoadFeedback = string.Empty;
+        private bool awakeComplete;
 
         public ScreenRouter Router => router ?? throw new InvalidOperationException(
             "Screen router is not configured.");
@@ -43,20 +50,29 @@ namespace TrumpLab.Product
             "Session store is not configured.");
         public IProductProgressStore ProgressStore => progressStore ??
             throw new InvalidOperationException("Product progress store is not configured.");
+        public IProductSettingsStore ProductSettingsStore => productSettingsStore ??
+            throw new InvalidOperationException("Product settings store is not configured.");
+        public ProductSettings CurrentProductSettings => productSettingsService?.Current ??
+            throw new InvalidOperationException("Product settings are not initialized.");
+        public ProductInputController InputController => inputController ??
+            throw new InvalidOperationException("Product input controller is not configured.");
 
         public void Configure(ScreenRouter configuredRouter, TitleScreen title,
-            GameSettingsScreen settings, SessionLibraryScreen library, MatchScreen match,
-            ReplayScreen replay, ResultScreen result, HowToPlayScreen howToPlay,
+            GameSettingsScreen settings, ProductSettingsScreen productSettings,
+            SessionLibraryScreen library, MatchScreen match, ReplayScreen replay,
+            ResultScreen result, HowToPlayScreen howToPlay, ProductInputController input,
             ProductErrorPanel errors)
         {
             router = configuredRouter;
             titleScreen = title;
             settingsScreen = settings;
+            productSettingsScreen = productSettings;
             sessionLibraryScreen = library;
             matchScreen = match;
             replayScreen = replay;
             resultScreen = result;
             howToPlayScreen = howToPlay;
+            inputController = input;
             errorPanel = errors;
         }
 
@@ -69,9 +85,22 @@ namespace TrumpLab.Product
             RefreshTutorialProgress();
         }
 
+        public void SetProductSettingsStore(IProductSettingsStore store)
+        {
+            productSettingsStore = store ?? throw new ArgumentNullException(nameof(store));
+            if (awakeComplete) InitializeProductSettings();
+        }
+
+        public void SetProductSettingsApplier(IProductSettingsApplier applier)
+        {
+            productSettingsApplier = applier ?? throw new ArgumentNullException(nameof(applier));
+            if (awakeComplete) InitializeProductSettings();
+        }
+
         private void Awake()
         {
             if (router == null || titleScreen == null || settingsScreen == null ||
+                productSettingsScreen == null || inputController == null ||
                 sessionLibraryScreen == null || matchScreen == null || replayScreen == null ||
                 resultScreen == null || howToPlayScreen == null || errorPanel == null)
                 throw new InvalidOperationException("Product app controller is not configured.");
@@ -79,15 +108,28 @@ namespace TrumpLab.Product
             if (sessionStore == null) sessionStore = new FileSessionStore(Application.persistentDataPath);
             if (progressStore == null)
                 progressStore = new FileProductProgressStore(Application.persistentDataPath);
+            if (productSettingsApplier == null)
+                productSettingsApplier = new UnityProductSettingsApplier();
+            inputController.Initialize();
+            if (productSettingsStore == null)
+                productSettingsStore = new FileProductSettingsStore(
+                    Application.persistentDataPath, validator: inputController);
+            InitializeProductSettings();
             RefreshTutorialProgress();
 
             titleScreen.TutorialRequested += HandleTitleTutorialRequested;
             titleScreen.PlayRequested += HandlePlayRequested;
             titleScreen.SessionsRequested += HandleSessionsRequested;
+            titleScreen.SettingsRequested += HandleTitleSettingsRequested;
             titleScreen.QuitRequested += HandleQuitRequested;
             settingsScreen.StartRequested += HandleStartRequested;
             settingsScreen.HowToPlayRequested += HandleSettingsHowToPlayRequested;
             settingsScreen.BackRequested += HandleTitleRequested;
+            productSettingsScreen.ApplyRequested += HandleProductSettingsApplyRequested;
+            productSettingsScreen.ResetRequested += HandleProductSettingsResetRequested;
+            productSettingsScreen.BackRequested += HandleTitleRequested;
+            productSettingsScreen.RebindRequested += HandleRebindRequested;
+            productSettingsScreen.CancelRebindRequested += HandleCancelRebindRequested;
             sessionLibraryScreen.ResumeRequested += HandleResumeRequested;
             sessionLibraryScreen.ReplayRequested += HandleReplayRequested;
             sessionLibraryScreen.DeleteRequested += HandleDeleteRequested;
@@ -104,9 +146,20 @@ namespace TrumpLab.Product
             resultScreen.TitleRequested += HandleTitleRequested;
             howToPlayScreen.BackRequested += HandleHowToPlayBackRequested;
             howToPlayScreen.StartTutorialRequested += HandleStartTutorialRequested;
+            inputController.HelpRequested += HandleHelpRequested;
+            inputController.GamepadDisconnected += HandleGamepadDisconnected;
+            inputController.GamepadReconnected += HandleGamepadReconnected;
+            settingsScreen.CancelRequested += HandleTitleRequested;
+            productSettingsScreen.CancelRequested += HandleProductSettingsCancelRequested;
+            sessionLibraryScreen.CancelRequested += HandleTitleRequested;
+            matchScreen.CancelRequested += HandleMatchCancelRequested;
+            replayScreen.CancelRequested += HandleSessionsRequested;
+            resultScreen.CancelRequested += HandleTitleRequested;
+            howToPlayScreen.CancelRequested += HandleHowToPlayBackRequested;
             errorPanel.Dismissed += HandleErrorDismissed;
             errorPanel.Hide();
             router.Show(ScreenId.Title);
+            awakeComplete = true;
         }
 
         private void OnDestroy()
@@ -116,6 +169,7 @@ namespace TrumpLab.Product
                 titleScreen.TutorialRequested -= HandleTitleTutorialRequested;
                 titleScreen.PlayRequested -= HandlePlayRequested;
                 titleScreen.SessionsRequested -= HandleSessionsRequested;
+                titleScreen.SettingsRequested -= HandleTitleSettingsRequested;
                 titleScreen.QuitRequested -= HandleQuitRequested;
             }
             if (settingsScreen != null)
@@ -123,6 +177,16 @@ namespace TrumpLab.Product
                 settingsScreen.StartRequested -= HandleStartRequested;
                 settingsScreen.HowToPlayRequested -= HandleSettingsHowToPlayRequested;
                 settingsScreen.BackRequested -= HandleTitleRequested;
+                settingsScreen.CancelRequested -= HandleTitleRequested;
+            }
+            if (productSettingsScreen != null)
+            {
+                productSettingsScreen.ApplyRequested -= HandleProductSettingsApplyRequested;
+                productSettingsScreen.ResetRequested -= HandleProductSettingsResetRequested;
+                productSettingsScreen.BackRequested -= HandleTitleRequested;
+                productSettingsScreen.RebindRequested -= HandleRebindRequested;
+                productSettingsScreen.CancelRebindRequested -= HandleCancelRebindRequested;
+                productSettingsScreen.CancelRequested -= HandleProductSettingsCancelRequested;
             }
             if (sessionLibraryScreen != null)
             {
@@ -130,6 +194,7 @@ namespace TrumpLab.Product
                 sessionLibraryScreen.ReplayRequested -= HandleReplayRequested;
                 sessionLibraryScreen.DeleteRequested -= HandleDeleteRequested;
                 sessionLibraryScreen.BackRequested -= HandleTitleRequested;
+                sessionLibraryScreen.CancelRequested -= HandleTitleRequested;
             }
             if (matchScreen != null)
             {
@@ -139,51 +204,220 @@ namespace TrumpLab.Product
                 matchScreen.RulesRequested -= HandleMatchRulesRequested;
                 matchScreen.TutorialContinueRequested -= HandleTutorialContinueRequested;
                 matchScreen.TutorialExitRequested -= HandleTutorialExitRequested;
+                matchScreen.CancelRequested -= HandleMatchCancelRequested;
             }
-            if (replayScreen != null) replayScreen.BackRequested -= HandleSessionsRequested;
+            if (replayScreen != null)
+            {
+                replayScreen.BackRequested -= HandleSessionsRequested;
+                replayScreen.CancelRequested -= HandleSessionsRequested;
+            }
             if (resultScreen != null)
             {
                 resultScreen.RematchRequested -= HandleRematchRequested;
                 resultScreen.DetailsRequested -= HandleResultDetailsRequested;
                 resultScreen.TitleRequested -= HandleTitleRequested;
+                resultScreen.CancelRequested -= HandleTitleRequested;
             }
             if (howToPlayScreen != null)
             {
                 howToPlayScreen.BackRequested -= HandleHowToPlayBackRequested;
                 howToPlayScreen.StartTutorialRequested -= HandleStartTutorialRequested;
+                howToPlayScreen.CancelRequested -= HandleHowToPlayBackRequested;
+            }
+            if (inputController != null)
+            {
+                inputController.HelpRequested -= HandleHelpRequested;
+                inputController.GamepadDisconnected -= HandleGamepadDisconnected;
+                inputController.GamepadReconnected -= HandleGamepadReconnected;
             }
             if (errorPanel != null) errorPanel.Dismissed -= HandleErrorDismissed;
             EndSession();
             EndTutorial();
         }
 
+        private void InitializeProductSettings()
+        {
+            if (productSettingsStore == null || productSettingsApplier == null ||
+                inputController == null) return;
+            productSettingsService = new ProductSettingsService(
+                productSettingsStore, productSettingsApplier, validator: inputController);
+            ProductSettingsLoadResult result = productSettingsService.Initialize();
+            inputController.ApplyBindings(productSettingsService.Current.InputBindings);
+            settingsLoadFeedback = result.Status switch
+            {
+                ProductSettingsLoadStatus.Missing =>
+                    "Using safe defaults. Choose Apply to create the settings file.",
+                ProductSettingsLoadStatus.Invalid =>
+                    "The settings file is invalid. Safe defaults are active; the original " +
+                    "will be preserved when you Apply or Reset.",
+                _ => string.Empty
+            };
+        }
+
         private void Update()
         {
-            if (!Input.GetKeyDown(KeyCode.Escape)) return;
-            if (Router.Current == ScreenId.HowToPlay)
+            if (productSettingsService != null &&
+                productSettingsApplier is IProductDisplayGuard displayGuard)
+                displayGuard.MaintainValidDisplay(productSettingsService.Current);
+        }
+
+        private void HandleTitleSettingsRequested()
+        {
+            if (productSettingsScreen == null || productSettingsService == null) return;
+            productSettingsScreen.SetValues(productSettingsService.Current, settingsLoadFeedback);
+            Router.Show(ScreenId.ProductSettings);
+        }
+
+        private void HandleProductSettingsApplyRequested(ProductSettings settings)
+        {
+            if (productSettingsScreen == null || productSettingsService == null) return;
+            ProductSettingsSaveResult result = productSettingsService.SaveAndApply(settings);
+            if (!result.Succeeded)
             {
-                HandleHowToPlayBackRequested();
+                productSettingsScreen.SetFeedback(
+                    "Settings were not saved: " + (result.Error ?? "Unknown error."),
+                    isError: true);
                 return;
             }
-            if (Router.Current == ScreenId.Match && matchScreen != null &&
-                matchScreen.IsContextHelpVisible)
+            try
+            {
+                InputController.ApplyBindings(productSettingsService.Current.InputBindings);
+                settingsLoadFeedback = string.Empty;
+                string feedback = result.InvalidArchivePath == null
+                    ? "Settings applied and saved."
+                    : "Settings applied. The invalid original was preserved.";
+                productSettingsScreen.SetValues(productSettingsService.Current, feedback);
+            }
+            catch (Exception exception)
+            {
+                productSettingsScreen.SetFeedback(
+                    "Settings were saved, but input could not be applied: " + exception.Message,
+                    isError: true);
+            }
+        }
+
+        private void HandleProductSettingsResetRequested()
+        {
+            if (productSettingsScreen == null || productSettingsService == null) return;
+            ProductSettingsSaveResult result = productSettingsService.ResetToDefaults();
+            if (!result.Succeeded)
+            {
+                productSettingsScreen.SetFeedback(
+                    "Defaults were not saved: " + (result.Error ?? "Unknown error."),
+                    isError: true);
+                return;
+            }
+            InputController.CancelRebind();
+            InputController.ApplyBindings(productSettingsService.Current.InputBindings);
+            settingsLoadFeedback = string.Empty;
+            string feedback = result.InvalidArchivePath == null
+                ? "Safe defaults restored and saved."
+                : "Safe defaults restored. The invalid original was preserved.";
+            productSettingsScreen.SetValues(productSettingsService.Current, feedback);
+        }
+
+        private void HandleRebindRequested(ProductInputScheme scheme,
+            ProductInputCommand command)
+        {
+            if (productSettingsScreen == null) return;
+            string device = scheme == ProductInputScheme.Keyboard ? "keyboard" : "gamepad";
+            productSettingsScreen.SetRebindState(true,
+                "Press a " + device + " control for " + command + ", or cancel.");
+            bool started;
+            try
+            {
+                started = InputController.BeginRebind(scheme, command,
+                    path => HandleRebindCompleted(scheme, command, path),
+                    HandleRebindCancelled);
+            }
+            catch (Exception exception)
+            {
+                productSettingsScreen.SetRebindState(false, string.Empty);
+                productSettingsScreen.SetFeedback(
+                    "Rebinding could not start: " + exception.Message, isError: true);
+                return;
+            }
+            if (!started)
+            {
+                productSettingsScreen.SetRebindState(true,
+                    "Finish or cancel the current rebind first.");
+            }
+        }
+
+        private void HandleRebindCompleted(ProductInputScheme scheme,
+            ProductInputCommand command, string path)
+        {
+            if (productSettingsScreen == null) return;
+            productSettingsScreen.SetRebindState(false, string.Empty);
+            productSettingsScreen.TrySetBinding(scheme, command, path, out _);
+            Router.RestoreFocus();
+        }
+
+        private void HandleCancelRebindRequested() => InputController.CancelRebind();
+
+        private void HandleRebindCancelled()
+        {
+            if (productSettingsScreen == null) return;
+            productSettingsScreen.SetRebindState(false, "Binding change cancelled.");
+            Router.RestoreFocus();
+        }
+
+        private void HandleProductSettingsCancelRequested()
+        {
+            if (InputController.IsRebinding)
+                InputController.CancelRebind();
+            else
+                HandleTitleRequested();
+        }
+
+        private void HandleMatchCancelRequested()
+        {
+            if (matchScreen?.IsContextHelpVisible == true)
             {
                 matchScreen.HideContextHelp();
                 return;
             }
-            if (Router.Current == ScreenId.Match && activeTutorial != null)
-            {
+            if (activeTutorial != null)
                 HandleTutorialExitRequested();
+            else
+                HandleTitleRequested();
+        }
+
+        private void HandleHelpRequested()
+        {
+            if (!Router.Current.HasValue || Router.Current == ScreenId.HowToPlay) return;
+            if (Router.Current == ScreenId.Match)
+            {
+                matchScreen?.ShowContextHelp();
                 return;
             }
+            if (Router.Current == ScreenId.Result)
+            {
+                HandleResultDetailsRequested();
+                return;
+            }
+            ShowHowToPlay(Router.Current.Value, presentation: null);
+        }
+
+        private void HandleGamepadDisconnected()
+        {
+            Debug.LogWarning("Gamepad disconnected; keyboard and mouse remain available.");
+            if (errorPanel == null || errorPanel.gameObject.activeSelf) return;
+            errorReturnScreen = Router.Current ?? ScreenId.Title;
+            errorPanel.Show("Gamepad disconnected. Continue with keyboard or mouse.");
+        }
+
+        private void HandleGamepadReconnected()
+        {
+            Debug.Log("Gamepad reconnected.");
             if (errorPanel != null && errorPanel.gameObject.activeSelf)
             {
-                HandleErrorDismissed();
+                if (errorPanel.MessageLabel.text.StartsWith("Gamepad disconnected",
+                        StringComparison.Ordinal))
+                    errorPanel.Show("Gamepad reconnected. You can use it again.");
                 return;
             }
-            if (Router.Current == ScreenId.GameSettings || Router.Current == ScreenId.SessionLibrary ||
-                Router.Current == ScreenId.Replay || Router.Current == ScreenId.Result)
-                HandleTitleRequested();
+            Router.RestoreFocus();
         }
 
         private void HandlePlayRequested()
@@ -324,6 +558,7 @@ namespace TrumpLab.Product
 
         private void HandleTitleRequested()
         {
+            if (inputController?.IsRebinding == true) inputController.CancelRebind();
             EndTutorial();
             EndSession();
             if (errorPanel != null) errorPanel.Hide();
@@ -530,7 +765,7 @@ namespace TrumpLab.Product
 
         private IEnumerator RunTutorialCpuTurn(TutorialSessionController tutorial)
         {
-            yield return new WaitForSecondsRealtime(0.35f);
+            yield return new WaitForSecondsRealtime(CpuTurnDelaySeconds);
             cpuTurnCoroutine = null;
             if (activeTutorial != tutorial ||
                 tutorial.State != TutorialSessionState.WaitingForCpu ||
@@ -541,7 +776,7 @@ namespace TrumpLab.Product
 
         private IEnumerator RunCpuTurn(GameSessionController session)
         {
-            yield return new WaitForSecondsRealtime(0.35f);
+            yield return new WaitForSecondsRealtime(CpuTurnDelaySeconds);
             cpuTurnCoroutine = null;
             if (activeSession != session || session.State != MatchSessionState.WaitingForCpu)
                 yield break;
@@ -598,6 +833,14 @@ namespace TrumpLab.Product
             titleScreen.SetTutorialCompleted(completed);
             if (router?.Current == ScreenId.Title) router.Show(ScreenId.Title);
         }
+
+        private float CpuTurnDelaySeconds => productSettingsService?.Current.PresentationSpeed switch
+        {
+            ProductPresentationSpeed.Reduced => 0.1f,
+            ProductPresentationSpeed.Fast => 0.05f,
+            _ => 0.35f
+        };
+
         private static void HandleQuitRequested() => Application.Quit();
     }
 }
