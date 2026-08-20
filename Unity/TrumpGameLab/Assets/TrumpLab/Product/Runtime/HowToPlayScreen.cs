@@ -19,6 +19,7 @@ namespace TrumpLab.Product
         [SerializeField] private Button? backButton;
 
         private HowToPlayViewModel? model;
+        private IProductText text = ProductTextCatalog.English;
 
         public override ScreenId Id => ScreenId.HowToPlay;
         public Text PageIndicatorLabel => Required(pageIndicatorLabel, nameof(pageIndicatorLabel));
@@ -48,6 +49,14 @@ namespace TrumpLab.Product
             previousButton = previous;
             nextButton = next;
             backButton = back;
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshButtonText();
+            if (model != null) ShowPage(CurrentPageIndex);
         }
 
         public void Render(HowToPlayViewModel viewModel)
@@ -62,7 +71,8 @@ namespace TrumpLab.Product
             if (model == null || index < 0 || index >= model.Pages.Count) return false;
             CurrentPageIndex = index;
             HowToPlayPage page = model.Pages[index];
-            PageIndicatorLabel.text = "Page " + (index + 1) + " / " + model.Pages.Count;
+            PageIndicatorLabel.text = text.Get("rules.page_indicator", index + 1,
+                model.Pages.Count);
             PageTitleLabel.text = page.Title;
             PageBodyLabel.text = page.Body;
             PreviousButton.interactable = index > 0;
@@ -93,6 +103,20 @@ namespace TrumpLab.Product
         private void HandlePrevious() => ShowPage(CurrentPageIndex - 1);
         private void HandleNext() => ShowPage(CurrentPageIndex + 1);
         private void HandleBack() => BackRequested?.Invoke();
+
+        private void RefreshButtonText()
+        {
+            SetButtonText(startTutorialButton, "tutorial.start_button");
+            SetButtonText(previousButton, "rules.previous");
+            SetButtonText(nextButton, "rules.next");
+            SetButtonText(backButton, "common.back");
+        }
+
+        private void SetButtonText(Button? button, string key)
+        {
+            Text? label = button?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get(key);
+        }
 
         private static T Required<T>(T? value, string name) where T : UnityEngine.Object =>
             value != null ? value : throw new InvalidOperationException(

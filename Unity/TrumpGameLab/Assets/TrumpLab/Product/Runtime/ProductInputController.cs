@@ -13,6 +13,7 @@ namespace TrumpLab.Product
     {
         private const string KeyboardGroup = "KeyboardMouse";
         private const string GamepadGroup = "Gamepad";
+        private const string KeyboardSpacePath = "<Keyboard>/space";
 
         [SerializeField] private InputSystemUIInputModule? uiInputModule;
 
@@ -22,6 +23,8 @@ namespace TrumpLab.Product
             new List<InputActionReference>();
         private InputActionAsset? actions;
         private InputAction? helpAction;
+        private InputAction? submitAction;
+        private int keyboardSpaceSubmitBindingIndex = -1;
         private InputActionRebindingExtensions.RebindingOperation? rebindOperation;
         private ProductInputScheme? rebindScheme;
         private string? pendingRebindPath;
@@ -83,6 +86,7 @@ namespace TrumpLab.Product
                 string path = bindings.Get(item.Key.Item1, item.Key.Item2);
                 item.Value.Action.ApplyBindingOverride(item.Value.BindingIndex, path);
             }
+            ApplyKeyboardSpaceFallback(bindings);
             CurrentBindings = bindings;
             if (wasEnabled) actions.Enable();
         }
@@ -97,11 +101,24 @@ namespace TrumpLab.Product
         public string BindingLabel(ProductInputScheme scheme, ProductInputCommand command) =>
             InputControlPath.ToHumanReadableString(EffectivePath(scheme, command));
 
+        public void RequestHelp() => HelpRequested?.Invoke();
+
         public static string HumanReadablePath(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Input control path cannot be empty.", nameof(path));
             return InputControlPath.ToHumanReadableString(path);
+        }
+
+        public static string CanonicalControlToken(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Input control path cannot be empty.", nameof(path));
+            int layoutEnd = path.IndexOf(">/", StringComparison.Ordinal);
+            if (path[0] != '<' || layoutEnd <= 1 || layoutEnd + 2 >= path.Length)
+                throw new ArgumentException(
+                    "Input control path is not canonical.", nameof(path));
+            return path.Substring(layoutEnd + 2);
         }
 
         public bool BeginRebind(ProductInputScheme scheme, ProductInputCommand command,
@@ -194,6 +211,22 @@ namespace TrumpLab.Product
                     }
                 }
             }
+            string keyboardSubmit = bindings.Get(
+                ProductInputScheme.Keyboard, ProductInputCommand.Submit);
+            string defaultKeyboardSubmit = ProductInputBindings.Default.Get(
+                ProductInputScheme.Keyboard, ProductInputCommand.Submit);
+            if (string.Equals(keyboardSubmit, defaultKeyboardSubmit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (ProductInputCommand command in ProductInputBindings.EnumerateCommands())
+                {
+                    if (command == ProductInputCommand.Submit) continue;
+                    if (!string.Equals(bindings.Get(ProductInputScheme.Keyboard, command),
+                            KeyboardSpacePath, StringComparison.OrdinalIgnoreCase)) continue;
+                    error = "Keyboard Space is reserved as the secondary default Submit control.";
+                    return false;
+                }
+            }
             error = string.Empty;
             return true;
         }
@@ -231,8 +264,11 @@ namespace TrumpLab.Product
 
             InputAction submit = map.AddAction(
                 "Submit", InputActionType.Button, expectedControlLayout: "Button");
+            submitAction = submit;
             AddButtonBinding(submit, ProductInputScheme.Keyboard,
                 ProductInputCommand.Submit, KeyboardGroup);
+            keyboardSpaceSubmitBindingIndex = submit.bindings.Count;
+            submit.AddBinding(KeyboardSpacePath, groups: KeyboardGroup);
             AddButtonBinding(submit, ProductInputScheme.Gamepad,
                 ProductInputCommand.Submit, GamepadGroup);
 
@@ -300,6 +336,21 @@ namespace TrumpLab.Product
             bindingTargets.Add(key, new BindingTarget(action, bindingIndex));
         }
 
+        private void ApplyKeyboardSpaceFallback(ProductInputBindings bindings)
+        {
+            if (submitAction == null || keyboardSpaceSubmitBindingIndex < 0)
+                throw new InvalidOperationException(
+                    "The secondary keyboard Submit binding is not initialized.");
+            string configured = bindings.Get(
+                ProductInputScheme.Keyboard, ProductInputCommand.Submit);
+            string defaultPath = ProductInputBindings.Default.Get(
+                ProductInputScheme.Keyboard, ProductInputCommand.Submit);
+            if (string.Equals(configured, defaultPath, StringComparison.OrdinalIgnoreCase))
+                submitAction.RemoveBindingOverride(keyboardSpaceSubmitBindingIndex);
+            else
+                submitAction.ApplyBindingOverride(keyboardSpaceSubmitBindingIndex, string.Empty);
+        }
+
         private BindingTarget RequireTarget(ProductInputScheme scheme, ProductInputCommand command)
         {
             if (!bindingTargets.TryGetValue((scheme, command), out BindingTarget? target))
@@ -315,7 +366,7 @@ namespace TrumpLab.Product
             return reference;
         }
 
-        private void HandleHelpPerformed(InputAction.CallbackContext _) => HelpRequested?.Invoke();
+        private void HandleHelpPerformed(InputAction.CallbackContext _) => RequestHelp();
 
         private void HandleDeviceChange(InputDevice device, InputDeviceChange change)
         {

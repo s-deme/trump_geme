@@ -13,6 +13,7 @@ namespace TrumpLab.Product
         [SerializeField] private Button? sessionsButton;
         [SerializeField] private Button? settingsButton;
         [SerializeField] private Button? quitButton;
+        private IProductText text = ProductTextCatalog.English;
 
         public override ScreenId Id => ScreenId.Title;
         public Button TutorialButton => tutorialButton ?? throw new InvalidOperationException(
@@ -37,6 +38,13 @@ namespace TrumpLab.Product
             sessionsButton = sessions;
             settingsButton = settings;
             quitButton = quit;
+            RefreshText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshText();
         }
 
         private void Awake()
@@ -64,10 +72,31 @@ namespace TrumpLab.Product
         public void SetTutorialCompleted(bool completed)
         {
             TutorialCompleted = completed;
-            Text? label = TutorialButton.GetComponentInChildren<Text>(true);
+            if (tutorialButton != null)
+                SetButtonLabel(tutorialButton, completed
+                    ? "title.how_to_play"
+                    : "title.tutorial");
+        }
+
+        private void RefreshText()
+        {
+            if (tutorialButton != null)
+                SetButtonLabel(tutorialButton, TutorialCompleted
+                    ? "title.how_to_play"
+                    : "title.tutorial");
+            if (playButton != null) SetButtonLabel(playButton, "title.play");
+            if (sessionsButton != null)
+                SetButtonLabel(sessionsButton, "title.saved_sessions");
+            if (settingsButton != null) SetButtonLabel(settingsButton, "title.settings");
+            if (quitButton != null) SetButtonLabel(quitButton, "title.quit");
+        }
+
+        private void SetButtonLabel(Button button, string key)
+        {
+            Text? label = button.GetComponentInChildren<Text>(true);
             if (label == null)
-                throw new InvalidOperationException("Title tutorial button requires a Text label.");
-            label.text = completed ? "How to play" : "Tutorial";
+                throw new InvalidOperationException("Title button requires a Text label.");
+            label.text = text.Get(key);
         }
 
         private void HandleTutorial() => TutorialRequested?.Invoke();

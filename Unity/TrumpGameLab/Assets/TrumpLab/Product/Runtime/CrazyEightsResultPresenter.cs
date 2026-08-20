@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using System.Globalization;
 using System.Linq;
 
 namespace TrumpLab.Product
@@ -31,7 +30,8 @@ namespace TrumpLab.Product
 
     public static class CrazyEightsResultPresenter
     {
-        public static ResultViewModel Create(GameResultPresentation result, int humanPlayer = 0)
+        public static ResultViewModel Create(GameResultPresentation result, int humanPlayer = 0,
+            IProductText? text = null)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
             if (result.Scores.Count != 2)
@@ -40,19 +40,26 @@ namespace TrumpLab.Product
                 throw new ArgumentOutOfRangeException(nameof(humanPlayer));
 
             bool humanWon = result.Winners.Contains(humanPlayer);
+            IProductText productText = text ?? ProductTextCatalog.English;
             ProductResultOutcome outcome = result.Winners.Count == 0
                 ? ProductResultOutcome.Draw
                 : humanWon ? ProductResultOutcome.Win : ProductResultOutcome.Loss;
             string outcomeText = outcome == ProductResultOutcome.Draw
-                ? "Draw"
-                : outcome == ProductResultOutcome.Win ? "You win!" : "CPU wins";
-            string scores = string.Join("  •  ", result.Scores.Select((score, player) =>
-                (player == humanPlayer ? "You" : "CPU") + ": " +
-                score.ToString("0.##", CultureInfo.InvariantCulture)));
+                ? productText.Get("result.outcome_draw")
+                : outcome == ProductResultOutcome.Win
+                    ? productText.Get("result.outcome_win")
+                    : productText.Get("result.outcome_loss");
+            string scores = productText.Get("result.scores",
+                productText.Get("result.score_you", result.Scores[humanPlayer]),
+                productText.Get("result.score_cpu", result.Scores
+                    .Where((_, player) => player != humanPlayer).Single()));
+            string reason = string.Equals(result.Reason, "empty hand",
+                StringComparison.Ordinal)
+                ? productText.Get("result.reason_empty_hand")
+                : productText.Get("result.reason_unknown");
             return new ResultViewModel(
                 outcome,
-                outcomeText + "\n" + scores + "\nReason: " + result.Reason +
-                "  •  Turns: " + result.Turns);
+                productText.Get("result.summary", outcomeText, scores, reason, result.Turns));
         }
     }
 }

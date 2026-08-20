@@ -3,7 +3,7 @@
 ## 状態
 
 - マイルストーン：`In Progress`
-- 次のタスク：`M06-T04`
+- 次のタスク：`M06-T05`
 - 参照ゲーム：`crazy_eights`
 - 依存：`M05`
 
@@ -36,8 +36,8 @@
 | M06-T01 | Done | 製品品質基準、対象環境、性能予算を定義する | M05 | 各品質項目に検証可能な合否条件がある |
 | M06-T02 | Done | 表示・音量・演出・入力設定と永続化を実装する | T01 | 再起動後も設定が保持され、安全な既定値へ戻せる |
 | M06-T03 | Done | 音、画面遷移、カード操作、結果演出を仕上げる | T02 | 主要操作の状態変化を視覚と音で識別できる |
-| M06-T04 | Ready | 日本語・英語とアクセシビリティ設定を実装する | T03 | 文字切れ、未翻訳キー、色だけの情報伝達を検出できる |
-| M06-T05 | Backlog | 異常系、性能、長時間実行の試験と修正を行う | T04 | 品質基準を満たし、既知の制限を記録している |
+| M06-T04 | Done | 日本語・英語とアクセシビリティ設定を実装する | T03 | 文字切れ、未翻訳キー、色だけの情報伝達を検出できる |
+| M06-T05 | Ready | 異常系、性能、長時間実行の試験と修正を行う | T04 | 品質基準を満たし、既知の制限を記録している |
 | M06-T06 | Backlog | リリース候補チェックと通常の必須検証を行う | T05 | 完了条件を満たす再現可能な候補ビルドがある |
 
 ## 完了条件
@@ -62,6 +62,11 @@
 [ADR-0008 製品音響・演出feedback契約](../decisions/ADR-0008-product-av-feedback-contract.md)に従う。
 [M06-T03 音響・演出受入記録](../reports/M06-T03-av-evidence.md)へ`AV-01`〜`AV-03`の
 自動証跡とrelease candidateで再実施する実device matrixを記録する。
+
+日英catalog、Windows installed font、semantic palette、safe frame、対局中の設定往復は
+[ADR-0009 製品localization・アクセシビリティ契約](../decisions/ADR-0009-product-localization-accessibility-contract.md)
+に従う。[M06-T04 localization・アクセシビリティ受入記録](../reports/M06-T04-localization-accessibility-evidence.md)
+へ`LOC-01`〜`LOC-03`と`A11Y-01`〜`A11Y-05`の証跡を記録する。
 
 - Windows 11 x64を正式サポートし、Windows 10はbest-effort・非保証とする。
 - 外部素材を購入・委託せず、repository内で所有するprimitiveと音、Windows同梱fontを使う。

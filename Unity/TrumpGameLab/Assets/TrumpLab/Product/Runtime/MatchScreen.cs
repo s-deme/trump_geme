@@ -20,6 +20,7 @@ namespace TrumpLab.Product
         [SerializeField] private RectTransform? actionRoot;
         [SerializeField] private Button? actionButtonTemplate;
         [SerializeField] private Button? helpButton;
+        [SerializeField] private Button? settingsButton;
         [SerializeField] private Button? rulesButton;
         [SerializeField] private GameObject? contextHelpPanel;
         [SerializeField] private Text? contextHelpLabel;
@@ -33,6 +34,10 @@ namespace TrumpLab.Product
         [SerializeField] private Button? tutorialExitButton;
 
         private bool lastInputEnabled;
+        private IProductText text = ProductTextCatalog.English;
+        private readonly Dictionary<Selectable, bool> contextHelpBackgroundStates =
+            new Dictionary<Selectable, bool>();
+        private GameObject? contextHelpPriorFocus;
 
         public override ScreenId Id => ScreenId.Match;
         public Text StatusLabel => Required(statusLabel, nameof(statusLabel));
@@ -46,6 +51,7 @@ namespace TrumpLab.Product
         public Button ActionButtonTemplate => actionButtonTemplate ?? throw new InvalidOperationException(
             "Match action button template is not configured.");
         public Button HelpButton => helpButton ?? throw Missing(nameof(helpButton));
+        public Button SettingsButton => settingsButton ?? throw Missing(nameof(settingsButton));
         public Button RulesButton => rulesButton ?? throw Missing(nameof(rulesButton));
         public GameObject ContextHelpPanel => contextHelpPanel ??
             throw Missing(nameof(contextHelpPanel));
@@ -67,6 +73,7 @@ namespace TrumpLab.Product
         public bool IsContextHelpVisible => contextHelpPanel != null && contextHelpPanel.activeSelf;
         public bool IsTutorialVisible => tutorialPanel != null && tutorialPanel.activeSelf;
         public bool IsPresentationLocked { get; private set; }
+        public bool IsExternalModalLocked { get; private set; }
         public string? HighlightedActionId { get; private set; }
         public Selectable? PreferredFocus
         {
@@ -96,6 +103,7 @@ namespace TrumpLab.Product
         public event System.Action<string>? ActionRequested;
         public event System.Action? ContextHelpOpened;
         public event System.Action? ContextHelpClosed;
+        public event System.Action? SettingsRequested;
         public event System.Action? RulesRequested;
         public event System.Action? TutorialContinueRequested;
         public event System.Action? TutorialExitRequested;
@@ -127,11 +135,39 @@ namespace TrumpLab.Product
             tutorialGuidanceLabel = guidedGuidance;
             tutorialContinueButton = guidedContinue;
             tutorialExitButton = guidedExit;
+            RefreshStaticButtonText();
+        }
+
+        public void Configure(Text status, Text opponentHand, Text stock, Text discard,
+            Text humanHand, Text actionSummary, RectTransform actions, Button actionTemplate,
+            Button help, Button settings, Button rules, GameObject helpPanel, Text helpText,
+            Button closeHelp, GameObject guidedPanel, Text guidedProgress,
+            Text guidedHeading, Text guidedInstruction, Text guidedGuidance,
+            Button guidedContinue, Button guidedExit)
+        {
+            Configure(status, opponentHand, stock, discard, humanHand, actionSummary,
+                actions, actionTemplate, help, rules, helpPanel, helpText, closeHelp,
+                guidedPanel, guidedProgress, guidedHeading, guidedInstruction,
+                guidedGuidance, guidedContinue, guidedExit);
+            ConfigureSettings(settings);
+        }
+
+        public void ConfigureSettings(Button settings)
+        {
+            settingsButton = settings ?? throw new ArgumentNullException(nameof(settings));
+            RefreshStaticButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshStaticButtonText();
         }
 
         private void Awake()
         {
             HelpButton.onClick.AddListener(ShowContextHelp);
+            settingsButton?.onClick.AddListener(HandleSettings);
             RulesButton.onClick.AddListener(HandleRules);
             CloseHelpButton.onClick.AddListener(HideContextHelp);
             TutorialContinueButton.onClick.AddListener(HandleTutorialContinue);
@@ -145,7 +181,6 @@ namespace TrumpLab.Product
             if (model == null) throw new ArgumentNullException(nameof(model));
             IsPresentationLocked = false;
             lastInputEnabled = model.InputEnabled;
-            ResetFeedbackColors();
             StatusLabel.text = model.Status;
             OpponentHandLabel.text = model.OpponentHand;
             StockLabel.text = model.Stock;
@@ -154,35 +189,21 @@ namespace TrumpLab.Product
             ActionSummaryLabel.text = model.ActionSummary;
             ContextHelpLabel.text = model.ContextHelp;
             RenderActions(model);
+            ApplyInteractionState();
         }
 
         public void ShowActionFeedback(ProductFeedbackKind kind)
         {
             ProductFeedbackPresentation feedback = ProductPresentationCatalog.Get(kind);
-            ActionSummaryLabel.text = feedback.DisplayText;
-            ResetFeedbackColors();
+            ActionSummaryLabel.text = feedback.Symbol + "  " + text.Get(feedback.Key);
             switch (kind)
             {
                 case ProductFeedbackKind.CardPlay:
-                    HumanHandLabel.color = new Color(0.55f, 0.95f, 0.72f, 1f);
-                    DiscardLabel.color = new Color(0.55f, 0.95f, 0.72f, 1f);
-                    break;
                 case ProductFeedbackKind.Draw:
-                    StockLabel.color = new Color(0.48f, 0.82f, 1f, 1f);
-                    HumanHandLabel.color = new Color(0.48f, 0.82f, 1f, 1f);
-                    break;
                 case ProductFeedbackKind.WildSuit:
-                    HumanHandLabel.color = new Color(0.93f, 0.68f, 1f, 1f);
-                    DiscardLabel.color = new Color(0.93f, 0.68f, 1f, 1f);
-                    break;
                 case ProductFeedbackKind.CpuTurn:
-                    StatusLabel.color = new Color(1f, 0.82f, 0.38f, 1f);
-                    break;
                 case ProductFeedbackKind.Reject:
-                    ActionSummaryLabel.color = new Color(1f, 0.55f, 0.45f, 1f);
-                    break;
                 case ProductFeedbackKind.Submit:
-                    ActionSummaryLabel.color = new Color(0.62f, 0.94f, 0.7f, 1f);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind,
@@ -193,14 +214,30 @@ namespace TrumpLab.Product
         public void SetPresentationLocked(bool locked)
         {
             IsPresentationLocked = locked;
+            ApplyInteractionState();
+        }
+
+        public void SetExternalModalLocked(bool locked)
+        {
+            IsExternalModalLocked = locked;
+            ApplyInteractionState();
+        }
+
+        private void ApplyInteractionState()
+        {
+            bool backgroundEnabled = !IsExternalModalLocked && !IsContextHelpVisible;
+            if (settingsButton != null)
+                settingsButton.interactable = backgroundEnabled && !IsPresentationLocked;
             if (tutorialContinueButton != null)
-                tutorialContinueButton.interactable = !locked;
+                tutorialContinueButton.interactable =
+                    backgroundEnabled && !IsPresentationLocked;
             if (actionRoot != null)
             {
                 foreach (Button button in actionRoot.GetComponentsInChildren<Button>(false))
                 {
                     if (button != null)
-                        button.interactable = !locked && lastInputEnabled;
+                        button.interactable = backgroundEnabled &&
+                            !IsPresentationLocked && lastInputEnabled;
                 }
             }
         }
@@ -221,6 +258,7 @@ namespace TrumpLab.Product
                     "Tutorial continue button requires a Text label.");
             continueLabel.text = tutorial.ContinueLabel;
             TutorialPanel.SetActive(true);
+            ApplyInteractionState();
 
             GameObject focus = TutorialExitButton.gameObject;
             if (tutorial.ContinueVisible)
@@ -249,21 +287,19 @@ namespace TrumpLab.Product
                 Button button = Instantiate(ActionButtonTemplate, ActionRoot);
                 button.name = "Action_" + action.Id;
                 button.gameObject.SetActive(true);
-                button.interactable = model.InputEnabled && !IsPresentationLocked;
+                button.interactable = model.InputEnabled && !IsPresentationLocked &&
+                    !IsExternalModalLocked && !IsContextHelpVisible;
                 Text? label = button.GetComponentInChildren<Text>(true);
                 if (label == null)
                     throw new InvalidOperationException("Action button template requires a Text label.");
                 bool highlighted = action.Id == HighlightedActionId;
-                label.text = (highlighted ? "★ " : "✓ ") + action.Label + "\n" +
-                    action.Reason;
-                label.fontSize = 17;
-                Image? image = button.GetComponent<Image>();
-                if (image != null)
-                    image.color = highlighted
-                        ? new Color(0.75f, 0.52f, 0.08f, 1f)
-                        : model.InputEnabled
-                        ? new Color(0.12f, 0.52f, 0.31f, 1f)
-                        : new Color(0.25f, 0.31f, 0.27f, 1f);
+                string marker = text.Get(highlighted
+                    ? "match.marker_expected"
+                    : "match.marker_legal");
+                label.text = text.Get("match.action_button",
+                    marker, action.Label, action.Reason);
+                button.GetComponent<ProductAccessibleControl>()?.SetRuntimeLabel(
+                    "match.action_button", marker, action.Label, action.Reason);
                 string actionId = action.Id;
                 button.onClick.AddListener(() => ActionRequested?.Invoke(actionId));
             }
@@ -285,8 +321,12 @@ namespace TrumpLab.Product
 
         public void ShowContextHelp()
         {
-            if (IsPresentationLocked || IsContextHelpVisible) return;
+            if (IsPresentationLocked || IsExternalModalLocked || IsContextHelpVisible) return;
+            contextHelpPriorFocus = EventSystem.current?.currentSelectedGameObject;
+            LockContextHelpBackgroundControls();
             ContextHelpPanel.SetActive(true);
+            ApplyInteractionState();
+            CloseHelpButton.interactable = !IsExternalModalLocked;
             EventSystem.current?.SetSelectedGameObject(CloseHelpButton.gameObject);
             ContextHelpOpened?.Invoke();
         }
@@ -297,44 +337,115 @@ namespace TrumpLab.Product
         {
             if (!IsContextHelpVisible) return;
             ContextHelpPanel.SetActive(false);
-            EventSystem.current?.SetSelectedGameObject(
-                ActionRoot.GetComponentsInChildren<Button>(false)
-                    .FirstOrDefault()?.gameObject ?? HelpButton.gameObject);
+            RestoreContextHelpBackgroundControls();
+            EventSystem.current?.SetSelectedGameObject(PreferredFocusAfterContextHelp());
+            contextHelpPriorFocus = null;
             if (notify) ContextHelpClosed?.Invoke();
         }
+
+        private void LockContextHelpBackgroundControls()
+        {
+            contextHelpBackgroundStates.Clear();
+            Transform modalRoot = ContextHelpPanel.transform;
+            foreach (Selectable selectable in GetComponentsInChildren<Selectable>(true))
+            {
+                if (selectable == null || selectable.transform.IsChildOf(modalRoot)) continue;
+                contextHelpBackgroundStates.Add(selectable, selectable.interactable);
+                selectable.interactable = false;
+            }
+        }
+
+        private void RestoreContextHelpBackgroundControls()
+        {
+            foreach (KeyValuePair<Selectable, bool> state in contextHelpBackgroundStates)
+            {
+                if (state.Key != null) state.Key.interactable = state.Value;
+            }
+            contextHelpBackgroundStates.Clear();
+        }
+
+        private GameObject? PreferredFocusAfterContextHelp()
+        {
+            if (contextHelpPriorFocus != null &&
+                contextHelpPriorFocus.TryGetComponent(out Selectable prior) && IsEligible(prior))
+                return contextHelpPriorFocus;
+
+            Selectable? action = ActionRoot.GetComponentsInChildren<Button>(false)
+                .FirstOrDefault(IsEligible);
+            if (action != null) return action.gameObject;
+
+            var fallbacks = new List<Selectable>();
+            if (IsTutorialVisible)
+            {
+                if (tutorialContinueButton != null) fallbacks.Add(tutorialContinueButton);
+                if (tutorialExitButton != null) fallbacks.Add(tutorialExitButton);
+            }
+            if (helpButton != null) fallbacks.Add(helpButton);
+            if (settingsButton != null) fallbacks.Add(settingsButton);
+            if (rulesButton != null) fallbacks.Add(rulesButton);
+            return fallbacks.FirstOrDefault(IsEligible)?.gameObject;
+        }
+
+        private static bool IsEligible(Selectable selectable) =>
+            selectable != null && selectable.gameObject.activeInHierarchy &&
+            selectable.IsActive() && selectable.IsInteractable();
 
         private void OnDestroy()
         {
             if (helpButton != null) helpButton.onClick.RemoveListener(ShowContextHelp);
+            if (settingsButton != null)
+                settingsButton.onClick.RemoveListener(HandleSettings);
             if (rulesButton != null) rulesButton.onClick.RemoveListener(HandleRules);
             if (closeHelpButton != null) closeHelpButton.onClick.RemoveListener(HideContextHelp);
             if (tutorialContinueButton != null)
                 tutorialContinueButton.onClick.RemoveListener(HandleTutorialContinue);
             if (tutorialExitButton != null)
                 tutorialExitButton.onClick.RemoveListener(HandleTutorialExit);
+            contextHelpBackgroundStates.Clear();
+            contextHelpPriorFocus = null;
             ClearActionButtons();
         }
 
         private void HandleRules()
         {
-            if (!IsPresentationLocked) RulesRequested?.Invoke();
+            if (!IsPresentationLocked && !IsExternalModalLocked &&
+                !IsContextHelpVisible) RulesRequested?.Invoke();
         }
-        private void HandleTutorialContinue() => TutorialContinueRequested?.Invoke();
-        private void HandleTutorialExit() => TutorialExitRequested?.Invoke();
-
-        private void ResetFeedbackColors()
+        private void HandleSettings()
         {
-            Color normal = new Color(0.96f, 0.94f, 0.82f, 1f);
-            StatusLabel.color = normal;
-            StockLabel.color = normal;
-            DiscardLabel.color = normal;
-            HumanHandLabel.color = normal;
-            ActionSummaryLabel.color = normal;
+            if (!IsPresentationLocked && !IsExternalModalLocked &&
+                !IsContextHelpVisible) SettingsRequested?.Invoke();
+        }
+        private void HandleTutorialContinue()
+        {
+            if (!IsPresentationLocked && !IsExternalModalLocked &&
+                !IsContextHelpVisible) TutorialContinueRequested?.Invoke();
+        }
+        private void HandleTutorialExit()
+        {
+            if (!IsExternalModalLocked && !IsContextHelpVisible)
+                TutorialExitRequested?.Invoke();
         }
 
         private static Text Required(Text? value, string name) => value ??
             throw new InvalidOperationException("Match control is not configured: " + name);
         private static InvalidOperationException Missing(string name) =>
             new InvalidOperationException("Match control is not configured: " + name);
+
+        private void RefreshStaticButtonText()
+        {
+            SetButtonText(helpButton, "common.help");
+            SetButtonText(settingsButton, "common.settings");
+            SetButtonText(rulesButton, "common.rules");
+            SetButtonText(closeHelpButton, "common.close");
+            SetButtonText(tutorialContinueButton, "tutorial.continue_start");
+            SetButtonText(tutorialExitButton, "tutorial.exit");
+        }
+
+        private void SetButtonText(Button? button, string key)
+        {
+            Text? label = button?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get(key);
+        }
     }
 }

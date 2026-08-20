@@ -12,6 +12,7 @@ namespace TrumpLab.Product
         [SerializeField] private Button? detailsButton;
         [SerializeField] private Button? rematchButton;
         [SerializeField] private Button? titleButton;
+        private IProductText text = ProductTextCatalog.English;
 
         public override ScreenId Id => ScreenId.Result;
         public Text SummaryLabel => summaryLabel ?? throw new InvalidOperationException(
@@ -27,14 +28,21 @@ namespace TrumpLab.Product
             detailsButton = details;
             rematchButton = rematch;
             titleButton = title;
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshButtonText();
         }
 
         public void Render(ResultViewModel model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
             LastOutcome = model.Outcome;
-            SummaryLabel.text = OutcomeSymbol(model.Outcome) + "  " + model.Summary;
-            SummaryLabel.color = OutcomeColor(model.Outcome);
+            SummaryLabel.text = text.Get("result.with_marker",
+                OutcomeMarker(model.Outcome), model.Summary);
         }
 
         private void Awake()
@@ -58,33 +66,31 @@ namespace TrumpLab.Product
         private void HandleRematch() => RematchRequested?.Invoke();
         private void HandleTitle() => TitleRequested?.Invoke();
 
-        private static string OutcomeSymbol(ProductResultOutcome outcome)
+        private string OutcomeMarker(ProductResultOutcome outcome)
         {
             switch (outcome)
             {
-                case ProductResultOutcome.Win: return "★ WIN";
-                case ProductResultOutcome.Loss: return "◆ LOSS";
-                case ProductResultOutcome.Draw: return "= DRAW";
+                case ProductResultOutcome.Win: return text.Get("result.marker_win");
+                case ProductResultOutcome.Loss: return text.Get("result.marker_loss");
+                case ProductResultOutcome.Draw: return text.Get("result.marker_draw");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(outcome), outcome,
                         "Unknown product result outcome.");
             }
         }
 
-        private static Color OutcomeColor(ProductResultOutcome outcome)
+        private void RefreshButtonText()
         {
-            switch (outcome)
-            {
-                case ProductResultOutcome.Win:
-                    return new Color(0.98f, 0.84f, 0.28f, 1f);
-                case ProductResultOutcome.Loss:
-                    return new Color(0.98f, 0.52f, 0.48f, 1f);
-                case ProductResultOutcome.Draw:
-                    return new Color(0.62f, 0.84f, 0.98f, 1f);
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(outcome), outcome,
-                        "Unknown product result outcome.");
-            }
+            SetButtonText(detailsButton, "result.details");
+            SetButtonText(rematchButton, "result.rematch");
+            SetButtonText(titleButton, "common.title");
         }
+
+        private void SetButtonText(Button? button, string key)
+        {
+            Text? label = button?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get(key);
+        }
+
     }
 }

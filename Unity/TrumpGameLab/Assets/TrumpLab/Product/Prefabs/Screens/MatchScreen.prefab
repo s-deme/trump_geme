@@ -13,6 +13,9 @@ GameObject:
   - component: {fileID: 537878411813201410}
   - component: {fileID: 8630002355784561895}
   - component: {fileID: 5147166760248044738}
+  - component: {fileID: 2074464181205713210}
+  - component: {fileID: 7339945935853619959}
+  - component: {fileID: 2937095930670488570}
   m_Layer: 0
   m_Name: ActionButtonTemplate
   m_TagString: Untagged
@@ -32,7 +35,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7293295378942436122}
+  - {fileID: 210766473830544217}
   m_Father: {fileID: 1842979384808052929}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -61,7 +64,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -135,7 +138,55 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &498652962767828189
+--- !u!114 &2074464181205713210
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241546494382113843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 537878411813201410}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &7339945935853619959
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241546494382113843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 5147166760248044738}
+  focusOutline: {fileID: 2937095930670488570}
+  labelKey: match.action_control
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &2937095930670488570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 241546494382113843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
+--- !u!1 &892061889246226855
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -143,9 +194,11 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7293295378942436122}
-  - component: {fileID: 3854120965896323831}
-  - component: {fileID: 7434012760366928059}
+  - component: {fileID: 2295140369883254662}
+  - component: {fileID: 2090818517690954763}
+  - component: {fileID: 7826913519517878922}
+  - component: {fileID: 3425975398467996911}
+  - component: {fileID: 3507912798011053087}
   m_Layer: 0
   m_Name: Label
   m_TagString: Untagged
@@ -153,47 +206,47 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!224 &7293295378942436122
+--- !u!224 &2295140369883254662
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 498652962767828189}
+  m_GameObject: {fileID: 892061889246226855}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 4171733889170556152}
+  m_Father: {fileID: 8884382443398129041}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &3854120965896323831
+--- !u!222 &2090818517690954763
 CanvasRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 498652962767828189}
+  m_GameObject: {fileID: 892061889246226855}
   m_CullTransparentMesh: 1
---- !u!114 &7434012760366928059
+--- !u!114 &7826913519517878922
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 498652962767828189}
+  m_GameObject: {fileID: 892061889246226855}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -213,7 +266,152 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Action
+  m_Text: Settings
+--- !u!114 &3425975398467996911
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892061889246226855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 7826913519517878922}
+  contentMode: 0
+  stableKey: match.settings
+  baseFontSize: 28
+--- !u!114 &3507912798011053087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892061889246226855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 7826913519517878922}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!1 &928889955125488130
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8771739826444356095}
+  - component: {fileID: 7905913351146601216}
+  - component: {fileID: 1932680534142907168}
+  - component: {fileID: 7716148100154978761}
+  - component: {fileID: 4090889821306018261}
+  m_Layer: 0
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &8771739826444356095
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 928889955125488130}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7650426540513676839}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7905913351146601216
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 928889955125488130}
+  m_CullTransparentMesh: 1
+--- !u!114 &1932680534142907168
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 928889955125488130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 20
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 4
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
+    m_LineSpacing: 1
+  m_Text: Start guided match
+--- !u!114 &7716148100154978761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 928889955125488130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 1932680534142907168}
+  contentMode: 1
+  stableKey: tutorial.continue_start
+  baseFontSize: 20
+--- !u!114 &4090889821306018261
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 928889955125488130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 1932680534142907168}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &982794433190541108
 GameObject:
   m_ObjectHideFlags: 0
@@ -225,6 +423,7 @@ GameObject:
   - component: {fileID: 8711753920908997845}
   - component: {fileID: 6045391986239316644}
   - component: {fileID: 114177461846637616}
+  - component: {fileID: 8806070650915620865}
   m_Layer: 0
   m_Name: ContextHelpPanel
   m_TagString: Untagged
@@ -248,8 +447,8 @@ RectTransform:
   - {fileID: 8747164978899694741}
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.16, y: 0.12}
-  m_AnchorMax: {x: 0.84, y: 0.86}
+  m_AnchorMin: {x: 0.16, y: 0.02}
+  m_AnchorMax: {x: 0.84, y: 0.98}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -274,7 +473,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.035, g: 0.12, b: 0.09, a: 0.98}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -291,6 +490,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8806070650915620865
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 982794433190541108}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 114177461846637616}
+  baseRole: 1
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &1260031871184979014
 GameObject:
   m_ObjectHideFlags: 0
@@ -302,6 +517,8 @@ GameObject:
   - component: {fileID: 4287891398029215038}
   - component: {fileID: 7761892792247432602}
   - component: {fileID: 8940120232211157173}
+  - component: {fileID: 7945953683618363411}
+  - component: {fileID: 5239779873045375135}
   m_Layer: 0
   m_Name: ContextHelpText
   m_TagString: Untagged
@@ -323,8 +540,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 8711753920908997845}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.06, y: 0.16}
-  m_AnchorMax: {x: 0.94, y: 0.92}
+  m_AnchorMin: {x: 0.06, y: 0.085}
+  m_AnchorMax: {x: 0.94, y: 0.98}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -349,7 +566,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -358,7 +575,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 24
+    m_FontSize: 20
     m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
@@ -369,7 +586,39 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Current legal actions and their reasons appear here.
+  m_Text: The opening card is an 8. Choose the suit that starts the match.
+--- !u!114 &7945953683618363411
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260031871184979014}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 8940120232211157173}
+  contentMode: 1
+  stableKey: match.context_opening
+  baseFontSize: 20
+--- !u!114 &5239779873045375135
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260031871184979014}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 8940120232211157173}
+  baseRole: 2
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &1833743478850225285
 GameObject:
   m_ObjectHideFlags: 0
@@ -383,6 +632,9 @@ GameObject:
   - component: {fileID: 5888616262860840995}
   - component: {fileID: 6303131233725120965}
   - component: {fileID: 5609964341944335368}
+  - component: {fileID: 1821812784609621575}
+  - component: {fileID: 6123716500597868634}
+  - component: {fileID: 7222014075333781835}
   m_Layer: 0
   m_Name: HelpButton
   m_TagString: Untagged
@@ -402,12 +654,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8876883101347316392}
+  - {fileID: 4487678647683370787}
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 790, y: 455}
+  m_AnchoredPosition: {x: 710, y: 435}
   m_SizeDelta: {x: 170, y: 56}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7220377760556344830
@@ -431,7 +683,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -505,6 +757,54 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &1821812784609621575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833743478850225285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 5888616262860840995}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &6123716500597868634
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833743478850225285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 5609964341944335368}
+  focusOutline: {fileID: 7222014075333781835}
+  labelKey: match.help
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &7222014075333781835
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833743478850225285}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
 --- !u!1 &1959672423813296887
 GameObject:
   m_ObjectHideFlags: 0
@@ -516,6 +816,8 @@ GameObject:
   - component: {fileID: 8631611479035619589}
   - component: {fileID: 7286670362193813704}
   - component: {fileID: 4555947895690739354}
+  - component: {fileID: 7602993961502628835}
+  - component: {fileID: 1088358026916758621}
   m_Layer: 0
   m_Name: Status
   m_TagString: Untagged
@@ -563,7 +865,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -583,7 +885,39 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Player 1 turn
+  m_Text: Your turn  -  Turn 1
+--- !u!114 &7602993961502628835
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1959672423813296887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 4555947895690739354}
+  contentMode: 1
+  stableKey: match.status_human
+  baseFontSize: 34
+--- !u!114 &1088358026916758621
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1959672423813296887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 4555947895690739354}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &2074500705393486922
 GameObject:
   m_ObjectHideFlags: 0
@@ -642,10 +976,10 @@ MonoBehaviour:
   m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 225, y: 72}
+  m_CellSize: {x: 225, y: 190}
   m_Spacing: {x: 10, y: 8}
   m_Constraint: 1
-  m_ConstraintCount: 5
+  m_ConstraintCount: 4
 --- !u!114 &4331537031467149451
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -671,6 +1005,8 @@ GameObject:
   - component: {fileID: 391614231841211464}
   - component: {fileID: 1154218186536070666}
   - component: {fileID: 3931593961159151933}
+  - component: {fileID: 2104453934894040882}
+  - component: {fileID: 7545749150405910776}
   m_Layer: 0
   m_Name: OpponentHand
   m_TagString: Untagged
@@ -718,7 +1054,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -738,7 +1074,39 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "CPU hand: \u25A0 \u25A0 \u25A0 \u25A0 \u25A0 \u25A0 \u25A0"
+  m_Text: 'CPU hand: # # # # # # #'
+--- !u!114 &2104453934894040882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2302682404889140708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 3931593961159151933}
+  contentMode: 1
+  stableKey: match.opponent_hand
+  baseFontSize: 30
+--- !u!114 &7545749150405910776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2302682404889140708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 3931593961159151933}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &2441381516268000788
 GameObject:
   m_ObjectHideFlags: 0
@@ -752,6 +1120,9 @@ GameObject:
   - component: {fileID: 8775392433734150687}
   - component: {fileID: 2751709687560127033}
   - component: {fileID: 6183054614920136830}
+  - component: {fileID: 2431044123044524395}
+  - component: {fileID: 7780604964484654675}
+  - component: {fileID: 4381070068338303559}
   m_Layer: 0
   m_Name: TutorialExitButton
   m_TagString: Untagged
@@ -771,13 +1142,13 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7023453649608730422}
+  - {fileID: 493941511666290255}
   m_Father: {fileID: 6716429186320981843}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 545, y: -95}
-  m_SizeDelta: {x: 200, y: 64}
+  m_AnchoredPosition: {x: 550, y: -95}
+  m_SizeDelta: {x: 220, y: 96}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7242647814564518946
 CanvasRenderer:
@@ -800,7 +1171,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -874,85 +1245,54 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &2526255717556012603
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2532559804078780430}
-  - component: {fileID: 2114834196007482353}
-  - component: {fileID: 2008540076198779899}
-  m_Layer: 0
-  m_Name: Label
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &2532559804078780430
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2526255717556012603}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 7650426540513676839}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &2114834196007482353
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2526255717556012603}
-  m_CullTransparentMesh: 1
---- !u!114 &2008540076198779899
+--- !u!114 &2431044123044524395
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2526255717556012603}
+  m_GameObject: {fileID: 2441381516268000788}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
-  m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 28
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
-    m_Alignment: 4
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
-    m_LineSpacing: 1
-  m_Text: Start guided match
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 8775392433734150687}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &7780604964484654675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2441381516268000788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 6183054614920136830}
+  focusOutline: {fileID: 4381070068338303559}
+  labelKey: tutorial.exit
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &4381070068338303559
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2441381516268000788}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
 --- !u!1 &2693229160932114319
 GameObject:
   m_ObjectHideFlags: 0
@@ -966,6 +1306,9 @@ GameObject:
   - component: {fileID: 845063287878381672}
   - component: {fileID: 7027126511517403323}
   - component: {fileID: 9068263736344746239}
+  - component: {fileID: 5655445696401902218}
+  - component: {fileID: 3532444828673487304}
+  - component: {fileID: 4109799565869977512}
   m_Layer: 0
   m_Name: RulesButton
   m_TagString: Untagged
@@ -985,12 +1328,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 4863759248321043429}
+  - {fileID: 8500375191576877758}
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 790, y: 385}
+  m_AnchoredPosition: {x: 710, y: 295}
   m_SizeDelta: {x: 170, y: 56}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6859989144424216361
@@ -1014,7 +1357,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1088,7 +1431,55 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &2961698283712882858
+--- !u!114 &5655445696401902218
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2693229160932114319}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 845063287878381672}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &3532444828673487304
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2693229160932114319}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 9068263736344746239}
+  focusOutline: {fileID: 4109799565869977512}
+  labelKey: match.rules
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &4109799565869977512
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2693229160932114319}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
+--- !u!1 &2755020300756968129
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1096,77 +1487,184 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 4863759248321043429}
-  - component: {fileID: 2618550295160507334}
-  - component: {fileID: 1590843898533596236}
+  - component: {fileID: 8884382443398129041}
+  - component: {fileID: 4275886948949848263}
+  - component: {fileID: 2727430693271593988}
+  - component: {fileID: 6242865447022570327}
+  - component: {fileID: 3304264994136689018}
+  - component: {fileID: 438785416979439316}
+  - component: {fileID: 4710345429780984741}
+  - component: {fileID: 4643646397396791834}
   m_Layer: 0
-  m_Name: Label
+  m_Name: SettingsButton
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!224 &4863759248321043429
+--- !u!224 &8884382443398129041
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2961698283712882858}
+  m_GameObject: {fileID: 2755020300756968129}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8750714712625888262}
+  m_Children:
+  - {fileID: 2295140369883254662}
+  m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 710, y: 365}
+  m_SizeDelta: {x: 170, y: 56}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &2618550295160507334
+--- !u!222 &4275886948949848263
 CanvasRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2961698283712882858}
+  m_GameObject: {fileID: 2755020300756968129}
   m_CullTransparentMesh: 1
---- !u!114 &1590843898533596236
+--- !u!114 &2727430693271593988
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2961698283712882858}
+  m_GameObject: {fileID: 2755020300756968129}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
-  m_RaycastTarget: 0
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 28
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
-    m_Alignment: 4
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
-    m_LineSpacing: 1
-  m_Text: Rules
+  m_Sprite: {fileID: 0}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6242865447022570327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2755020300756968129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 010babe84d8d4824686716f2cd814f0f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductUiFeedbackEmitter
+  submitFeedbackEnabled: 1
+--- !u!114 &3304264994136689018
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2755020300756968129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
+  m_Navigation:
+    m_Mode: 3
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  m_Transition: 1
+  m_Colors:
+    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
+    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  m_SpriteState:
+    m_HighlightedSprite: {fileID: 0}
+    m_PressedSprite: {fileID: 0}
+    m_SelectedSprite: {fileID: 0}
+    m_DisabledSprite: {fileID: 0}
+  m_AnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  m_Interactable: 1
+  m_TargetGraphic: {fileID: 2727430693271593988}
+  m_OnClick:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &438785416979439316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2755020300756968129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 2727430693271593988}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &4710345429780984741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2755020300756968129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 3304264994136689018}
+  focusOutline: {fileID: 4643646397396791834}
+  labelKey: match.settings
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &4643646397396791834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2755020300756968129}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
 --- !u!1 &3597485959928231630
 GameObject:
   m_ObjectHideFlags: 0
@@ -1178,6 +1676,8 @@ GameObject:
   - component: {fileID: 6257241759469693984}
   - component: {fileID: 1001688732328181164}
   - component: {fileID: 3377140391357244892}
+  - component: {fileID: 3286491239684181668}
+  - component: {fileID: 5437379011266811673}
   m_Layer: 0
   m_Name: TutorialProgress
   m_TagString: Untagged
@@ -1225,7 +1725,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1246,6 +1746,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Step 1 / 6
+--- !u!114 &3286491239684181668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3597485959928231630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 3377140391357244892}
+  contentMode: 1
+  stableKey: tutorial.progress
+  baseFontSize: 22
+--- !u!114 &5437379011266811673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3597485959928231630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 3377140391357244892}
+  baseRole: 2
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4194826505458159945
 GameObject:
   m_ObjectHideFlags: 0
@@ -1258,6 +1790,7 @@ GameObject:
   - component: {fileID: 950224333060908874}
   - component: {fileID: 5580066258260003805}
   - component: {fileID: 119640662838222642}
+  - component: {fileID: 1475892486724950101}
   m_Layer: 0
   m_Name: MatchScreen
   m_TagString: Untagged
@@ -1285,6 +1818,7 @@ RectTransform:
   - {fileID: 7996524997501444082}
   - {fileID: 3768972729043472760}
   - {fileID: 6538159153071885506}
+  - {fileID: 8884382443398129041}
   - {fileID: 8750714712625888262}
   - {fileID: 8711753920908997845}
   - {fileID: 6716429186320981843}
@@ -1316,7 +1850,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.035, g: 0.12, b: 0.09, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1354,6 +1888,7 @@ MonoBehaviour:
   actionRoot: {fileID: 1842979384808052929}
   actionButtonTemplate: {fileID: 5147166760248044738}
   helpButton: {fileID: 5609964341944335368}
+  settingsButton: {fileID: 3304264994136689018}
   rulesButton: {fileID: 9068263736344746239}
   contextHelpPanel: {fileID: 982794433190541108}
   contextHelpLabel: {fileID: 8940120232211157173}
@@ -1365,6 +1900,22 @@ MonoBehaviour:
   tutorialGuidanceLabel: {fileID: 608045802446127871}
   tutorialContinueButton: {fileID: 5870442835998746216}
   tutorialExitButton: {fileID: 6183054614920136830}
+--- !u!114 &1475892486724950101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4194826505458159945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 5580066258260003805}
+  baseRole: 0
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4231668253664819375
 GameObject:
   m_ObjectHideFlags: 0
@@ -1376,6 +1927,8 @@ GameObject:
   - component: {fileID: 3768972729043472760}
   - component: {fileID: 2285546867659673565}
   - component: {fileID: 609016367252596687}
+  - component: {fileID: 4596700161463549714}
+  - component: {fileID: 2749012683196529719}
   m_Layer: 0
   m_Name: ActionSummary
   m_TagString: Untagged
@@ -1397,8 +1950,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.18, y: 0.2}
-  m_AnchorMax: {x: 0.82, y: 0.25}
+  m_AnchorMin: {x: 0.18, y: 0.22}
+  m_AnchorMax: {x: 0.82, y: 0.27}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -1423,7 +1976,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1443,7 +1996,39 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Legal action buttons appear here
+  m_Text: Input locked while the CPU acts.
+--- !u!114 &4596700161463549714
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4231668253664819375}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 609016367252596687}
+  contentMode: 1
+  stableKey: match.action_summary_locked
+  baseFontSize: 22
+--- !u!114 &2749012683196529719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4231668253664819375}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 609016367252596687}
+  baseRole: 2
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4295481400554640276
 GameObject:
   m_ObjectHideFlags: 0
@@ -1455,6 +2040,8 @@ GameObject:
   - component: {fileID: 217186309540765480}
   - component: {fileID: 7056627652856644908}
   - component: {fileID: 8028298616645260756}
+  - component: {fileID: 3676711004731227560}
+  - component: {fileID: 1526894224898264523}
   m_Layer: 0
   m_Name: Stock
   m_TagString: Untagged
@@ -1502,7 +2089,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1523,85 +2110,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: 'Stock: 37'
---- !u!1 &4501309012643138753
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 8876883101347316392}
-  - component: {fileID: 2372086769294910785}
-  - component: {fileID: 4596234402530960197}
-  m_Layer: 0
-  m_Name: Label
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &8876883101347316392
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4501309012643138753}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 6538159153071885506}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
-  m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &2372086769294910785
-CanvasRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4501309012643138753}
-  m_CullTransparentMesh: 1
---- !u!114 &4596234402530960197
+--- !u!114 &3676711004731227560
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4501309012643138753}
+  m_GameObject: {fileID: 4295481400554640276}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
-  m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
-  m_RaycastTarget: 0
-  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
-  m_OnCullStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 28
-    m_FontStyle: 0
-    m_BestFit: 0
-    m_MinSize: 10
-    m_MaxSize: 40
-    m_Alignment: 4
-    m_AlignByGeometry: 0
-    m_RichText: 1
-    m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
-    m_LineSpacing: 1
-  m_Text: Help
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 8028298616645260756}
+  contentMode: 1
+  stableKey: match.stock
+  baseFontSize: 30
+--- !u!114 &1526894224898264523
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4295481400554640276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 8028298616645260756}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4537395564885687086
 GameObject:
   m_ObjectHideFlags: 0
@@ -1613,6 +2153,8 @@ GameObject:
   - component: {fileID: 2727171212201485100}
   - component: {fileID: 5692371613248923624}
   - component: {fileID: 4782205913643858964}
+  - component: {fileID: 643192135356364393}
+  - component: {fileID: 2151789088506624962}
   m_Layer: 0
   m_Name: TutorialInstruction
   m_TagString: Untagged
@@ -1634,8 +2176,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 6716429186320981843}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.04, y: 0.43}
-  m_AnchorMax: {x: 0.96, y: 0.74}
+  m_AnchorMin: {x: 0.04, y: 0.4}
+  m_AnchorMax: {x: 0.96, y: 0.7}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -1660,7 +2202,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1680,7 +2222,39 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Find your hand, the CPU count, stock, discard, and turn label.
+  m_Text: Find your hand, the CPU card count, stock, discard, and turn label.
+--- !u!114 &643192135356364393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4537395564885687086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 4782205913643858964}
+  contentMode: 1
+  stableKey: tutorial.intro
+  baseFontSize: 22
+--- !u!114 &2151789088506624962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4537395564885687086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 4782205913643858964}
+  baseRole: 2
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4544908128955471950
 GameObject:
   m_ObjectHideFlags: 0
@@ -1692,6 +2266,8 @@ GameObject:
   - component: {fileID: 6716986057216347972}
   - component: {fileID: 3752898188832434336}
   - component: {fileID: 4539384567642390850}
+  - component: {fileID: 676146010213495440}
+  - component: {fileID: 2565934510121078114}
   m_Layer: 0
   m_Name: TutorialHeading
   m_TagString: Untagged
@@ -1739,7 +2315,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1760,6 +2336,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Meet the table
+--- !u!114 &676146010213495440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4544908128955471950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 4539384567642390850}
+  contentMode: 1
+  stableKey: tutorial.intro.heading
+  baseFontSize: 30
+--- !u!114 &2565934510121078114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4544908128955471950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 4539384567642390850}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4615354320527569294
 GameObject:
   m_ObjectHideFlags: 0
@@ -1771,6 +2379,8 @@ GameObject:
   - component: {fileID: 6026826456934469760}
   - component: {fileID: 28845400911002494}
   - component: {fileID: 1003576889707216816}
+  - component: {fileID: 4336901931052440739}
+  - component: {fileID: 3066839467346575589}
   m_Layer: 0
   m_Name: HumanHand
   m_TagString: Untagged
@@ -1792,8 +2402,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.12, y: 0.25}
-  m_AnchorMax: {x: 0.88, y: 0.37}
+  m_AnchorMin: {x: 0.12, y: 0.29}
+  m_AnchorMax: {x: 0.88, y: 0.4}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -1818,7 +2428,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1839,6 +2449,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: 'Your hand: AC 3D 4H 7S 8C 10D KH'
+--- !u!114 &4336901931052440739
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4615354320527569294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 1003576889707216816}
+  contentMode: 1
+  stableKey: match.human_hand
+  baseFontSize: 30
+--- !u!114 &3066839467346575589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4615354320527569294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 1003576889707216816}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4637312428846594507
 GameObject:
   m_ObjectHideFlags: 0
@@ -1850,6 +2492,7 @@ GameObject:
   - component: {fileID: 6716429186320981843}
   - component: {fileID: 1847021007505994956}
   - component: {fileID: 8410185540550615602}
+  - component: {fileID: 7512620126977393040}
   m_Layer: 0
   m_Name: TutorialPanel
   m_TagString: Untagged
@@ -1877,8 +2520,8 @@ RectTransform:
   - {fileID: 6735424178615428748}
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.12, y: 0.55}
-  m_AnchorMax: {x: 0.88, y: 0.86}
+  m_AnchorMin: {x: 0.1, y: 0.55}
+  m_AnchorMax: {x: 0.9, y: 0.86}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -1903,7 +2546,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.08, g: 0.18, b: 0.14, a: 0.98}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1920,6 +2563,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &7512620126977393040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4637312428846594507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 8410185540550615602}
+  baseRole: 1
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &4730607802937050624
 GameObject:
   m_ObjectHideFlags: 0
@@ -1931,6 +2590,8 @@ GameObject:
   - component: {fileID: 992892562455664694}
   - component: {fileID: 1724282181866816633}
   - component: {fileID: 608045802446127871}
+  - component: {fileID: 1976065149497313074}
+  - component: {fileID: 5833226318595250201}
   m_Layer: 0
   m_Name: TutorialGuidance
   m_TagString: Untagged
@@ -1952,8 +2613,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 6716429186320981843}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.04, y: 0.08}
-  m_AnchorMax: {x: 0.65, y: 0.43}
+  m_AnchorMin: {x: 0.04, y: 0.1}
+  m_AnchorMax: {x: 0.5, y: 0.37}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -1978,7 +2639,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1999,7 +2660,39 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: This guide uses a normal Crazy Eights game with a fixed seed.
---- !u!1 &5393246307520093463
+--- !u!114 &1976065149497313074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4730607802937050624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 608045802446127871}
+  contentMode: 1
+  stableKey: tutorial.guidance_default
+  baseFontSize: 20
+--- !u!114 &5833226318595250201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4730607802937050624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 608045802446127871}
+  baseRole: 2
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!1 &5162916412461636230
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2007,9 +2700,11 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2447595496906682492}
-  - component: {fileID: 9036281284483805165}
-  - component: {fileID: 2961500217798569358}
+  - component: {fileID: 3901027720283663995}
+  - component: {fileID: 8308654295291411082}
+  - component: {fileID: 6319274782284048405}
+  - component: {fileID: 9041166074275124203}
+  - component: {fileID: 4007529017929470926}
   m_Layer: 0
   m_Name: Label
   m_TagString: Untagged
@@ -2017,13 +2712,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!224 &2447595496906682492
+--- !u!224 &3901027720283663995
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5393246307520093463}
+  m_GameObject: {fileID: 5162916412461636230}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -2036,28 +2731,28 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &9036281284483805165
+--- !u!222 &8308654295291411082
 CanvasRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5393246307520093463}
+  m_GameObject: {fileID: 5162916412461636230}
   m_CullTransparentMesh: 1
---- !u!114 &2961500217798569358
+--- !u!114 &6319274782284048405
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5393246307520093463}
+  m_GameObject: {fileID: 5162916412461636230}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2078,6 +2773,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Close
+--- !u!114 &9041166074275124203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5162916412461636230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 6319274782284048405}
+  contentMode: 0
+  stableKey: match.close_help
+  baseFontSize: 28
+--- !u!114 &4007529017929470926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5162916412461636230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 6319274782284048405}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &5472865596583603060
 GameObject:
   m_ObjectHideFlags: 0
@@ -2089,6 +2816,8 @@ GameObject:
   - component: {fileID: 5007643585346653185}
   - component: {fileID: 9065630152715590545}
   - component: {fileID: 2714189167020426714}
+  - component: {fileID: 3262367918798537003}
+  - component: {fileID: 5714784232260528012}
   m_Layer: 0
   m_Name: Discard
   m_TagString: Untagged
@@ -2136,7 +2865,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2157,6 +2886,151 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: 'Discard: 7H'
+--- !u!114 &3262367918798537003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5472865596583603060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 2714189167020426714}
+  contentMode: 1
+  stableKey: match.discard
+  baseFontSize: 30
+--- !u!114 &5714784232260528012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5472865596583603060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 2714189167020426714}
+  baseRole: 3
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!1 &5753660424218714932
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4487678647683370787}
+  - component: {fileID: 776459045552407820}
+  - component: {fileID: 6735055379243747700}
+  - component: {fileID: 4637381928544339305}
+  - component: {fileID: 3057376629718397960}
+  m_Layer: 0
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4487678647683370787
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5753660424218714932}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6538159153071885506}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &776459045552407820
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5753660424218714932}
+  m_CullTransparentMesh: 1
+--- !u!114 &6735055379243747700
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5753660424218714932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 28
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 4
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
+    m_LineSpacing: 1
+  m_Text: Help
+--- !u!114 &4637381928544339305
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5753660424218714932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 6735055379243747700}
+  contentMode: 0
+  stableKey: match.help
+  baseFontSize: 28
+--- !u!114 &3057376629718397960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5753660424218714932}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 6735055379243747700}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &6276431923220520072
 GameObject:
   m_ObjectHideFlags: 0
@@ -2170,6 +3044,9 @@ GameObject:
   - component: {fileID: 2516661620135386044}
   - component: {fileID: 8475416219641881944}
   - component: {fileID: 4608937186993251671}
+  - component: {fileID: 3570289733041509978}
+  - component: {fileID: 6984453035999364885}
+  - component: {fileID: 906256465243509399}
   m_Layer: 0
   m_Name: CloseHelpButton
   m_TagString: Untagged
@@ -2189,12 +3066,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2447595496906682492}
+  - {fileID: 3901027720283663995}
   m_Father: {fileID: 8711753920908997845}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -330}
+  m_AnchorMin: {x: 0.5, y: 0.035}
+  m_AnchorMax: {x: 0.5, y: 0.035}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 240, y: 72}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3098118229444361366
@@ -2218,7 +3095,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2292,7 +3169,55 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
---- !u!1 &7514881344915508807
+--- !u!114 &3570289733041509978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6276431923220520072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 2516661620135386044}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &6984453035999364885
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6276431923220520072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 4608937186993251671}
+  focusOutline: {fileID: 906256465243509399}
+  labelKey: match.close_help
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &906256465243509399
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6276431923220520072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
+--- !u!1 &6310970947096375882
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2300,9 +3225,11 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7023453649608730422}
-  - component: {fileID: 5831298131925161645}
-  - component: {fileID: 5123113459966954382}
+  - component: {fileID: 8500375191576877758}
+  - component: {fileID: 6342357968162476688}
+  - component: {fileID: 5528566613989439304}
+  - component: {fileID: 5418751853126924349}
+  - component: {fileID: 4931577345526252102}
   m_Layer: 0
   m_Name: Label
   m_TagString: Untagged
@@ -2310,47 +3237,47 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!224 &7023453649608730422
+--- !u!224 &8500375191576877758
 RectTransform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7514881344915508807}
+  m_GameObject: {fileID: 6310970947096375882}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 6735424178615428748}
+  m_Father: {fileID: 8750714712625888262}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!222 &5831298131925161645
+--- !u!222 &6342357968162476688
 CanvasRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7514881344915508807}
+  m_GameObject: {fileID: 6310970947096375882}
   m_CullTransparentMesh: 1
---- !u!114 &5123113459966954382
+--- !u!114 &5528566613989439304
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7514881344915508807}
+  m_GameObject: {fileID: 6310970947096375882}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
-  m_Color: {r: 0.96, g: 0.94, b: 0.82, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2370,7 +3297,154 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Exit tutorial
+  m_Text: Rules
+--- !u!114 &5418751853126924349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6310970947096375882}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 5528566613989439304}
+  contentMode: 0
+  stableKey: match.rules
+  baseFontSize: 28
+--- !u!114 &4931577345526252102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6310970947096375882}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 5528566613989439304}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!1 &6983378248695073466
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 210766473830544217}
+  - component: {fileID: 7850230910343411029}
+  - component: {fileID: 5445126223169301155}
+  - component: {fileID: 3585266807221568410}
+  - component: {fileID: 3019651621510786059}
+  m_Layer: 0
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &210766473830544217
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6983378248695073466}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4171733889170556152}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &7850230910343411029
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6983378248695073466}
+  m_CullTransparentMesh: 1
+--- !u!114 &5445126223169301155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6983378248695073466}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 17
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 4
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
+    m_LineSpacing: 1
+  m_Text: '1 2
+
+    3'
+--- !u!114 &3585266807221568410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6983378248695073466}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 5445126223169301155}
+  contentMode: 1
+  stableKey: match.action_button
+  baseFontSize: 17
+--- !u!114 &3019651621510786059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6983378248695073466}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 5445126223169301155}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &8494073893598877498
 GameObject:
   m_ObjectHideFlags: 0
@@ -2384,6 +3458,9 @@ GameObject:
   - component: {fileID: 509361321897132895}
   - component: {fileID: 2790308091541701860}
   - component: {fileID: 5870442835998746216}
+  - component: {fileID: 3379454814054143558}
+  - component: {fileID: 4670320040957989830}
+  - component: {fileID: 2520510011824297283}
   m_Layer: 0
   m_Name: TutorialContinueButton
   m_TagString: Untagged
@@ -2403,13 +3480,13 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2532559804078780430}
+  - {fileID: 8771739826444356095}
   m_Father: {fileID: 6716429186320981843}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 315, y: -95}
-  m_SizeDelta: {x: 320, y: 64}
+  m_AnchoredPosition: {x: 230, y: -95}
+  m_SizeDelta: {x: 380, y: 96}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6488765114819116418
 CanvasRenderer:
@@ -2432,7 +3509,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.42, b: 0.29, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2506,6 +3583,167 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &3379454814054143558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8494073893598877498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 509361321897132895}
+  baseRole: 5
+  preserveAlpha: 0
+  hasBaseRole: 1
+--- !u!114 &4670320040957989830
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8494073893598877498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a871d985e1684d53b0dabc8bfa2db09a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductAccessibleControl
+  selectable: {fileID: 5870442835998746216}
+  focusOutline: {fileID: 2520510011824297283}
+  labelKey: tutorial.continue_start
+  participatesInNavigation: 1
+  configured: 1
+--- !u!114 &2520510011824297283
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8494073893598877498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 0
+--- !u!1 &8646373623644107919
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 493941511666290255}
+  - component: {fileID: 1292847067650157171}
+  - component: {fileID: 4040380945608782443}
+  - component: {fileID: 3873314485955543353}
+  - component: {fileID: 8966966066818265647}
+  m_Layer: 0
+  m_Name: Label
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &493941511666290255
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646373623644107919}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6735424178615428748}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &1292847067650157171
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646373623644107919}
+  m_CullTransparentMesh: 1
+--- !u!114 &4040380945608782443
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646373623644107919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 20
+    m_FontStyle: 0
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 4
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
+    m_LineSpacing: 1
+  m_Text: Exit tutorial
+--- !u!114 &3873314485955543353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646373623644107919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a71e4c2d8f34b1eac907f625e18d3a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductTextElement
+  target: {fileID: 4040380945608782443}
+  contentMode: 0
+  stableKey: tutorial.exit
+  baseFontSize: 20
+--- !u!114 &8966966066818265647
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8646373623644107919}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 4040380945608782443}
+  baseRole: 6
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!1 &8677522141310644145
 GameObject:
   m_ObjectHideFlags: 0
@@ -2517,6 +3755,7 @@ GameObject:
   - component: {fileID: 7996524997501444082}
   - component: {fileID: 4029381499525974411}
   - component: {fileID: 3167003334517807875}
+  - component: {fileID: 7534563538380115755}
   - component: {fileID: 4180887001118438089}
   - component: {fileID: 3698373436435642145}
   m_Layer: 0
@@ -2541,8 +3780,8 @@ RectTransform:
   - {fileID: 1842979384808052929}
   m_Father: {fileID: 3458476656786216623}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.18, y: 0.04}
-  m_AnchorMax: {x: 0.82, y: 0.2}
+  m_AnchorMin: {x: 0.18, y: 0.01}
+  m_AnchorMax: {x: 0.82, y: 0.22}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -2567,7 +3806,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.01}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -2584,6 +3823,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &7534563538380115755
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8677522141310644145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad214de18d346a6b185e5ff6fe7e6a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: TrumpLab.Product::TrumpLab.Product.ProductGraphicElement
+  targetGraphic: {fileID: 3167003334517807875}
+  baseRole: 1
+  preserveAlpha: 0
+  hasBaseRole: 1
 --- !u!114 &4180887001118438089
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -23,8 +23,9 @@ command lineからは次のように実行できる。
 ```
 
 generatorはscreen component、missing script、Bootstrap root、build scene、`TrumpLab.Core`との
-assembly分離に加え、AudioListener、Music / SFX source、feedback overlay、全cueの生成WAVを検査し、
-不整合があれば非0で終了する。
+assembly分離に加え、AudioListener、Music / SFX source、feedback overlay、全cueの生成WAV、
+localization / accessibility component、16:9 safe frame、全Text / Graphic / Selectableのsemantic分類を
+検査し、不整合があれば非0で終了する。
 
 ## CPU難易度
 
@@ -96,6 +97,23 @@ Navigation、決定、明示的なvalidation拒否、card play、draw、wild sui
 詳細は[ADR-0008](../../docs/product/decisions/ADR-0008-product-av-feedback-contract.md)と
 [M06-T03受入記録](../../docs/product/reports/M06-T03-av-evidence.md)を参照する。
 
+## 日本語・英語とアクセシビリティ
+
+Product Settingsの`Accessibility` pageでは、日本語 / 英語、文字サイズ`100%` / `125%` / `150%`、
+high contrast、reduced motionを変更できる。MatchまたはtutorialからSettingsを開いた場合は同じ対局を
+保持し、Apply後もsnapshot、Action履歴、手番、CPU入力待ちを変えずに元の画面へ戻る。
+
+user-facing文字列はProduct assembly内の安定keyを使う日英catalogから解決する。日本語fontは
+Windowsにinstall済みの`Yu Gothic UI`、`Meiryo UI`、`Yu Gothic`、`Meiryo`を順に検査してruntime参照し、
+font fileをrepositoryやbuildへ同梱しない。必要glyphを満たすfontがなければ保存設定を書き換えず、
+effective表示だけ英語へfallbackする。
+
+全画面、modal、feedbackは中央の16:9 safe frame内に置き、semantic palette、文字 / symbol、focus outlineを
+併用して色だけに情報を依存させない。生成契約は日英catalog、font fallback、WCAG contrast、44 x 44以上の
+操作領域、active controlだけの明示navigationと、2 locale x 3文字倍率 x 7解像度のlayout matrixを検査する。
+詳細は[ADR-0009](../../docs/product/decisions/ADR-0009-product-localization-accessibility-contract.md)と
+[M06-T04受入記録](../../docs/product/reports/M06-T04-localization-accessibility-evidence.md)を参照する。
+
 ## 製品テスト
 
 Edit ModeとPlay Modeの製品テストはrepository rootから実行する。
@@ -105,9 +123,9 @@ pwsh ./scripts/run-product-unity-tests.ps1 -UnityPath <Unity.exe>
 ```
 
 Edit Modeは製品設定、入力Actionとrebind、難易度、presenter、session、Prefab、atomic保存、
-生成音声、semantic cue、3速度のrule不変性と破損拒否の契約、Play Modeは設定画面の
-保存・再読込・ResetとAudioSource反映を含む
+生成音声、semantic cue、3速度のrule不変性、日英catalog、font fallback、contrast、focus、safe frame、
+42組のlayout matrixと破損拒否の契約、Play Modeは設定画面の保存・再読込・ResetとAudioSource反映を含む
 Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel、二重入力lock、人間対CPUの
 1局完走、保存一覧、再開、リプレイ、2段階削除、error modalに加え、pointerとSubmitによる
-tutorial完走、優先focus、完了記録、再実行、card / draw / wild / CPU / resultの音響・視覚eventを
-検証する。
+tutorial完走、優先focus、完了記録、再実行、card / draw / wild / CPU / resultの音響・視覚event、
+Match / tutorialからAccessibility設定をApplyして状態不変で戻るflowを検証する。

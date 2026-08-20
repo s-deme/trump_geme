@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace TrumpLab.Product
@@ -62,7 +63,8 @@ namespace TrumpLab.Product
 
     public static class CrazyEightsMatchPresenter
     {
-        public static MatchViewModel Create(GamePresentation presentation, bool inputEnabled)
+        public static MatchViewModel Create(GamePresentation presentation, bool inputEnabled,
+            IProductText? text = null)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
             if (presentation.GameId != "crazy_eights")
@@ -88,59 +90,69 @@ namespace TrumpLab.Product
             if (calledSuit != null && calledSuit.Value.Kind != PresentationValueKind.Suit)
                 throw new ArgumentException("called_suit must be a Suit value.", nameof(presentation));
 
+            IProductText productText = text ?? ProductTextCatalog.English;
             bool humanTurn = presentation.CurrentPlayer == presentation.Viewer;
             string status = presentation.IsTerminal
-                ? "Game finished"
+                ? productText.Get("match.status_finished", presentation.TurnCount)
                 : presentation.Phase == "choose_starter_suit"
-                    ? (humanTurn ? "Choose the starter suit" : "CPU is choosing the starter suit")
-                    : humanTurn ? "Your turn" : "CPU is thinking…";
-            status += "  •  Turn " + presentation.TurnCount;
+                    ? productText.Get(humanTurn
+                            ? "match.status_choose_human"
+                            : "match.status_choose_cpu",
+                        presentation.TurnCount)
+                    : productText.Get(humanTurn
+                            ? "match.status_human"
+                            : "match.status_cpu",
+                        presentation.TurnCount);
 
-            string called = calledSuit?.Value.SuitValue is Suit suit
-                ? "  •  Called " + SuitName(suit)
-                : string.Empty;
-            string discardText = "Discard: " + CardLabel(discard.Cards[discard.Cards.Count - 1]) + called;
-            string opponentText = "CPU hand: " + string.Join(" ",
-                Enumerable.Repeat("■", opponentHand.Count));
-            string humanText = "Your hand: " + string.Join(" ", humanHand.Cards.Select(CardLabel));
+            string discardCard = CardLabel(discard.Cards[discard.Cards.Count - 1], productText);
+            string discardText = calledSuit?.Value.SuitValue is Suit suit
+                ? productText.Get("match.discard_called", discardCard,
+                    SuitName(suit, productText))
+                : productText.Get("match.discard", discardCard);
+            string opponentText = productText.Get("match.opponent_hand", string.Join(" ",
+                Enumerable.Repeat(productText.Get("card.hidden"), opponentHand.Count)));
+            string humanText = productText.Get("match.human_hand", string.Join(" ",
+                humanHand.Cards.Select(card => CardLabel(card, productText))));
             MatchActionViewModel[] actions = presentation.Actions
                 .Select(action => new MatchActionViewModel(
                     action.Id,
-                    ActionLabel(action),
+                    ActionLabel(action, productText),
                     ActionReason(action, humanHand, discard.Cards[discard.Cards.Count - 1],
-                        calledSuit?.Value.SuitValue)))
+                        calledSuit?.Value.SuitValue, productText)))
                 .ToArray();
             bool canAct = inputEnabled && humanTurn && !presentation.IsTerminal;
 
             return new MatchViewModel(
                 status,
                 opponentText,
-                "Stock: " + stock.Count,
+                productText.Get("match.stock", stock.Count),
                 discardText,
                 humanText,
-                actions.Length == 0 ? "Input locked while the CPU acts." :
-                    "✓ " + actions.Length + " legal action" +
-                    (actions.Length == 1 ? string.Empty : "s") +
-                    " shown  •  Help explains why",
+                actions.Length == 0
+                    ? productText.Get("match.action_summary_locked")
+                    : actions.Length == 1
+                        ? productText.Get("match.action_summary_one")
+                        : productText.Get("match.action_summary_many", actions.Length),
                 ContextHelpText(presentation, discard.Cards[discard.Cards.Count - 1],
-                    calledSuit?.Value.SuitValue, actions),
+                    calledSuit?.Value.SuitValue, actions, productText),
                 actions,
                 canAct);
         }
 
         private static string ActionReason(ActionPresentation presentation,
-            CardZonePresentation humanHand, Card discardTop, Suit? calledSuit)
+            CardZonePresentation humanHand, Card discardTop, Suit? calledSuit,
+            IProductText text)
         {
             TrumpLab.Action action = presentation.Action;
             switch (action.Kind)
             {
                 case "draw":
-                    return "Draw one card and end your turn; drawing is a legal choice.";
+                    return text.Get("match.reason_draw");
                 case "pass":
-                    return "No card can be played and no card can be drawn.";
+                    return text.Get("match.reason_pass");
                 case "choose_starter_suit":
-                    return "The opening 8 lets you set the active suit to " +
-                        SuitName(SuitFromCode(action.Value)) + ".";
+                    return text.Get("match.reason_starter_suit",
+                        SuitName(SuitFromCode(action.Value), text));
                 case "play":
                 case "play_last_card":
                     if (!action.Card.HasValue)
@@ -148,21 +160,25 @@ namespace TrumpLab.Product
                             "Play action must contain a card.", nameof(presentation));
                     Card card = action.Card.Value;
                     if (card.Rank == 8)
-                        return "An 8 is wild and calls " +
-                            SuitName(SuitFromCode(action.Value)) + " for the next turn.";
+                        return text.Get("match.reason_wild",
+                            SuitName(SuitFromCode(action.Value), text));
                     Suit activeSuit = calledSuit ?? discardTop.Suit;
                     bool suitMatch = card.Suit == activeSuit;
                     bool rankMatch = card.Rank == discardTop.Rank;
-                    string match = suitMatch && rankMatch ? "same suit and rank" :
-                        suitMatch ? "same " + SuitName(activeSuit) + " suit" :
-                        rankMatch ? "same rank " + RankLabel(discardTop.Rank) :
+                    string match = suitMatch && rankMatch
+                        ? text.Get("match.same_suit_rank")
+                        : suitMatch
+                            ? text.Get("match.same_suit", SuitName(activeSuit, text))
+                            : rankMatch
+                                ? text.Get("match.same_rank", RankLabel(discardTop.Rank, text))
+                                :
                         throw new ArgumentException(
                             "Presented play action does not match the public discard.",
                             nameof(presentation));
-                    if (humanHand.Count == 1) return "Your final card matches by " + match + ".";
+                    if (humanHand.Count == 1) return text.Get("match.reason_final", match);
                     if (action.Kind == "play_last_card")
-                        return "Matches by " + match + " and declares your last card.";
-                    return "Matches the discard by " + match + ".";
+                        return text.Get("match.reason_last", match);
+                    return text.Get("match.reason_match", match);
                 default:
                     throw new ArgumentException(
                         "Unsupported Crazy Eights action kind: " + action.Kind,
@@ -171,46 +187,57 @@ namespace TrumpLab.Product
         }
 
         private static string ContextHelpText(GamePresentation presentation,
-            Card discardTop, Suit? calledSuit, IReadOnlyList<MatchActionViewModel> actions)
+            Card discardTop, Suit? calledSuit, IReadOnlyList<MatchActionViewModel> actions,
+            IProductText text)
         {
-            string activeSuit = SuitName(calledSuit ?? discardTop.Suit);
+            string activeSuit = SuitName(calledSuit ?? discardTop.Suit, text);
             string rule = presentation.Phase == "choose_starter_suit"
-                ? "The opening card is an 8. Choose the suit that starts the match."
-                : "Play the active " + activeSuit + " suit, rank " +
-                    RankLabel(discardTop.Rank) + ", or any 8. You may draw one card " +
-                    "and end your turn whenever Draw is shown.";
+                ? text.Get("match.context_opening")
+                : text.Get("match.context_rule", activeSuit,
+                    RankLabel(discardTop.Rank, text));
             if (actions.Count == 0)
-                return rule + "\n\nThe CPU is acting. Your controls remain locked until its move ends.";
-            return rule + "\n\nEvery shown action is legal:\n" +
-                string.Join("\n", actions.Select(action =>
-                    "✓ " + action.Label + " — " + action.Reason));
+                return text.Get("match.context_cpu", rule);
+            string actionLines = string.Join("\n", actions.Select(action =>
+                text.Get("match.action_line", action.Label, action.Reason)));
+            return text.Get("match.context_actions", rule, actionLines);
         }
 
-        public static string CardLabel(Card card)
+        public static string CardLabel(Card card, IProductText? text = null)
         {
-            string rank = RankLabel(card.Rank);
-            return rank + SuitSymbol(card.Suit);
+            IProductText productText = text ?? ProductTextCatalog.English;
+            return productText.Get("card.label", RankLabel(card.Rank, productText),
+                SuitSymbol(card.Suit, productText));
         }
 
-        private static string RankLabel(int rank) => rank == 1 ? "A" : rank == 11 ? "J" :
-            rank == 12 ? "Q" : rank == 13 ? "K" : rank.ToString();
+        private static string RankLabel(int rank, IProductText text) => rank == 1
+            ? text.Get("card.rank_ace")
+            : rank == 11
+                ? text.Get("card.rank_jack")
+                : rank == 12
+                    ? text.Get("card.rank_queen")
+                    : rank == 13
+                        ? text.Get("card.rank_king")
+                        : rank.ToString(CultureInfo.InvariantCulture);
 
-        private static string ActionLabel(ActionPresentation presentation)
+        private static string ActionLabel(ActionPresentation presentation, IProductText text)
         {
             TrumpLab.Action action = presentation.Action;
             switch (action.Kind)
             {
-                case "draw": return "Draw";
-                case "pass": return "Pass";
-                case "choose_starter_suit": return "Choose " + SuitName(SuitFromCode(action.Value));
+                case "draw": return text.Get("match.action_draw");
+                case "pass": return text.Get("match.action_pass");
+                case "choose_starter_suit":
+                    return text.Get("match.action_choose_suit",
+                        SuitName(SuitFromCode(action.Value), text));
                 case "play":
                 case "play_last_card":
                     if (!action.Card.HasValue)
                         throw new ArgumentException("Play action must contain a card.", nameof(presentation));
-                    string calledSuit = action.Value == null
-                        ? string.Empty
-                        : " → " + SuitName(SuitFromCode(action.Value));
-                    return "Play " + CardLabel(action.Card.Value) + calledSuit;
+                    string card = CardLabel(action.Card.Value, text);
+                    return action.Value == null
+                        ? text.Get("match.action_play", card)
+                        : text.Get("match.action_play_called", card,
+                            SuitName(SuitFromCode(action.Value), text));
                 default:
                     throw new ArgumentException(
                         "Unsupported Crazy Eights action kind: " + action.Kind,
@@ -237,11 +264,23 @@ namespace TrumpLab.Product
                 throw new ArgumentException(name + " must not expose card values.", nameof(zone));
         }
 
-        private static string SuitSymbol(Suit suit) => suit == Suit.Clubs ? "♣" :
-            suit == Suit.Diamonds ? "♦" : suit == Suit.Hearts ? "♥" : "♠";
+        private static string SuitSymbol(Suit suit, IProductText text) => suit switch
+        {
+            Suit.Clubs => text.Get("card.suit_clubs"),
+            Suit.Diamonds => text.Get("card.suit_diamonds"),
+            Suit.Hearts => text.Get("card.suit_hearts"),
+            Suit.Spades => text.Get("card.suit_spades"),
+            _ => throw new ArgumentOutOfRangeException(nameof(suit))
+        };
 
-        private static string SuitName(Suit suit) => suit == Suit.Clubs ? "Clubs" :
-            suit == Suit.Diamonds ? "Diamonds" : suit == Suit.Hearts ? "Hearts" : "Spades";
+        private static string SuitName(Suit suit, IProductText text) => suit switch
+        {
+            Suit.Clubs => text.Get("suit.clubs"),
+            Suit.Diamonds => text.Get("suit.diamonds"),
+            Suit.Hearts => text.Get("suit.hearts"),
+            Suit.Spades => text.Get("suit.spades"),
+            _ => throw new ArgumentOutOfRangeException(nameof(suit))
+        };
 
         private static Suit SuitFromCode(string? value)
         {

@@ -43,6 +43,17 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void CanonicalControlTokenDoesNotExposeDeviceOrLocalizedDisplayNames()
+        {
+            Assert.That(ProductInputController.CanonicalControlToken(
+                "<Keyboard>/enter"), Is.EqualTo("enter"));
+            Assert.That(ProductInputController.CanonicalControlToken(
+                "<Gamepad>/dpad/up"), Is.EqualTo("dpad/up"));
+            Assert.Throws<ArgumentException>(() =>
+                ProductInputController.CanonicalControlToken("Enter [Keyboard]"));
+        }
+
+        [Test]
         public void KeyboardHelpBindingRaisesHelpRequested()
         {
             Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
@@ -131,6 +142,8 @@ namespace TrumpLab.Product.Tests
             Release(keyboard.upArrowKey);
             Press(keyboard.enterKey);
             Release(keyboard.enterKey);
+            Press(keyboard.spaceKey);
+            Release(keyboard.spaceKey);
             Press(keyboard.escapeKey);
             Release(keyboard.escapeKey);
 
@@ -142,8 +155,26 @@ namespace TrumpLab.Product.Tests
             Press(gamepad.buttonEast);
             Release(gamepad.buttonEast);
 
-            Assert.That(keyboardSubmits, Is.EqualTo(2));
+            Assert.That(keyboardSubmits, Is.EqualTo(3));
             Assert.That(keyboardCancels, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void RebindingKeyboardSubmitDisablesTheDefaultSpaceFallback()
+        {
+            Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+            int submits = 0;
+            InputModule.submit.action!.performed += _ => submits++;
+
+            ProductInputBindings rebound = ProductInputBindings.Default.With(
+                ProductInputScheme.Keyboard, ProductInputCommand.Submit, "<Keyboard>/q");
+            Controller.ApplyBindings(rebound);
+            Press(keyboard.spaceKey);
+            Release(keyboard.spaceKey);
+            Press(keyboard.qKey);
+            Release(keyboard.qKey);
+
+            Assert.That(submits, Is.EqualTo(1));
         }
 
         [Test]
@@ -241,6 +272,12 @@ namespace TrumpLab.Product.Tests
             Assert.Throws<ArgumentException>(() => ProductInputBindings.Default.With(
                 ProductInputScheme.Gamepad, ProductInputCommand.Help,
                 "<Keyboard>/f1"));
+            ProductInputBindings reservedSpace = ProductInputBindings.Default.With(
+                ProductInputScheme.Keyboard, ProductInputCommand.Help,
+                "<Keyboard>/space");
+            Assert.That(ProductInputController.TryValidate(
+                reservedSpace, out string reservedError), Is.False);
+            Assert.That(reservedError, Does.Contain("Space"));
         }
 
         private ProductInputController Controller => controller ??

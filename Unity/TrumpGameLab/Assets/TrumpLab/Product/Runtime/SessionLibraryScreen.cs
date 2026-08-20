@@ -19,6 +19,7 @@ namespace TrumpLab.Product
 
         private IReadOnlyList<SessionSlotInfo> slots = Array.Empty<SessionSlotInfo>();
         private bool deleteArmed;
+        private IProductText text = ProductTextCatalog.English;
 
         public override ScreenId Id => ScreenId.SessionLibrary;
         public string? SelectedSlotId => slots.Count == 0 ? null : slots[SlotDropdown.value].Id;
@@ -39,18 +40,26 @@ namespace TrumpLab.Product
             replayButton = replay;
             deleteButton = delete;
             backButton = back;
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshOptions();
+            RefreshSelection();
+            RefreshButtonText();
+            if (deleteArmed)
+            {
+                SetDeleteButtonText("library.confirm_delete");
+                DetailLabel.text = text.Get("library.confirm_delete_instruction");
+            }
         }
 
         public void SetSlots(IReadOnlyList<SessionSlotInfo> available)
         {
             slots = available?.ToArray() ?? throw new ArgumentNullException(nameof(available));
-            SlotDropdown.ClearOptions();
-            SlotDropdown.AddOptions(slots.Count == 0
-                ? new List<string> { "No saved sessions" }
-                : slots.Select(slot => slot.SavedAtUtc.ToString("yyyy-MM-dd HH:mm 'UTC'") +
-                    "  ·  " + slot.Id.Substring(0, 8)).ToList());
-            SlotDropdown.SetValueWithoutNotify(0);
-            SlotDropdown.interactable = slots.Count > 0;
+            RefreshOptions();
             ResetDeleteConfirmation();
             RefreshSelection();
         }
@@ -87,8 +96,8 @@ namespace TrumpLab.Product
             if (!deleteArmed)
             {
                 deleteArmed = true;
-                SetDeleteButtonText("Confirm delete");
-                DetailLabel.text = "Press Confirm delete again to permanently remove this slot.";
+                SetDeleteButtonText("library.confirm_delete");
+                DetailLabel.text = text.Get("library.confirm_delete_instruction");
                 return;
             }
             ResetDeleteConfirmation();
@@ -102,20 +111,51 @@ namespace TrumpLab.Product
             if (replayButton != null) replayButton.interactable = available;
             if (deleteButton != null) deleteButton.interactable = available;
             DetailLabel.text = available
-                ? "Select Resume to continue, Replay to inspect, or Delete twice to remove."
-                : "No saved sessions are available.";
+                ? text.Get("library.instruction")
+                : text.Get("library.empty");
         }
 
         private void ResetDeleteConfirmation()
         {
             deleteArmed = false;
-            SetDeleteButtonText("Delete");
+            SetDeleteButtonText("library.delete");
         }
 
-        private void SetDeleteButtonText(string text)
+        private void SetDeleteButtonText(string key)
         {
             Text? label = deleteButton == null ? null : deleteButton.GetComponentInChildren<Text>(true);
-            if (label != null) label.text = text;
+            if (label != null) label.text = text.Get(key);
+        }
+
+        private void RefreshOptions()
+        {
+            if (slotDropdown == null) return;
+            int selected = slots.Count == 0 ? 0 : Mathf.Clamp(slotDropdown.value, 0,
+                slots.Count - 1);
+            SlotDropdown.ClearOptions();
+            SlotDropdown.AddOptions(slots.Count == 0
+                ? new List<string> { text.Get("library.empty_option") }
+                : slots.Select(slot => text.Get("library.slot_option", slot.SavedAtUtc,
+                    slot.Id.Substring(0, 8))).ToList());
+            SlotDropdown.SetValueWithoutNotify(selected);
+            SlotDropdown.RefreshShownValue();
+            SlotDropdown.interactable = slots.Count > 0;
+        }
+
+        private void RefreshButtonText()
+        {
+            SetButtonText(resumeButton, "library.resume");
+            SetButtonText(replayButton, "library.replay");
+            SetButtonText(deleteButton, deleteArmed
+                ? "library.confirm_delete"
+                : "library.delete");
+            SetButtonText(backButton, "common.back");
+        }
+
+        private void SetButtonText(Button? button, string key)
+        {
+            Text? label = button?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get(key);
         }
 
         private static InvalidOperationException Missing(string name) =>

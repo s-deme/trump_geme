@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace TrumpLab.Product
@@ -66,49 +65,47 @@ namespace TrumpLab.Product
     public static class CrazyEightsHowToPlayPresenter
     {
         public static HowToPlayViewModel Create(GamePresentation? presentation = null,
-            GameResultPresentation? result = null)
+            GameResultPresentation? result = null, IProductText? text = null)
         {
             if (presentation != null && presentation.GameId != "crazy_eights")
                 throw new ArgumentException("Crazy Eights presentation is required.",
                     nameof(presentation));
             if (result == null) result = presentation?.Result;
+            IProductText productText = text ?? ProductTextCatalog.English;
 
             HowToPlayPage[] pages =
             {
                 new HowToPlayPage(
                     HowToPlayPageId.Objective,
                     "rules.crazy_eights.objective",
-                    "Objective",
-                    "Be the first player to empty your hand. The screen shows your cards, " +
-                    "the CPU hand count, the stock, the discard top, and whose turn it is."),
+                    productText.Get("rules.crazy_eights.objective.title"),
+                    productText.Get("rules.crazy_eights.objective")),
                 new HowToPlayPage(
                     HowToPlayPageId.LegalPlay,
                     "rules.crazy_eights.legal_play",
-                    "Discard and legal plays",
-                    "Play a card that matches the discard top by suit or rank. Every action " +
-                    "button shown by the game is legal; its label explains why it can be used."),
+                    productText.Get("rules.crazy_eights.legal_play.title"),
+                    productText.Get("rules.crazy_eights.legal_play")),
                 new HowToPlayPage(
                     HowToPlayPageId.Draw,
                     "rules.crazy_eights.draw",
-                    "Drawing",
-                    "You may draw even when you can play. Draw takes one card when available " +
-                    "and ends your turn. Pass appears only when no play or draw is possible."),
+                    productText.Get("rules.crazy_eights.draw.title"),
+                    productText.Get("rules.crazy_eights.draw")),
                 new HowToPlayPage(
                     HowToPlayPageId.WildSuit,
                     "rules.crazy_eights.wild_suit",
-                    "Eights and the called suit",
-                    "An 8 is wild. Its action includes the suit you call. The called suit, " +
-                    "shown beside the discard, controls suit matching until a non-wild card is played."),
+                    productText.Get("rules.crazy_eights.wild_suit.title"),
+                    productText.Get("rules.crazy_eights.wild_suit")),
                 new HowToPlayPage(
                     HowToPlayPageId.Result,
                     "rules.crazy_eights.result",
-                    "Winning and score details",
-                    ResultBody(result))
+                    productText.Get("rules.crazy_eights.result.title"),
+                    ResultBody(result, productText))
             };
 
             HowToPlayPageId initialPage = InitialPage(presentation, result);
             int initialIndex = Array.FindIndex(pages, page => page.Id == initialPage);
-            return new HowToPlayViewModel(pages, initialIndex, Context(presentation, result));
+            return new HowToPlayViewModel(pages, initialIndex,
+                Context(presentation, result, productText));
         }
 
         private static HowToPlayPageId InitialPage(GamePresentation? presentation,
@@ -127,43 +124,55 @@ namespace TrumpLab.Product
         }
 
         private static string Context(GamePresentation? presentation,
-            GameResultPresentation? result)
+            GameResultPresentation? result, IProductText text)
         {
             if (result != null)
-                return "Result details · Reason: " + ResultReason(result.Reason);
-            if (presentation == null) return "Crazy Eights rules · Read-only guide";
+                return text.Get("rules.context_result", ResultReason(result.Reason, text));
+            if (presentation == null) return text.Get("rules.context_read_only");
             string turn = presentation.CurrentPlayer == presentation.Viewer
-                ? "Your turn"
-                : "CPU turn";
+                ? text.Get("rules.turn_human")
+                : text.Get("rules.turn_cpu");
             string calledSuit = presentation.Fields
                 .Where(field => field.Id == "called_suit")
                 .Where(field => field.Value.SuitValue.HasValue)
-                .Select(field => Card.SuitCode(field.Value.SuitValue!.Value))
-                .FirstOrDefault() ?? "none";
-            return turn + " · Phase: " + presentation.Phase +
-                " · Called suit: " + calledSuit;
+                .Select(field => SuitName(field.Value.SuitValue!.Value, text))
+                .FirstOrDefault() ?? text.Get("rules.called_none");
+            string phase = presentation.IsTerminal
+                ? text.Get("rules.phase_finished")
+                : presentation.Phase == "choose_starter_suit"
+                    ? text.Get("rules.phase_choose_starter")
+                    : text.Get("rules.phase_play");
+            return text.Get("rules.context_match", turn, phase, calledSuit);
         }
 
-        private static string ResultBody(GameResultPresentation? result)
+        private static string ResultBody(GameResultPresentation? result, IProductText text)
         {
-            const string rules = "Play your final card to win. The winner receives the total " +
-                "penalty left in the opponent's hand; the opponent receives the negative value. " +
-                "Eights are 50, face cards are 10, and other cards use their rank.";
+            string rules = text.Get("rules.crazy_eights.result");
             if (result == null) return rules;
             if (result.Scores.Count != 2)
                 throw new ArgumentException("Two-player result is required.", nameof(result));
-            string outcome = result.Winners.Contains(0) ? "You win" :
-                result.Winners.Count == 0 ? "Draw" : "CPU wins";
-            return rules + "\n\nCurrent result\n" + outcome + " · Reason: " +
-                ResultReason(result.Reason) + "\nYou: " + Score(result.Scores[0]) +
-                " · CPU: " + Score(result.Scores[1]) + " · Turns: " + result.Turns;
+            string outcome = result.Winners.Contains(0)
+                ? text.Get("rules.outcome_you")
+                : result.Winners.Count == 0
+                    ? text.Get("rules.outcome_draw")
+                    : text.Get("rules.outcome_cpu");
+            return rules + "\n\n" + text.Get("rules.result_current", outcome,
+                ResultReason(result.Reason, text), result.Scores[0], result.Scores[1],
+                result.Turns);
         }
 
-        private static string ResultReason(string reason) => reason == "empty hand"
-            ? "a player emptied their hand"
-            : reason;
+        private static string ResultReason(string reason, IProductText text) =>
+            string.Equals(reason, "empty hand", StringComparison.Ordinal)
+                ? text.Get("rules.reason_empty_hand")
+                : text.Get("result.reason_unknown");
 
-        private static string Score(double value) =>
-            value.ToString("0.##", CultureInfo.InvariantCulture);
+        private static string SuitName(Suit suit, IProductText text) => suit switch
+        {
+            Suit.Clubs => text.Get("suit.clubs"),
+            Suit.Diamonds => text.Get("suit.diamonds"),
+            Suit.Hearts => text.Get("suit.hearts"),
+            Suit.Spades => text.Get("suit.spades"),
+            _ => throw new ArgumentOutOfRangeException(nameof(suit))
+        };
     }
 }

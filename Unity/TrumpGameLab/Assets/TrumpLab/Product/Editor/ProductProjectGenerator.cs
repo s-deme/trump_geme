@@ -55,26 +55,31 @@ namespace TrumpLab.Product.Editor
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             InputSystemUIInputModule inputModule = CreateEventSystem();
             Canvas canvas = CreateCanvas();
+            ProductSafeFrame safeFrame = CreateSafeFrame(canvas);
             ProductPresentationController presentation =
                 canvas.gameObject.AddComponent<ProductPresentationController>();
 
-            var title = Instantiate<TitleScreen>(titlePrefab, canvas.transform);
-            var settings = Instantiate<GameSettingsScreen>(settingsPrefab, canvas.transform);
+            var title = Instantiate<TitleScreen>(titlePrefab, safeFrame.transform);
+            var settings = Instantiate<GameSettingsScreen>(settingsPrefab, safeFrame.transform);
             var productSettings = Instantiate<ProductSettingsScreen>(
-                productSettingsPrefab, canvas.transform);
-            var library = Instantiate<SessionLibraryScreen>(libraryPrefab, canvas.transform);
-            var match = Instantiate<MatchScreen>(matchPrefab, canvas.transform);
-            var replay = Instantiate<ReplayScreen>(replayPrefab, canvas.transform);
-            var result = Instantiate<ResultScreen>(resultPrefab, canvas.transform);
-            var howToPlay = Instantiate<HowToPlayScreen>(howToPlayPrefab, canvas.transform);
+                productSettingsPrefab, safeFrame.transform);
+            var library = Instantiate<SessionLibraryScreen>(libraryPrefab, safeFrame.transform);
+            var match = Instantiate<MatchScreen>(matchPrefab, safeFrame.transform);
+            var replay = Instantiate<ReplayScreen>(replayPrefab, safeFrame.transform);
+            var result = Instantiate<ResultScreen>(resultPrefab, safeFrame.transform);
+            var howToPlay = Instantiate<HowToPlayScreen>(howToPlayPrefab, safeFrame.transform);
             ProductPresentationSurfaces presentationSurfaces =
-                CreatePresentationSurfaces(canvas.transform, font);
-            ProductErrorPanel errors = CreateErrorPanel(canvas.transform, font);
+                CreatePresentationSurfaces(safeFrame.transform, font);
+            ProductErrorPanel errors = CreateErrorPanel(safeFrame.transform, font);
 
             var productRoot = new GameObject("ProductRoot", typeof(AudioListener));
             ScreenRouter router = productRoot.AddComponent<ScreenRouter>();
             ProductInputController input = productRoot.AddComponent<ProductInputController>();
             ProductAudioController audio = CreateAudioController(productRoot, audioAssets);
+            ProductLocalizationController localization =
+                productRoot.AddComponent<ProductLocalizationController>();
+            ProductAccessibilityController accessibility =
+                productRoot.AddComponent<ProductAccessibilityController>();
             ProductAppController controller = productRoot.AddComponent<ProductAppController>();
             presentation.Configure(
                 presentationSurfaces.Banner,
@@ -83,13 +88,18 @@ namespace TrumpLab.Product.Editor
                 presentationSurfaces.Transition,
                 audio);
             input.Configure(inputModule);
+            localization.Configure(canvas.transform, font);
+            accessibility.Configure((RectTransform)canvas.transform, safeFrame, localization);
             router.Configure(new ProductScreen[]
                 { title, settings, productSettings, library, match, replay, result, howToPlay });
             controller.Configure(
                 router, title, settings, productSettings, library, match, replay, result,
-                howToPlay, input, presentation, errors);
+                howToPlay, input, presentation, errors, localization, accessibility);
             RenderSampleMatch(match);
             router.Show(ScreenId.Title);
+            ProductSettings defaultSettings = ProductSettings.CreateDefaults(
+                ProductTextCatalog.EnglishLocale);
+            accessibility.Apply(defaultSettings);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -101,19 +111,21 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateTitlePrefab(Font font)
         {
             GameObject root = ScreenRoot<TitleScreen>("TitleScreen");
-            CreateText(root.transform, "Title", "TRUMP GAME LAB", font, 64,
-                new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.84f));
-            CreateText(root.transform, "Subtitle", "Crazy Eights vertical slice", font, 28,
-                new Vector2(0.2f, 0.58f), new Vector2(0.8f, 0.68f));
-            Button tutorial = CreateButton(root.transform, "TutorialButton", "Tutorial", font,
-                new Vector2(0f, 110f));
-            Button play = CreateButton(root.transform, "PlayButton", "Play", font,
+            CreateText(root.transform, "Title", "app.title", font, 64,
+                new Vector2(0.15f, 0.75f), new Vector2(0.85f, 0.88f));
+            CreateText(root.transform, "Subtitle", "app.subtitle", font, 28,
+                new Vector2(0.2f, 0.67f), new Vector2(0.8f, 0.74f));
+            Button tutorial = CreateButton(root.transform, "TutorialButton", "title.tutorial",
+                font, new Vector2(0f, 110f), ProductTextContentMode.Dynamic);
+            tutorial.GetComponent<RectTransform>().sizeDelta = new Vector2(380f, 72f);
+            Button play = CreateButton(root.transform, "PlayButton", "title.play", font,
                 new Vector2(0f, 20f));
-            Button sessions = CreateButton(root.transform, "SessionsButton", "Saved sessions", font,
-                new Vector2(0f, -70f));
-            Button settings = CreateButton(root.transform, "SettingsButton", "Settings", font,
-                new Vector2(0f, -160f));
-            Button quit = CreateButton(root.transform, "QuitButton", "Quit", font,
+            Button sessions = CreateButton(root.transform, "SessionsButton",
+                "title.saved_sessions", font, new Vector2(0f, -70f));
+            sessions.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 72f);
+            Button settings = CreateButton(root.transform, "SettingsButton", "title.settings",
+                font, new Vector2(0f, -160f));
+            Button quit = CreateButton(root.transform, "QuitButton", "title.quit", font,
                 new Vector2(0f, -250f));
             root.GetComponent<TitleScreen>().Configure(
                 tutorial, play, sessions, settings, quit);
@@ -123,32 +135,40 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateSettingsPrefab(Font font)
         {
             GameObject root = ScreenRoot<GameSettingsScreen>("GameSettingsScreen");
-            CreateText(root.transform, "Title", "GAME SETTINGS", font, 52,
+            CreateText(root.transform, "Title", "game_settings.title", font, 52,
                 new Vector2(0.2f, 0.78f), new Vector2(0.8f, 0.9f));
             Text summary = CreateText(root.transform, "Summary",
-                "Crazy Eights  •  Human: Player 1  •  CPU: Player 2  •  Difficulty: Standard",
-                font, 26, new Vector2(0.12f, 0.67f), new Vector2(0.88f, 0.76f));
-            CreateText(root.transform, "SeedLabel", "Seed", font, 28,
+                "game_settings.summary", font, 26,
+                new Vector2(0.12f, 0.665f), new Vector2(0.88f, 0.765f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("game_settings.summary",
+                    ProductTextCatalog.English.Get("game_settings.difficulty_standard")));
+            CreateText(root.transform, "SeedLabel", "game_settings.seed", font, 28,
                 new Vector2(0.27f, 0.55f), new Vector2(0.46f, 0.62f));
-            InputField seed = CreateInputField(root.transform, "SeedInput", "1", "Whole number", font,
-                new Vector2(170f, 105f));
-            CreateText(root.transform, "WildRankLabel", "Wild rank (1-13)", font, 28,
-                new Vector2(0.23f, 0.44f), new Vector2(0.46f, 0.51f));
-            InputField wildRank = CreateInputField(root.transform, "WildRankInput", "8", "1 to 13", font,
-                new Vector2(170f, -15f));
-            CreateText(root.transform, "DifficultyLabel", "CPU difficulty", font, 28,
+            InputField seed = CreateInputField(root.transform, "SeedInput", "1",
+                "game_settings.seed_placeholder", font,
+                new Vector2(260f, 105f), "game_settings.seed");
+            CreateText(root.transform, "WildRankLabel", "game_settings.wild_rank", font, 28,
+                new Vector2(0.08f, 0.44f), new Vector2(0.46f, 0.51f));
+            InputField wildRank = CreateInputField(root.transform, "WildRankInput", "8",
+                "game_settings.wild_rank_placeholder", font,
+                new Vector2(260f, -15f), "game_settings.wild_rank");
+            CreateText(root.transform, "DifficultyLabel", "game_settings.difficulty", font, 28,
                 new Vector2(0.23f, 0.33f), new Vector2(0.46f, 0.4f));
             Dropdown difficulty = CreateDropdown(
-                root.transform, "DifficultyDropdown", font, new Vector2(170f, -135f));
+                root.transform, "DifficultyDropdown", font, new Vector2(170f, -135f),
+                "game_settings.difficulty", "game_settings.difficulty_standard");
             difficulty.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 64f);
-            Text validation = CreateText(root.transform, "Validation", "", font, 24,
-                new Vector2(0.2f, 0.18f), new Vector2(0.8f, 0.25f));
-            validation.color = new Color(1f, 0.55f, 0.45f, 1f);
-            Button start = CreateButton(root.transform, "StartButton", "Start", font,
+            Text validation = CreateText(root.transform, "Validation",
+                "game_settings.validation", font, 24,
+                new Vector2(0.2f, 0.18f), new Vector2(0.8f, 0.25f),
+                ProductTextContentMode.Dynamic, string.Empty,
+                ProductGraphicRole.ErrorText);
+            Button start = CreateButton(root.transform, "StartButton", "game_settings.start", font,
                 new Vector2(270f, -300f));
-            Button howToPlay = CreateButton(root.transform, "HowToPlayButton", "How to play", font,
-                new Vector2(0f, -300f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font,
+            Button howToPlay = CreateButton(root.transform, "HowToPlayButton",
+                "game_settings.how_to_play", font, new Vector2(0f, -300f));
+            Button back = CreateButton(root.transform, "BackButton", "common.back", font,
                 new Vector2(-270f, -300f));
             root.GetComponent<GameSettingsScreen>().Configure(
                 summary, seed, wildRank, difficulty, validation, start, howToPlay, back);
@@ -158,87 +178,150 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateProductSettingsPrefab(Font font)
         {
             GameObject root = ScreenRoot<ProductSettingsScreen>("ProductSettingsScreen");
-            CreateText(root.transform, "Title", "PRODUCT SETTINGS", font, 52,
-                new Vector2(0.2f, 0.84f), new Vector2(0.8f, 0.94f));
-            Button generalPage = CreateButton(root.transform, "GeneralPageButton", "General", font,
-                new Vector2(-145f, 360f));
-            Button bindingsPage = CreateButton(root.transform, "BindingsPageButton", "Bindings", font,
-                new Vector2(145f, 360f));
+            CreateText(root.transform, "Title", "settings.title", font, 52,
+                new Vector2(0.2f, 0.9f), new Vector2(0.8f, 1f));
+            Button generalPage = CreateButton(root.transform, "GeneralPageButton",
+                "settings.tab_general", font, new Vector2(-300f, 335f));
+            Button bindingsPage = CreateButton(root.transform, "BindingsPageButton",
+                "settings.tab_bindings", font, new Vector2(0f, 335f));
+            bindingsPage.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
+            Button accessibilityPage = CreateButton(root.transform,
+                "AccessibilityPageButton", "settings.tab_accessibility", font,
+                new Vector2(380f, 335f));
+            accessibilityPage.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 72f);
 
             RectTransform general = CreatePanel(root.transform, "GeneralPanel",
                 Vector2.zero, Vector2.one);
-            CreateText(general, "DisplayModeLabel", "Display mode", font, 25,
+            Text displayModeLabel = CreateText(general, "DisplayModeLabel",
+                "settings.display_mode", font, 25,
                 new Vector2(0.18f, 0.67f), new Vector2(0.43f, 0.74f));
+            SetFixedRect(displayModeLabel.rectTransform,
+                new Vector2(-350f, 180f), new Vector2(420f, 60f));
             Dropdown displayMode = CreateDropdown(
-                general, "DisplayModeDropdown", font, new Vector2(260f, 230f));
+                general, "DisplayModeDropdown", font, new Vector2(260f, 180f),
+                "settings.display_mode", "settings.display_windowed");
             displayMode.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
-            CreateText(general, "ResolutionLabel", "Resolution", font, 25,
+            Text resolutionLabel = CreateText(general, "ResolutionLabel",
+                "settings.resolution", font, 25,
                 new Vector2(0.18f, 0.58f), new Vector2(0.43f, 0.65f));
+            SetFixedRect(resolutionLabel.rectTransform,
+                new Vector2(-350f, 100f), new Vector2(420f, 60f));
             Dropdown resolution = CreateDropdown(
-                general, "ResolutionDropdown", font, new Vector2(260f, 130f));
+                general, "ResolutionDropdown", font, new Vector2(260f, 100f),
+                "settings.resolution");
             resolution.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
-            Toggle vSync = CreateToggle(general, "VSyncToggle", "VSync (60 Hz)", font,
-                new Vector2(180f, 30f));
-            CreateText(general, "PresentationSpeedLabel", "Presentation speed", font, 25,
+            Toggle vSync = CreateToggle(general, "VSyncToggle", "settings.vsync", font,
+                new Vector2(180f, 20f));
+            Text presentationSpeedLabel = CreateText(general, "PresentationSpeedLabel",
+                "settings.presentation_speed", font, 25,
                 new Vector2(0.18f, 0.39f), new Vector2(0.43f, 0.46f));
+            SetFixedRect(presentationSpeedLabel.rectTransform,
+                new Vector2(-350f, -60f), new Vector2(420f, 60f));
             Dropdown presentationSpeed = CreateDropdown(
-                general, "PresentationSpeedDropdown", font, new Vector2(260f, -70f));
+                general, "PresentationSpeedDropdown", font, new Vector2(260f, -60f),
+                "settings.presentation_speed", "settings.speed_normal");
             presentationSpeed.GetComponent<RectTransform>().sizeDelta = new Vector2(420f, 64f);
-            Text masterLabel = CreateText(general, "MasterVolumeLabel", "Master 80%", font, 24,
-                new Vector2(0.18f, 0.27f), new Vector2(0.4f, 0.34f));
-            Slider master = CreateSlider(general, "MasterVolumeSlider", new Vector2(250f, -180f));
-            Text musicLabel = CreateText(general, "MusicVolumeLabel", "Music 60%", font, 24,
-                new Vector2(0.18f, 0.19f), new Vector2(0.4f, 0.26f));
-            Slider music = CreateSlider(general, "MusicVolumeSlider", new Vector2(250f, -265f));
-            Text sfxLabel = CreateText(general, "SfxVolumeLabel", "SFX 80%", font, 24,
-                new Vector2(0.18f, 0.11f), new Vector2(0.4f, 0.18f));
-            Slider sfx = CreateSlider(general, "SfxVolumeSlider", new Vector2(250f, -350f));
+            Text masterLabel = CreateText(general, "MasterVolumeLabel",
+                "settings.master_volume_value", font, 24,
+                new Vector2(0.18f, 0.31f), new Vector2(0.4f, 0.37f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("settings.master_volume_value", 80));
+            SetFixedRect(masterLabel.rectTransform,
+                new Vector2(-350f, -150f), new Vector2(420f, 60f));
+            Slider master = CreateSlider(general, "MasterVolumeSlider",
+                new Vector2(250f, -150f), "settings.master_volume");
+            Text musicLabel = CreateText(general, "MusicVolumeLabel",
+                "settings.music_volume_value", font, 24,
+                new Vector2(0.18f, 0.23f), new Vector2(0.4f, 0.29f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("settings.music_volume_value", 60));
+            SetFixedRect(musicLabel.rectTransform,
+                new Vector2(-350f, -235f), new Vector2(420f, 60f));
+            Slider music = CreateSlider(general, "MusicVolumeSlider",
+                new Vector2(250f, -235f), "settings.music_volume");
+            Text sfxLabel = CreateText(general, "SfxVolumeLabel",
+                "settings.sfx_volume_value", font, 24,
+                new Vector2(0.18f, 0.15f), new Vector2(0.4f, 0.21f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("settings.sfx_volume_value", 80));
+            SetFixedRect(sfxLabel.rectTransform,
+                new Vector2(-350f, -320f), new Vector2(420f, 60f));
+            Slider sfx = CreateSlider(general, "SfxVolumeSlider",
+                new Vector2(250f, -320f), "settings.sfx_volume");
 
             RectTransform bindings = CreatePanel(root.transform, "BindingsPanel",
                 Vector2.zero, Vector2.one);
-            CreateText(bindings, "KeyboardHeader", "KEYBOARD", font, 25,
-                new Vector2(0.2f, 0.7f), new Vector2(0.46f, 0.77f));
-            CreateText(bindings, "GamepadHeader", "GAMEPAD", font, 25,
-                new Vector2(0.54f, 0.7f), new Vector2(0.8f, 0.77f));
-            string[] commands = { "Up", "Down", "Left", "Right", "Submit", "Back", "Help" };
-            var keyboardButtons = new Button[commands.Length];
-            var gamepadButtons = new Button[commands.Length];
-            for (int index = 0; index < commands.Length; index++)
+            CreateText(bindings, "KeyboardHeader", "settings.keyboard", font, 25,
+                new Vector2(0.2f, 0.68f), new Vector2(0.46f, 0.73f));
+            CreateText(bindings, "GamepadHeader", "settings.gamepad", font, 25,
+                new Vector2(0.54f, 0.68f), new Vector2(0.8f, 0.73f));
+            string[] commandNames = { "Up", "Down", "Left", "Right", "Submit", "Back", "Help" };
+            string[] commandKeys =
             {
-                float y = 235f - index * 70f;
+                "settings.command_up", "settings.command_down", "settings.command_left",
+                "settings.command_right", "settings.command_submit",
+                "settings.command_back", "settings.command_help"
+            };
+            var keyboardButtons = new Button[commandNames.Length];
+            var gamepadButtons = new Button[commandNames.Length];
+            for (int index = 0; index < commandNames.Length; index++)
+            {
+                float y = 135f - index * 60f;
                 keyboardButtons[index] = CreateButton(bindings,
-                    "Keyboard" + commands[index] + "Button", commands[index], font,
-                    new Vector2(-300f, y));
+                    "Keyboard" + commandNames[index] + "Button", commandKeys[index], font,
+                    new Vector2(-300f, y), ProductTextContentMode.Dynamic,
+                    labelFontSize: 20);
                 gamepadButtons[index] = CreateButton(bindings,
-                    "Gamepad" + commands[index] + "Button", commands[index], font,
-                    new Vector2(300f, y));
+                    "Gamepad" + commandNames[index] + "Button", commandKeys[index], font,
+                    new Vector2(300f, y), ProductTextContentMode.Dynamic,
+                    labelFontSize: 20);
                 keyboardButtons[index].GetComponent<RectTransform>().sizeDelta =
                     new Vector2(520f, 58f);
                 gamepadButtons[index].GetComponent<RectTransform>().sizeDelta =
                     new Vector2(520f, 58f);
-                keyboardButtons[index].GetComponentInChildren<Text>(true).fontSize = 20;
-                gamepadButtons[index].GetComponentInChildren<Text>(true).fontSize = 20;
             }
-            Button cancelRebind = CreateButton(bindings, "CancelRebindButton", "Cancel rebind", font,
-                new Vector2(0f, -285f));
-            cancelRebind.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 60f);
+            Button cancelRebind = CreateButton(bindings, "CancelRebindButton",
+                "settings.cancel_rebind", font, new Vector2(0f, -310f));
+            cancelRebind.GetComponent<RectTransform>().sizeDelta = new Vector2(520f, 72f);
 
-            Text feedback = CreateText(root.transform, "Feedback", "", font, 22,
-                new Vector2(0.12f, 0.1f), new Vector2(0.88f, 0.16f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font,
-                new Vector2(-290f, -460f));
-            Button reset = CreateButton(root.transform, "ResetButton", "Reset defaults", font,
-                new Vector2(0f, -460f));
+            RectTransform accessibility = CreatePanel(root.transform, "AccessibilityPanel",
+                Vector2.zero, Vector2.one);
+            CreateText(accessibility, "LocaleLabel", "settings.locale", font, 27,
+                new Vector2(0.22f, 0.61f), new Vector2(0.45f, 0.69f));
+            Dropdown locale = CreateDropdown(accessibility, "LocaleDropdown", font,
+                new Vector2(240f, 155f), "settings.locale", "settings.locale_en");
+            locale.GetComponent<RectTransform>().sizeDelta = new Vector2(480f, 68f);
+            CreateText(accessibility, "TextScaleLabel", "settings.text_scale", font, 27,
+                new Vector2(0.22f, 0.49f), new Vector2(0.45f, 0.57f));
+            Dropdown textScale = CreateDropdown(accessibility, "TextScaleDropdown", font,
+                new Vector2(240f, 25f), "settings.text_scale");
+            textScale.GetComponent<RectTransform>().sizeDelta = new Vector2(480f, 68f);
+            Toggle highContrast = CreateToggle(accessibility, "HighContrastToggle",
+                "settings.high_contrast", font, new Vector2(180f, -120f));
+            Toggle reducedMotion = CreateToggle(accessibility, "ReducedMotionToggle",
+                "settings.reduced_motion", font, new Vector2(180f, -220f));
+
+            Text feedback = CreateText(root.transform, "Feedback", "settings.feedback", font, 18,
+                new Vector2(0.12f, 0.1f), new Vector2(0.88f, 0.14f),
+                ProductTextContentMode.Dynamic, string.Empty);
+            SetFixedRect(feedback.rectTransform,
+                new Vector2(0f, 270f), new Vector2(1550f, 44f));
+            Button back = CreateButton(root.transform, "BackButton", "common.back", font,
+                new Vector2(-290f, -425f));
+            Button reset = CreateButton(root.transform, "ResetButton", "common.reset_defaults",
+                font, new Vector2(0f, -425f));
             reset.GetComponent<RectTransform>().sizeDelta = new Vector2(280f, 72f);
-            Button apply = CreateButton(root.transform, "ApplyButton", "Apply", font,
-                new Vector2(290f, -460f));
+            Button apply = CreateButton(root.transform, "ApplyButton", "common.apply", font,
+                new Vector2(290f, -425f));
 
             root.GetComponent<ProductSettingsScreen>().Configure(
-                general.gameObject, bindings.gameObject, generalPage, bindingsPage,
-                displayMode, resolution, vSync, master, music, sfx,
-                masterLabel, musicLabel, sfxLabel, presentationSpeed,
+                general.gameObject, bindings.gameObject, accessibility.gameObject,
+                generalPage, bindingsPage, accessibilityPage, displayMode, resolution,
+                vSync, master, music, sfx, masterLabel, musicLabel, sfxLabel,
+                presentationSpeed, locale, textScale, highContrast, reducedMotion,
                 keyboardButtons, gamepadButtons, cancelRebind, feedback, apply, reset, back);
             bindings.gameObject.SetActive(false);
+            accessibility.gameObject.SetActive(false);
             cancelRebind.gameObject.SetActive(false);
             return SavePrefab(root, PrefabDirectory + "/ProductSettingsScreen.prefab");
         }
@@ -246,20 +329,30 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateMatchPrefab(Font font)
         {
             GameObject root = ScreenRoot<MatchScreen>("MatchScreen");
-            Text status = CreateText(root.transform, "Status", "Player 1 turn", font, 34,
-                new Vector2(0.22f, 0.88f), new Vector2(0.78f, 0.97f));
-            Text opponent = CreateText(root.transform, "OpponentHand", "CPU hand: ■ ■ ■ ■ ■ ■ ■", font, 30,
-                new Vector2(0.18f, 0.72f), new Vector2(0.82f, 0.84f));
-            Text stock = CreateText(root.transform, "Stock", "Stock: 37", font, 30,
-                new Vector2(0.2f, 0.48f), new Vector2(0.4f, 0.62f));
-            Text discard = CreateText(root.transform, "Discard", "Discard: 7H", font, 30,
-                new Vector2(0.6f, 0.48f), new Vector2(0.8f, 0.62f));
-            Text hand = CreateText(root.transform, "HumanHand", "Your hand: AC 3D 4H 7S 8C 10D KH", font, 30,
-                new Vector2(0.12f, 0.25f), new Vector2(0.88f, 0.37f));
+            Text status = CreateText(root.transform, "Status", "match.status_human", font, 34,
+                new Vector2(0.22f, 0.88f), new Vector2(0.78f, 0.97f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("match.status_human", 1));
+            Text opponent = CreateText(root.transform, "OpponentHand", "match.opponent_hand",
+                font, 30, new Vector2(0.18f, 0.72f), new Vector2(0.82f, 0.84f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("match.opponent_hand", "# # # # # # #"));
+            Text stock = CreateText(root.transform, "Stock", "match.stock", font, 30,
+                new Vector2(0.2f, 0.48f), new Vector2(0.4f, 0.62f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("match.stock", 37));
+            Text discard = CreateText(root.transform, "Discard", "match.discard", font, 30,
+                new Vector2(0.6f, 0.48f), new Vector2(0.8f, 0.62f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("match.discard", "7H"));
+            Text hand = CreateText(root.transform, "HumanHand", "match.human_hand", font, 30,
+                new Vector2(0.12f, 0.29f), new Vector2(0.88f, 0.40f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("match.human_hand", "AC 3D 4H 7S 8C 10D KH"));
             RectTransform actionViewport = CreatePanel(root.transform, "ActionViewport",
-                new Vector2(0.18f, 0.04f), new Vector2(0.82f, 0.2f));
+                new Vector2(0.18f, 0.01f), new Vector2(0.82f, 0.22f));
             Image viewportImage = actionViewport.gameObject.AddComponent<Image>();
-            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            ConfigureGraphic(viewportImage, ProductGraphicRole.Surface);
             var mask = actionViewport.gameObject.AddComponent<Mask>();
             mask.showMaskGraphic = false;
             var scroll = actionViewport.gameObject.AddComponent<ScrollRect>();
@@ -269,10 +362,10 @@ namespace TrumpLab.Product.Editor
             actions.pivot = new Vector2(0.5f, 1f);
             actions.sizeDelta = Vector2.zero;
             GridLayoutGroup actionGrid = actions.gameObject.AddComponent<GridLayoutGroup>();
-            actionGrid.cellSize = new Vector2(225f, 72f);
+            actionGrid.cellSize = new Vector2(225f, 190f);
             actionGrid.spacing = new Vector2(10f, 8f);
             actionGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            actionGrid.constraintCount = 5;
+            actionGrid.constraintCount = 4;
             var fitter = actions.gameObject.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             scroll.content = actions;
@@ -281,55 +374,74 @@ namespace TrumpLab.Product.Editor
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 32f;
-            Text actionSummary = CreateText(root.transform, "ActionSummary", "Legal action buttons appear here", font, 22,
-                new Vector2(0.18f, 0.2f), new Vector2(0.82f, 0.25f));
-            Button actionTemplate = CreateButton(actions, "ActionButtonTemplate", "Action", font, Vector2.zero);
+            Text actionSummary = CreateText(root.transform, "ActionSummary",
+                "match.action_summary_locked", font, 22,
+                new Vector2(0.18f, 0.22f), new Vector2(0.82f, 0.27f),
+                ProductTextContentMode.Dynamic);
+            Button actionTemplate = CreateButton(actions, "ActionButtonTemplate",
+                "match.action_button", font, Vector2.zero, ProductTextContentMode.Dynamic,
+                "match.action_control", labelFontSize: 17);
             actionTemplate.GetComponent<ProductUiFeedbackEmitter>()
                 .SetSubmitFeedbackEnabled(false);
             actionTemplate.gameObject.SetActive(false);
-            Button help = CreateButton(root.transform, "HelpButton", "Help", font,
-                new Vector2(790f, 455f));
+            Button help = CreateButton(root.transform, "HelpButton", "match.help", font,
+                new Vector2(710f, 435f));
             help.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
-            Button rules = CreateButton(root.transform, "RulesButton", "Rules", font,
-                new Vector2(790f, 385f));
+            Button settings = CreateButton(root.transform, "SettingsButton", "match.settings", font,
+                new Vector2(710f, 365f));
+            settings.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
+            Button rules = CreateButton(root.transform, "RulesButton", "match.rules", font,
+                new Vector2(710f, 295f));
             rules.GetComponent<RectTransform>().sizeDelta = new Vector2(170f, 56f);
             RectTransform helpPanel = CreatePanel(root.transform, "ContextHelpPanel",
-                new Vector2(0.16f, 0.12f), new Vector2(0.84f, 0.86f));
+                new Vector2(0.16f, 0.02f), new Vector2(0.84f, 0.98f));
             Image helpBackground = helpPanel.gameObject.AddComponent<Image>();
-            helpBackground.color = new Color(0.035f, 0.12f, 0.09f, 0.98f);
+            ConfigureGraphic(helpBackground, ProductGraphicRole.Surface);
             Text helpText = CreateText(helpPanel, "ContextHelpText",
-                "Current legal actions and their reasons appear here.", font, 24,
-                new Vector2(0.06f, 0.16f), new Vector2(0.94f, 0.92f));
+                "match.context_opening", font, 20,
+                new Vector2(0.06f, 0.085f), new Vector2(0.94f, 0.98f),
+                ProductTextContentMode.Dynamic);
             helpText.alignment = TextAnchor.UpperLeft;
             helpText.verticalOverflow = VerticalWrapMode.Overflow;
-            Button closeHelp = CreateButton(helpPanel, "CloseHelpButton", "Close", font,
+            Button closeHelp = CreateButton(helpPanel, "CloseHelpButton", "match.close_help", font,
                 new Vector2(0f, -330f));
+            RectTransform closeHelpRect = closeHelp.GetComponent<RectTransform>();
+            closeHelpRect.anchorMin = closeHelpRect.anchorMax = new Vector2(0.5f, 0.035f);
+            closeHelpRect.anchoredPosition = Vector2.zero;
             RectTransform tutorialPanel = CreatePanel(root.transform, "TutorialPanel",
-                new Vector2(0.12f, 0.55f), new Vector2(0.88f, 0.86f));
+                new Vector2(0.1f, 0.55f), new Vector2(0.9f, 0.86f));
             Image tutorialBackground = tutorialPanel.gameObject.AddComponent<Image>();
-            tutorialBackground.color = new Color(0.08f, 0.18f, 0.14f, 0.98f);
-            Text tutorialProgress = CreateText(tutorialPanel, "TutorialProgress", "Step 1 / 6",
-                font, 22, new Vector2(0.04f, 0.78f), new Vector2(0.2f, 0.96f));
+            ConfigureGraphic(tutorialBackground, ProductGraphicRole.Surface);
+            Text tutorialProgress = CreateText(tutorialPanel, "TutorialProgress",
+                "tutorial.progress", font, 22,
+                new Vector2(0.04f, 0.78f), new Vector2(0.2f, 0.96f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("tutorial.progress", 1, 6));
             tutorialProgress.alignment = TextAnchor.MiddleLeft;
-            Text tutorialHeading = CreateText(tutorialPanel, "TutorialHeading", "Meet the table",
-                font, 30, new Vector2(0.2f, 0.72f), new Vector2(0.78f, 0.98f));
+            Text tutorialHeading = CreateText(tutorialPanel, "TutorialHeading",
+                "tutorial.intro.heading", font, 30,
+                new Vector2(0.2f, 0.72f), new Vector2(0.78f, 0.98f),
+                ProductTextContentMode.Dynamic);
             Text tutorialInstruction = CreateText(tutorialPanel, "TutorialInstruction",
-                "Find your hand, the CPU count, stock, discard, and turn label.", font, 22,
-                new Vector2(0.04f, 0.43f), new Vector2(0.96f, 0.74f));
+                "tutorial.intro", font, 22,
+                new Vector2(0.04f, 0.4f), new Vector2(0.96f, 0.7f),
+                ProductTextContentMode.Dynamic);
             tutorialInstruction.alignment = TextAnchor.UpperLeft;
             Text tutorialGuidance = CreateText(tutorialPanel, "TutorialGuidance",
-                "This guide uses a normal Crazy Eights game with a fixed seed.", font, 20,
-                new Vector2(0.04f, 0.08f), new Vector2(0.65f, 0.43f));
+                "tutorial.guidance_default", font, 20,
+                new Vector2(0.04f, 0.1f), new Vector2(0.5f, 0.37f),
+                ProductTextContentMode.Dynamic);
             tutorialGuidance.alignment = TextAnchor.UpperLeft;
             Button tutorialContinue = CreateButton(tutorialPanel, "TutorialContinueButton",
-                "Start guided match", font, new Vector2(315f, -95f));
-            tutorialContinue.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 64f);
-            Button tutorialExit = CreateButton(tutorialPanel, "TutorialExitButton", "Exit tutorial",
-                font, new Vector2(545f, -95f));
-            tutorialExit.GetComponent<RectTransform>().sizeDelta = new Vector2(200f, 64f);
+                "tutorial.continue_start", font, new Vector2(230f, -95f),
+                ProductTextContentMode.Dynamic, labelFontSize: 20);
+            tutorialContinue.GetComponent<RectTransform>().sizeDelta = new Vector2(380f, 96f);
+            Button tutorialExit = CreateButton(tutorialPanel, "TutorialExitButton",
+                "tutorial.exit", font, new Vector2(550f, -95f), labelFontSize: 20);
+            tutorialExit.GetComponent<RectTransform>().sizeDelta = new Vector2(220f, 96f);
             root.GetComponent<MatchScreen>().Configure(
                 status, opponent, stock, discard, hand, actionSummary, actions, actionTemplate,
-                help, rules, helpPanel.gameObject, helpText, closeHelp,
+                help, settings, rules, helpPanel.gameObject, helpText, closeHelp,
                 tutorialPanel.gameObject, tutorialProgress, tutorialHeading,
                 tutorialInstruction, tutorialGuidance, tutorialContinue, tutorialExit);
             helpPanel.gameObject.SetActive(false);
@@ -340,21 +452,23 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateSessionLibraryPrefab(Font font)
         {
             GameObject root = ScreenRoot<SessionLibraryScreen>("SessionLibraryScreen");
-            CreateText(root.transform, "Title", "SAVED SESSIONS", font, 52,
+            CreateText(root.transform, "Title", "library.title", font, 52,
                 new Vector2(0.2f, 0.79f), new Vector2(0.8f, 0.91f));
             Dropdown dropdown = CreateDropdown(root.transform, "SlotDropdown", font,
-                new Vector2(0f, 180f));
+                new Vector2(0f, 180f), "title.saved_sessions", "library.empty_option");
+            dropdown.GetComponent<RectTransform>().sizeDelta = new Vector2(900f, 112f);
             Text detail = CreateText(root.transform, "Detail",
-                "No saved sessions are available.", font, 25,
-                new Vector2(0.16f, 0.43f), new Vector2(0.84f, 0.56f));
-            Button resume = CreateButton(root.transform, "ResumeButton", "Resume", font,
-                new Vector2(-270f, -30f));
-            Button replay = CreateButton(root.transform, "ReplayButton", "Replay", font,
-                new Vector2(0f, -30f));
-            Button delete = CreateButton(root.transform, "DeleteButton", "Delete", font,
-                new Vector2(270f, -30f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font,
-                new Vector2(0f, -160f));
+                "library.empty", font, 25,
+                new Vector2(0.16f, 0.46f), new Vector2(0.84f, 0.6f),
+                ProductTextContentMode.Dynamic);
+            Button resume = CreateButton(root.transform, "ResumeButton", "library.resume", font,
+                new Vector2(-270f, -105f));
+            Button replay = CreateButton(root.transform, "ReplayButton", "library.replay", font,
+                new Vector2(0f, -105f));
+            Button delete = CreateButton(root.transform, "DeleteButton", "library.delete", font,
+                new Vector2(270f, -105f), ProductTextContentMode.Dynamic);
+            Button back = CreateButton(root.transform, "BackButton", "common.back", font,
+                new Vector2(0f, -220f));
             root.GetComponent<SessionLibraryScreen>().Configure(
                 dropdown, detail, resume, replay, delete, back);
             return SavePrefab(root, PrefabDirectory + "/SessionLibraryScreen.prefab");
@@ -363,14 +477,18 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateReplayPrefab(Font font)
         {
             GameObject root = ScreenRoot<ReplayScreen>("ReplayScreen");
-            CreateText(root.transform, "Title", "REPLAY", font, 52,
+            CreateText(root.transform, "Title", "replay.title", font, 52,
                 new Vector2(0.2f, 0.8f), new Vector2(0.8f, 0.92f));
-            Text status = CreateText(root.transform, "Status", "Replayed 0 actions", font, 30,
-                new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.78f));
-            Text table = CreateText(root.transform, "Table", "Saved table state", font, 28,
-                new Vector2(0.12f, 0.24f), new Vector2(0.88f, 0.66f));
-            Button back = CreateButton(root.transform, "BackButton", "Back to sessions", font,
-                new Vector2(0f, -230f));
+            Text status = CreateText(root.transform, "Status", "replay.status", font, 30,
+                new Vector2(0.15f, 0.68f), new Vector2(0.85f, 0.78f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("replay.status", 0,
+                    ProductTextCatalog.English.Get("replay.not_finished")));
+            Text table = CreateText(root.transform, "Table", "replay.table", font, 28,
+                new Vector2(0.12f, 0.24f), new Vector2(0.88f, 0.66f),
+                ProductTextContentMode.Dynamic);
+            Button back = CreateButton(root.transform, "BackButton", "replay.back", font,
+                new Vector2(0f, -400f));
             back.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
             root.GetComponent<ReplayScreen>().Configure(status, table, back);
             return SavePrefab(root, PrefabDirectory + "/ReplayScreen.prefab");
@@ -379,17 +497,18 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateResultPrefab(Font font)
         {
             GameObject root = ScreenRoot<ResultScreen>("ResultScreen");
-            CreateText(root.transform, "Title", "RESULT", font, 56,
+            CreateText(root.transform, "Title", "result.title", font, 56,
                 new Vector2(0.2f, 0.7f), new Vector2(0.8f, 0.84f));
-            Text summary = CreateText(root.transform, "Summary", "Player 1 wins\nReason: empty hand", font, 32,
-                new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.68f));
-            Button details = CreateButton(root.transform, "DetailsButton", "Result details", font,
-                new Vector2(0f, -85f));
+            Text summary = CreateText(root.transform, "Summary", "result.summary", font, 32,
+                new Vector2(0.2f, 0.42f), new Vector2(0.8f, 0.68f),
+                ProductTextContentMode.Dynamic);
+            Button details = CreateButton(root.transform, "DetailsButton", "result.details", font,
+                new Vector2(0f, -160f));
             details.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 72f);
-            Button rematch = CreateButton(root.transform, "RematchButton", "Rematch", font,
-                new Vector2(140f, -190f));
-            Button title = CreateButton(root.transform, "TitleButton", "Title", font,
-                new Vector2(-140f, -190f));
+            Button rematch = CreateButton(root.transform, "RematchButton", "result.rematch", font,
+                new Vector2(140f, -300f));
+            Button title = CreateButton(root.transform, "TitleButton", "common.title", font,
+                new Vector2(-140f, -300f));
             root.GetComponent<ResultScreen>().Configure(summary, details, rematch, title);
             return SavePrefab(root, PrefabDirectory + "/ResultScreen.prefab");
         }
@@ -397,30 +516,42 @@ namespace TrumpLab.Product.Editor
         private static GameObject CreateHowToPlayPrefab(Font font)
         {
             GameObject root = ScreenRoot<HowToPlayScreen>("HowToPlayScreen");
-            CreateText(root.transform, "ScreenTitle", "HOW TO PLAY", font, 48,
+            CreateText(root.transform, "ScreenTitle", "rules.screen_title", font, 48,
                 new Vector2(0.18f, 0.84f), new Vector2(0.82f, 0.94f));
             Text context = CreateText(root.transform, "Context",
-                "Crazy Eights rules · Read-only guide", font, 23,
-                new Vector2(0.16f, 0.76f), new Vector2(0.84f, 0.83f));
-            Text indicator = CreateText(root.transform, "PageIndicator", "Page 1 / 5", font, 24,
-                new Vector2(0.17f, 0.68f), new Vector2(0.33f, 0.75f));
-            Text pageTitle = CreateText(root.transform, "PageTitle", "Objective", font, 38,
-                new Vector2(0.25f, 0.58f), new Vector2(0.75f, 0.68f));
+                "rules.context_read_only", font, 23,
+                new Vector2(0.16f, 0.76f), new Vector2(0.84f, 0.83f),
+                ProductTextContentMode.Dynamic);
+            Text indicator = CreateText(root.transform, "PageIndicator",
+                "rules.page_indicator", font, 24,
+                new Vector2(0.17f, 0.68f), new Vector2(0.33f, 0.75f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get("rules.page_indicator", 1, 5));
+            Text pageTitle = CreateText(root.transform, "PageTitle",
+                "rules.crazy_eights.objective.title", font, 38,
+                new Vector2(0.25f, 0.58f), new Vector2(0.75f, 0.68f),
+                ProductTextContentMode.Dynamic);
             Text body = CreateText(root.transform, "PageBody",
-                "Be the first player to empty your hand.", font, 28,
-                new Vector2(0.16f, 0.27f), new Vector2(0.84f, 0.57f));
+                "rules.crazy_eights.objective", font, 22,
+                new Vector2(0.16f, 0.25f), new Vector2(0.84f, 0.57f),
+                ProductTextContentMode.Dynamic);
+            body.rectTransform.anchorMin = new Vector2(0.16f, 0.5f);
+            body.rectTransform.anchorMax = new Vector2(0.84f, 0.5f);
+            body.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            body.rectTransform.anchoredPosition = new Vector2(0f, -107.5f);
+            body.rectTransform.sizeDelta = new Vector2(0f, 365f);
             body.alignment = TextAnchor.UpperLeft;
             body.horizontalOverflow = HorizontalWrapMode.Wrap;
             body.verticalOverflow = VerticalWrapMode.Overflow;
             Button startTutorial = CreateButton(root.transform, "StartTutorialButton",
-                "Start tutorial", font, new Vector2(0f, -245f));
-            startTutorial.GetComponent<RectTransform>().sizeDelta = new Vector2(300f, 72f);
-            Button previous = CreateButton(root.transform, "PreviousButton", "Previous", font,
-                new Vector2(-300f, -350f));
-            Button next = CreateButton(root.transform, "NextButton", "Next", font,
-                new Vector2(0f, -350f));
-            Button back = CreateButton(root.transform, "BackButton", "Back", font,
-                new Vector2(300f, -350f));
+                "rules.start_tutorial", font, new Vector2(0f, -335f));
+            startTutorial.GetComponent<RectTransform>().sizeDelta = new Vector2(520f, 72f);
+            Button previous = CreateButton(root.transform, "PreviousButton", "rules.previous", font,
+                new Vector2(-300f, -425f));
+            Button next = CreateButton(root.transform, "NextButton", "rules.next", font,
+                new Vector2(0f, -425f));
+            Button back = CreateButton(root.transform, "BackButton", "common.back", font,
+                new Vector2(300f, -425f));
             root.GetComponent<HowToPlayScreen>().Configure(
                 indicator, pageTitle, body, context, startTutorial, previous, next, back);
             root.GetComponent<HowToPlayScreen>().Render(CrazyEightsHowToPlayPresenter.Create());
@@ -434,12 +565,14 @@ namespace TrumpLab.Product.Editor
             root.transform.SetParent(parent, false);
             Stretch(root.GetComponent<RectTransform>());
             Image background = root.GetComponent<Image>();
-            background.color = new Color(0.08f, 0.025f, 0.025f, 0.96f);
-            CreateText(root.transform, "Title", "MATCH STOPPED", font, 48,
+            ConfigureGraphic(background, ProductGraphicRole.ErrorBackground);
+            CreateText(root.transform, "Title", "error.panel_title", font, 48,
                 new Vector2(0.2f, 0.67f), new Vector2(0.8f, 0.8f));
-            Text message = CreateText(root.transform, "Message", "The match stopped safely.", font, 28,
-                new Vector2(0.2f, 0.4f), new Vector2(0.8f, 0.64f));
-            Button dismiss = CreateButton(root.transform, "DismissButton", "Return to title", font,
+            Text message = CreateText(root.transform, "Message", "error.match_stopped", font, 28,
+                new Vector2(0.2f, 0.4f), new Vector2(0.8f, 0.64f),
+                ProductTextContentMode.Dynamic,
+                graphicRole: ProductGraphicRole.ErrorText);
+            Button dismiss = CreateButton(root.transform, "DismissButton", "error.dismiss", font,
                 new Vector2(0f, -180f));
             dismiss.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 72f);
             Navigation navigation = dismiss.navigation;
@@ -460,7 +593,7 @@ namespace TrumpLab.Product.Editor
             transitionObject.transform.SetParent(parent, false);
             Stretch(transitionObject.GetComponent<RectTransform>());
             Image transitionImage = transitionObject.GetComponent<Image>();
-            transitionImage.color = new Color(0.015f, 0.03f, 0.025f, 0.82f);
+            ConfigureGraphic(transitionImage, ProductGraphicRole.Background);
             transitionImage.raycastTarget = false;
             CanvasGroup transition = transitionObject.GetComponent<CanvasGroup>();
             transition.alpha = 0f;
@@ -477,15 +610,17 @@ namespace TrumpLab.Product.Editor
             bannerRect.offsetMin = Vector2.zero;
             bannerRect.offsetMax = Vector2.zero;
             Image bannerImage = bannerObject.GetComponent<Image>();
-            bannerImage.color = new Color(0.1f, 0.4f, 0.58f, 0.97f);
+            ConfigureGraphic(bannerImage, ProductGraphicRole.ActiveControlBackground);
             bannerImage.raycastTarget = false;
             CanvasGroup banner = bannerObject.GetComponent<CanvasGroup>();
             banner.alpha = 0f;
             banner.interactable = false;
             banner.blocksRaycasts = false;
             Text bannerText = CreateText(bannerObject.transform, "FeedbackText",
-                "◇  Focus moved", font, 30,
-                new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f));
+                "feedback.navigation", font, 30,
+                new Vector2(0.04f, 0.08f), new Vector2(0.96f, 0.92f),
+                ProductTextContentMode.Dynamic,
+                graphicRole: ProductGraphicRole.ControlText);
 
             return new ProductPresentationSurfaces(
                 banner, bannerImage, bannerText, transition);
@@ -524,7 +659,7 @@ namespace TrumpLab.Product.Editor
             RectTransform rect = root.GetComponent<RectTransform>();
             Stretch(rect);
             Image background = root.GetComponent<Image>();
-            background.color = new Color(0.035f, 0.12f, 0.09f, 1f);
+            ConfigureGraphic(background, ProductGraphicRole.Background);
             background.raycastTarget = false;
             return root;
         }
@@ -557,6 +692,19 @@ namespace TrumpLab.Product.Editor
             return canvas;
         }
 
+        private static ProductSafeFrame CreateSafeFrame(Canvas canvas)
+        {
+            if (canvas == null) throw new ArgumentNullException(nameof(canvas));
+            var root = new GameObject("SafeFrame", typeof(RectTransform),
+                typeof(ProductSafeFrame));
+            root.transform.SetParent(canvas.transform, false);
+            RectTransform rect = root.GetComponent<RectTransform>();
+            Stretch(rect);
+            ProductSafeFrame frame = root.GetComponent<ProductSafeFrame>();
+            frame.Configure((RectTransform)canvas.transform);
+            return frame;
+        }
+
         private static InputSystemUIInputModule CreateEventSystem()
         {
             var root = new GameObject("EventSystem", typeof(EventSystem),
@@ -566,8 +714,11 @@ namespace TrumpLab.Product.Editor
             return module;
         }
 
-        private static Text CreateText(Transform parent, string name, string value, Font font,
-            int size, Vector2 anchorMin, Vector2 anchorMax)
+        private static Text CreateText(Transform parent, string name, string stableKey, Font font,
+            int size, Vector2 anchorMin, Vector2 anchorMax,
+            ProductTextContentMode mode = ProductTextContentMode.Static,
+            string? initialValue = null,
+            ProductGraphicRole? graphicRole = null)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
             root.transform.SetParent(parent, false);
@@ -580,14 +731,20 @@ namespace TrumpLab.Product.Editor
             text.font = font;
             text.fontSize = size;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = new Color(0.96f, 0.94f, 0.82f, 1f);
-            text.text = value;
+            text.text = InitialText(stableKey, mode, initialValue);
             text.raycastTarget = false;
+            ProductTextElement textElement = root.AddComponent<ProductTextElement>();
+            textElement.Configure(text, mode, stableKey, size);
+            ConfigureGraphic(text, graphicRole ?? (size >= 30
+                ? ProductGraphicRole.LargeText
+                : ProductGraphicRole.NormalText));
             return text;
         }
 
-        private static Button CreateButton(Transform parent, string name, string label, Font font,
-            Vector2 anchoredPosition)
+        private static Button CreateButton(Transform parent, string name, string labelKey,
+            Font font, Vector2 anchoredPosition,
+            ProductTextContentMode labelMode = ProductTextContentMode.Static,
+            string? accessibleLabelKey = null, int labelFontSize = 28)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
                 typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Button));
@@ -598,15 +755,18 @@ namespace TrumpLab.Product.Editor
             rect.sizeDelta = new Vector2(240f, 72f);
             rect.anchoredPosition = anchoredPosition;
             Image image = root.GetComponent<Image>();
-            image.color = new Color(0.16f, 0.42f, 0.29f, 1f);
             Button button = root.GetComponent<Button>();
             button.targetGraphic = image;
-            CreateText(root.transform, "Label", label, font, 28, Vector2.zero, Vector2.one);
+            ConfigureGraphic(image, ProductGraphicRole.ControlBackground);
+            CreateText(root.transform, "Label", labelKey, font, labelFontSize,
+                Vector2.zero, Vector2.one, labelMode,
+                graphicRole: ProductGraphicRole.ControlText);
+            ConfigureControl(button, accessibleLabelKey ?? labelKey);
             return button;
         }
 
-        private static Toggle CreateToggle(Transform parent, string name, string label, Font font,
-            Vector2 anchoredPosition)
+        private static Toggle CreateToggle(Transform parent, string name, string labelKey,
+            Font font, Vector2 anchoredPosition)
         {
             var root = new GameObject(name, typeof(RectTransform),
                 typeof(ProductUiFeedbackEmitter), typeof(Toggle));
@@ -624,7 +784,7 @@ namespace TrumpLab.Product.Editor
             backgroundRect.pivot = new Vector2(0f, 0.5f);
             backgroundRect.sizeDelta = new Vector2(52f, 52f);
             Image background = backgroundObject.GetComponent<Image>();
-            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+            ConfigureGraphic(background, ProductGraphicRole.ControlBackground);
 
             var checkmarkObject = new GameObject("Checkmark", typeof(RectTransform),
                 typeof(CanvasRenderer), typeof(Image));
@@ -634,20 +794,22 @@ namespace TrumpLab.Product.Editor
             checkmarkRect.anchorMax = new Vector2(0.82f, 0.82f);
             checkmarkRect.offsetMin = checkmarkRect.offsetMax = Vector2.zero;
             Image checkmark = checkmarkObject.GetComponent<Image>();
-            checkmark.color = new Color(0.12f, 0.46f, 0.25f, 1f);
+            ConfigureGraphic(checkmark, ProductGraphicRole.ActiveControlBackground);
 
-            Text text = CreateText(root.transform, "Label", label, font, 25,
-                new Vector2(0.16f, 0f), Vector2.one);
+            Text text = CreateText(root.transform, "Label", labelKey, font, 25,
+                new Vector2(0.16f, 0f), Vector2.one,
+                graphicRole: ProductGraphicRole.NormalText);
             text.alignment = TextAnchor.MiddleLeft;
             Toggle toggle = root.GetComponent<Toggle>();
             toggle.targetGraphic = background;
             toggle.graphic = checkmark;
             toggle.isOn = true;
+            ConfigureControl(toggle, labelKey);
             return toggle;
         }
 
         private static Slider CreateSlider(Transform parent, string name,
-            Vector2 anchoredPosition)
+            Vector2 anchoredPosition, string labelKey)
         {
             var root = new GameObject(name, typeof(RectTransform),
                 typeof(ProductUiFeedbackEmitter), typeof(Slider));
@@ -665,7 +827,7 @@ namespace TrumpLab.Product.Editor
             backgroundRect.anchorMax = new Vector2(1f, 0.62f);
             backgroundRect.offsetMin = backgroundRect.offsetMax = Vector2.zero;
             Image background = backgroundObject.GetComponent<Image>();
-            background.color = new Color(0.22f, 0.3f, 0.25f, 1f);
+            ConfigureGraphic(background, ProductGraphicRole.Surface);
 
             RectTransform fillArea = CreatePanel(root.transform, "Fill Area",
                 new Vector2(0f, 0.28f), new Vector2(1f, 0.72f));
@@ -677,7 +839,7 @@ namespace TrumpLab.Product.Editor
             RectTransform fillRect = fillObject.GetComponent<RectTransform>();
             Stretch(fillRect);
             Image fill = fillObject.GetComponent<Image>();
-            fill.color = new Color(0.2f, 0.68f, 0.38f, 1f);
+            ConfigureGraphic(fill, ProductGraphicRole.ActiveControlBackground);
 
             RectTransform handleArea = CreatePanel(root.transform, "Handle Slide Area",
                 Vector2.zero, Vector2.one);
@@ -689,7 +851,7 @@ namespace TrumpLab.Product.Editor
             RectTransform handleRect = handleObject.GetComponent<RectTransform>();
             handleRect.sizeDelta = new Vector2(38f, 52f);
             Image handle = handleObject.GetComponent<Image>();
-            handle.color = new Color(0.94f, 0.93f, 0.86f, 1f);
+            ConfigureGraphic(handle, ProductGraphicRole.ControlBackground);
 
             Slider slider = root.GetComponent<Slider>();
             slider.fillRect = fillRect;
@@ -700,11 +862,12 @@ namespace TrumpLab.Product.Editor
             slider.maxValue = 100f;
             slider.wholeNumbers = true;
             slider.value = 80f;
+            ConfigureControl(slider, labelKey);
             return slider;
         }
 
         private static InputField CreateInputField(Transform parent, string name, string value,
-            string placeholderValue, Font font, Vector2 anchoredPosition)
+            string placeholderKey, Font font, Vector2 anchoredPosition, string labelKey)
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
                 typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(InputField));
@@ -712,29 +875,32 @@ namespace TrumpLab.Product.Editor
             RectTransform rect = root.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.sizeDelta = new Vector2(360f, 64f);
+            rect.sizeDelta = new Vector2(500f, 64f);
             rect.anchoredPosition = anchoredPosition;
             Image background = root.GetComponent<Image>();
-            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
-            Text text = CreateText(root.transform, "Text", value, font, 28,
-                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f));
+            ConfigureGraphic(background, ProductGraphicRole.ControlBackground);
+            Text text = CreateText(root.transform, "Text", "input.value", font, 28,
+                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f),
+                ProductTextContentMode.LocaleNeutral, value,
+                ProductGraphicRole.ControlText);
             text.alignment = TextAnchor.MiddleLeft;
-            text.color = new Color(0.05f, 0.08f, 0.06f, 1f);
-            Text placeholder = CreateText(root.transform, "Placeholder", placeholderValue, font, 28,
-                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f));
+            Text placeholder = CreateText(root.transform, "Placeholder", placeholderKey, font, 28,
+                new Vector2(0.05f, 0.08f), new Vector2(0.95f, 0.92f),
+                graphicRole: ProductGraphicRole.MutedText);
             placeholder.alignment = TextAnchor.MiddleLeft;
-            placeholder.color = new Color(0.25f, 0.28f, 0.26f, 0.55f);
             InputField input = root.GetComponent<InputField>();
             input.targetGraphic = background;
             input.textComponent = text;
             input.placeholder = placeholder;
             input.contentType = InputField.ContentType.IntegerNumber;
             input.text = value;
+            ConfigureControl(input, labelKey);
             return input;
         }
 
         private static Dropdown CreateDropdown(Transform parent, string name, Font font,
-            Vector2 anchoredPosition)
+            Vector2 anchoredPosition, string labelKey,
+            string initialOptionKey = "common.none")
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer),
                 typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Dropdown));
@@ -744,14 +910,17 @@ namespace TrumpLab.Product.Editor
             rect.sizeDelta = new Vector2(620f, 72f);
             rect.anchoredPosition = anchoredPosition;
             Image background = root.GetComponent<Image>();
-            background.color = new Color(0.94f, 0.93f, 0.86f, 1f);
-            Text caption = CreateText(root.transform, "Label", "No saved sessions", font, 26,
-                new Vector2(0.04f, 0.08f), new Vector2(0.9f, 0.92f));
+            ConfigureGraphic(background, ProductGraphicRole.ControlBackground);
+            Text caption = CreateText(root.transform, "Label", labelKey, font, 26,
+                new Vector2(0.04f, 0.08f), new Vector2(0.9f, 0.92f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get(initialOptionKey),
+                ProductGraphicRole.ControlText);
             caption.alignment = TextAnchor.MiddleLeft;
-            caption.color = new Color(0.05f, 0.08f, 0.06f, 1f);
-            Text arrow = CreateText(root.transform, "Arrow", "▼", font, 25,
-                new Vector2(0.9f, 0.08f), new Vector2(0.98f, 0.92f));
-            arrow.color = caption.color;
+            CreateText(root.transform, "Arrow", "dropdown.arrow", font, 25,
+                new Vector2(0.9f, 0.08f), new Vector2(0.98f, 0.92f),
+                ProductTextContentMode.LocaleNeutral, "v",
+                ProductGraphicRole.ControlText);
 
             var templateObject = new GameObject("Template", typeof(RectTransform),
                 typeof(CanvasRenderer), typeof(Image), typeof(ScrollRect));
@@ -762,14 +931,16 @@ namespace TrumpLab.Product.Editor
             template.pivot = new Vector2(0.5f, 1f);
             template.anchoredPosition = new Vector2(0f, -4f);
             template.sizeDelta = new Vector2(0f, 280f);
-            templateObject.GetComponent<Image>().color = new Color(0.9f, 0.9f, 0.84f, 1f);
+            ConfigureGraphic(templateObject.GetComponent<Image>(),
+                ProductGraphicRole.Surface);
 
             var viewportObject = new GameObject("Viewport", typeof(RectTransform),
                 typeof(CanvasRenderer), typeof(Image), typeof(Mask));
             viewportObject.transform.SetParent(template, false);
             RectTransform viewport = viewportObject.GetComponent<RectTransform>();
             Stretch(viewport);
-            viewportObject.GetComponent<Image>().color = Color.white;
+            ConfigureGraphic(viewportObject.GetComponent<Image>(),
+                ProductGraphicRole.Surface);
             viewportObject.GetComponent<Mask>().showMaskGraphic = false;
 
             var contentObject = new GameObject("Content", typeof(RectTransform),
@@ -790,13 +961,21 @@ namespace TrumpLab.Product.Editor
                 typeof(Image), typeof(ProductUiFeedbackEmitter), typeof(Toggle),
                 typeof(LayoutElement));
             itemObject.transform.SetParent(content, false);
+            RectTransform itemRect = itemObject.GetComponent<RectTransform>();
+            itemRect.anchorMin = new Vector2(0f, 1f);
+            itemRect.anchorMax = new Vector2(1f, 1f);
+            itemRect.pivot = new Vector2(0.5f, 1f);
+            itemRect.sizeDelta = new Vector2(0f, 60f);
             itemObject.GetComponent<LayoutElement>().preferredHeight = 60f;
             Image itemBackground = itemObject.GetComponent<Image>();
-            itemBackground.color = new Color(0.18f, 0.38f, 0.27f, 1f);
+            ConfigureGraphic(itemBackground, ProductGraphicRole.ControlBackground);
             Toggle item = itemObject.GetComponent<Toggle>();
             item.targetGraphic = itemBackground;
-            Text itemLabel = CreateText(itemObject.transform, "Item Label", "Session", font, 24,
-                new Vector2(0.04f, 0f), new Vector2(0.96f, 1f));
+            Text itemLabel = CreateText(itemObject.transform, "Item Label", labelKey, font, 24,
+                new Vector2(0.04f, 0f), new Vector2(0.96f, 1f),
+                ProductTextContentMode.Dynamic,
+                ProductTextCatalog.English.Get(initialOptionKey),
+                ProductGraphicRole.ControlText);
             itemLabel.alignment = TextAnchor.MiddleLeft;
 
             ScrollRect scroll = templateObject.GetComponent<ScrollRect>();
@@ -809,9 +988,42 @@ namespace TrumpLab.Product.Editor
             dropdown.template = template;
             dropdown.captionText = caption;
             dropdown.itemText = itemLabel;
-            dropdown.options.Add(new Dropdown.OptionData("No saved sessions"));
+            dropdown.options.Add(new Dropdown.OptionData(
+                ProductTextCatalog.English.Get(initialOptionKey)));
             templateObject.SetActive(false);
+            ConfigureControl(item, labelKey);
+            ConfigureControl(dropdown, labelKey);
             return dropdown;
+        }
+
+        private static string InitialText(string stableKey, ProductTextContentMode mode,
+            string? initialValue)
+        {
+            if (mode == ProductTextContentMode.Static)
+                return ProductTextCatalog.English.Get(stableKey);
+            if (initialValue != null) return initialValue;
+            if (!ProductTextCatalog.Contains(stableKey)) return string.Empty;
+            ProductTextEntry entry = ProductTextCatalog.Entry(stableKey);
+            object[] arguments = Enumerable.Range(0, entry.ArgumentCount)
+                .Select(index => (object)(index + 1)).ToArray();
+            return ProductTextCatalog.English.Get(stableKey, arguments);
+        }
+
+        private static void ConfigureGraphic(Graphic graphic, ProductGraphicRole role)
+        {
+            if (graphic == null) throw new ArgumentNullException(nameof(graphic));
+            ProductGraphicElement element = graphic.GetComponent<ProductGraphicElement>() ??
+                graphic.gameObject.AddComponent<ProductGraphicElement>();
+            element.Configure(graphic, role);
+        }
+
+        private static void ConfigureControl(Selectable selectable, string labelKey)
+        {
+            if (selectable == null) throw new ArgumentNullException(nameof(selectable));
+            ProductAccessibleControl accessible =
+                selectable.GetComponent<ProductAccessibleControl>() ??
+                selectable.gameObject.AddComponent<ProductAccessibleControl>();
+            accessible.Configure(selectable, labelKey);
         }
 
         private static RectTransform CreatePanel(Transform parent, string name,
@@ -833,6 +1045,15 @@ namespace TrumpLab.Product.Editor
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+        }
+
+        private static void SetFixedRect(RectTransform rect, Vector2 anchoredPosition,
+            Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
         }
 
         private static Font BuiltInFont()
@@ -1092,7 +1313,10 @@ namespace TrumpLab.Product.Editor
                     throw new InvalidOperationException("Screen prefab is invalid: " + path);
                 if (GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(prefab) != 0)
                     throw new InvalidOperationException("Screen prefab has a missing script: " + path);
+                ValidateNoEmbeddedMonoScripts(path);
             }
+
+            ValidateNoEmbeddedMonoScripts(ScenePath);
 
             GameObject[] roots = SceneManager.GetActiveScene().GetRootGameObjects();
             ProductAppController? controller = roots.Select(root =>
@@ -1109,6 +1333,7 @@ namespace TrumpLab.Product.Editor
                 eventSystem.GetComponent<StandaloneInputModule>() != null)
                 throw new InvalidOperationException(
                     "Bootstrap scene must use only the Input System UI module.");
+            ValidateLocalizationAccessibilityContract(roots, controller, canvas);
             ValidateGeneratedAudioContract(roots, controller);
             ValidatePresentationContract(roots, controller, canvas);
             if (controller.ErrorPanel == null || controller.ErrorPanel.gameObject.activeSelf)
@@ -1136,6 +1361,19 @@ namespace TrumpLab.Product.Editor
                 EditorBuildSettings.scenes[0].path != ScenePath ||
                 !EditorBuildSettings.scenes[0].enabled)
                 throw new InvalidOperationException("Bootstrap scene is not the only enabled build scene.");
+        }
+
+        private static void ValidateNoEmbeddedMonoScripts(string assetPath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ??
+                throw new InvalidOperationException("Unity project root is unavailable.");
+            string physicalPath = Path.Combine(projectRoot,
+                assetPath.Replace('/', Path.DirectorySeparatorChar));
+            string yaml = File.ReadAllText(physicalPath);
+            if (yaml.IndexOf("--- !u!115 &", StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException(
+                    "Generated asset embeds a MonoScript instead of referencing its stable meta GUID: " +
+                    assetPath);
         }
 
         private static void ValidateGeneratedAudioContract(GameObject[] roots,
@@ -1223,8 +1461,9 @@ namespace TrumpLab.Product.Editor
                     "Product presentation must be the single feedback sink on ProductCanvas.");
 
             ProductPresentationController presentation = presentations[0];
-            if (presentation.Banner.transform.parent != canvas.transform ||
-                presentation.Transition.transform.parent != canvas.transform ||
+            ProductSafeFrame safeFrame = canvas.GetComponentInChildren<ProductSafeFrame>(true);
+            if (safeFrame == null || presentation.Banner.transform.parent != safeFrame.transform ||
+                presentation.Transition.transform.parent != safeFrame.transform ||
                 presentation.Banner.alpha != 0f || presentation.Banner.interactable ||
                 presentation.Banner.blocksRaycasts || presentation.Transition.alpha != 0f ||
                 presentation.Transition.interactable || presentation.Transition.blocksRaycasts)
@@ -1250,6 +1489,84 @@ namespace TrumpLab.Product.Editor
                     emitter.GetComponentInParent<ProductPresentationController>() != presentation))
                 throw new InvalidOperationException(
                     "Every generated Selectable requires one canvas-routed feedback emitter.");
+        }
+
+        private static void ValidateLocalizationAccessibilityContract(GameObject[] roots,
+            ProductAppController controller, Canvas canvas)
+        {
+            ProductTextCatalog.Validate();
+            ProductLocalizationController[] localizations = roots.SelectMany(root =>
+                root.GetComponentsInChildren<ProductLocalizationController>(true)).ToArray();
+            ProductAccessibilityController[] accessibilities = roots.SelectMany(root =>
+                root.GetComponentsInChildren<ProductAccessibilityController>(true)).ToArray();
+            ProductSafeFrame[] safeFrames = canvas.GetComponentsInChildren<ProductSafeFrame>(true);
+            if (localizations.Length != 1 || accessibilities.Length != 1 ||
+                safeFrames.Length != 1 || controller.LocalizationController != localizations[0] ||
+                controller.AccessibilityController != accessibilities[0])
+                throw new InvalidOperationException(
+                    "Bootstrap scene requires one wired localization, accessibility, and safe-frame contract.");
+
+            ProductLocalizationController localization = localizations[0];
+            ProductAccessibilityController accessibility = accessibilities[0];
+            ProductSafeFrame safeFrame = safeFrames[0];
+            if (localization.UiRoot != canvas.transform ||
+                accessibility.UiRoot != (RectTransform)canvas.transform ||
+                accessibility.SafeFrame != safeFrame ||
+                safeFrame.transform.parent != canvas.transform)
+                throw new InvalidOperationException(
+                    "Product localization and accessibility roots are not wired to ProductCanvas.");
+            if (controller.Router.Screens.Any(screen => screen.transform.parent != safeFrame.transform) ||
+                controller.ErrorPanel.transform.parent != safeFrame.transform)
+                throw new InvalidOperationException(
+                    "Product screens and modal surfaces must remain inside the centered safe frame.");
+
+            Text[] texts = canvas.GetComponentsInChildren<Text>(true);
+            Graphic[] graphics = canvas.GetComponentsInChildren<Graphic>(true);
+            Selectable[] selectables = canvas.GetComponentsInChildren<Selectable>(true);
+            if (texts.Length == 0 || texts.Any(text =>
+                    text.GetComponent<ProductTextElement>() == null))
+                throw new InvalidOperationException(
+                    "Every generated product Text requires a stable localization element.");
+            foreach (Text text in texts)
+            {
+                ProductTextElement element = text.GetComponent<ProductTextElement>() ??
+                    throw new InvalidOperationException(
+                        "Generated product text element disappeared: " + text.name);
+                if (element.BaseFontSize <= 0 || string.IsNullOrWhiteSpace(element.StableKey) ||
+                    element.ContentMode == ProductTextContentMode.Static &&
+                    !ProductTextCatalog.Contains(element.StableKey))
+                    throw new InvalidOperationException(
+                        "Generated product text classification is invalid: " + element.name);
+            }
+            if (graphics.Length == 0 || graphics.Any(graphic =>
+                    graphic.GetComponent<ProductGraphicElement>() == null))
+                throw new InvalidOperationException(
+                    "Every generated product Graphic requires a semantic palette role.");
+            if (selectables.Length == 0 || selectables.Any(selectable =>
+                    selectable.GetComponent<ProductAccessibleControl>() == null))
+                throw new InvalidOperationException(
+                    "Every generated product Selectable requires an accessible label and focus marker.");
+
+            Canvas.ForceUpdateCanvases();
+            foreach (Selectable selectable in selectables)
+            {
+                ProductAccessibleControl accessible =
+                    selectable.GetComponent<ProductAccessibleControl>();
+                if (!ProductTextCatalog.Contains(accessible.LabelKey) ||
+                    ProductTextCatalog.Entry(accessible.LabelKey).ArgumentCount != 0 ||
+                    !accessible.HasMinimumReferenceHitTarget)
+                    throw new InvalidOperationException(
+                        "Generated product control accessibility is invalid: " + selectable.name);
+            }
+
+            string[] bundledFonts = AssetDatabase.FindAssets(string.Empty, new[] { Root })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
+                    path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+            if (bundledFonts.Length != 0)
+                throw new InvalidOperationException(
+                    "Product localization must use Windows fonts without redistributing font files.");
         }
 
         private static bool FeedbackPrecedesSelectable(Selectable selectable)

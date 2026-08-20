@@ -18,6 +18,7 @@ namespace TrumpLab.Product
         [SerializeField] private Button? startButton;
         [SerializeField] private Button? howToPlayButton;
         [SerializeField] private Button? backButton;
+        private IProductText text = ProductTextCatalog.English;
 
         public override ScreenId Id => ScreenId.GameSettings;
         public Text SummaryLabel => summaryLabel ?? throw new InvalidOperationException(
@@ -49,6 +50,14 @@ namespace TrumpLab.Product
             howToPlayButton = howToPlay;
             backButton = back;
             SetDifficultyOptions(CpuDifficulties.Standard);
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            if (difficultyDropdown != null) SetDifficultyOptions(SelectedDifficultyId());
+            RefreshButtonText();
         }
 
         private void Awake()
@@ -85,42 +94,45 @@ namespace TrumpLab.Product
 
         public bool TryReadRequest(out GameStartRequest? request, out string error)
             => TryCreateRequest(SeedInput.text, WildRankInput.text,
-                SelectedDifficultyId(), out request, out error);
+                SelectedDifficultyId(), out request, out error, text);
 
         public static bool TryCreateRequest(string seedText, string wildRankText,
-            int difficulty, out GameStartRequest? request, out string error)
+            int difficulty, out GameStartRequest? request, out string error,
+            IProductText? text = null)
         {
+            IProductText productText = text ?? ProductTextCatalog.English;
             if (!BuiltInGames.Registry.Info("crazy_eights")
                 .SupportsCpuDifficulty(difficulty))
             {
                 request = null;
-                error = "Choose Easy, Standard, or Hard difficulty.";
+                error = productText.Get("game_settings.error_difficulty");
                 return false;
             }
             return TryCreateRequestCore(
-                seedText, wildRankText, difficulty, out request, out error);
+                seedText, wildRankText, difficulty, out request, out error, productText);
         }
 
         public static bool TryCreateRequest(string seedText, string wildRankText,
-            out GameStartRequest? request, out string error)
+            out GameStartRequest? request, out string error, IProductText? text = null)
             => TryCreateRequest(seedText, wildRankText, CpuDifficulties.Standard,
-                out request, out error);
+                out request, out error, text);
 
         private static bool TryCreateRequestCore(string seedText, string wildRankText,
-            int difficulty, out GameStartRequest? request, out string error)
+            int difficulty, out GameStartRequest? request, out string error,
+            IProductText text)
         {
             request = null;
             if (!long.TryParse(seedText, NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out long seed))
             {
-                error = "Seed must be a whole number.";
+                error = text.Get("game_settings.error_seed");
                 return false;
             }
             if (!int.TryParse(wildRankText, NumberStyles.Integer,
                     CultureInfo.InvariantCulture, out int wildRank) ||
                 wildRank < 1 || wildRank > 13)
             {
-                error = "Wild rank must be from 1 to 13.";
+                error = text.Get("game_settings.error_wild_rank");
                 return false;
             }
             request = new GameStartRequest(seed, wildRank, difficulty);
@@ -136,7 +148,8 @@ namespace TrumpLab.Product
                 throw new ArgumentOutOfRangeException(
                     nameof(difficulty), difficulty, "Unsupported product difficulty.");
             DifficultyDropdown.ClearOptions();
-            DifficultyDropdown.AddOptions(choices.Select(choice => choice.DisplayName).ToList());
+            DifficultyDropdown.AddOptions(choices.Select(choice =>
+                text.Get(DifficultyKey(choice.Id))).ToList());
             DifficultyDropdown.SetValueWithoutNotify(selected);
             DifficultyDropdown.RefreshShownValue();
             UpdateSummary();
@@ -158,9 +171,8 @@ namespace TrumpLab.Product
         private void UpdateSummary()
         {
             if (summaryLabel == null) return;
-            CpuDifficultyInfo difficulty = CpuDifficulties.Get(SelectedDifficultyId());
-            summaryLabel.text = "Crazy Eights  •  Human: Player 1  •  CPU: Player 2  •  " +
-                "Difficulty: " + difficulty.DisplayName;
+            summaryLabel.text = text.Get("game_settings.summary",
+                text.Get(DifficultyKey(SelectedDifficultyId())));
         }
 
         private static CpuDifficultyInfo[] SupportedDifficulties()
@@ -169,6 +181,27 @@ namespace TrumpLab.Product
             return CpuDifficulties.ProductOrder
                 .Where(difficulty => game.SupportsCpuDifficulty(difficulty.Id))
                 .ToArray();
+        }
+
+        private static string DifficultyKey(int difficulty) => difficulty switch
+        {
+            CpuDifficulties.Easy => "game_settings.difficulty_easy",
+            CpuDifficulties.Standard => "game_settings.difficulty_standard",
+            CpuDifficulties.Hard => "game_settings.difficulty_hard",
+            _ => throw new ArgumentOutOfRangeException(nameof(difficulty))
+        };
+
+        private void RefreshButtonText()
+        {
+            SetButtonText(startButton, "game_settings.start");
+            SetButtonText(howToPlayButton, "game_settings.how_to_play");
+            SetButtonText(backButton, "common.back");
+        }
+
+        private void SetButtonText(Button? button, string key)
+        {
+            Text? label = button?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get(key);
         }
 
         private void HandleStart()

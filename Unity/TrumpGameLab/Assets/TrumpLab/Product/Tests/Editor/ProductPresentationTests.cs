@@ -126,7 +126,7 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
-        public void ResultOutcomeIsStructuredAndScreenUsesTextSymbolAndPalette()
+        public void ResultOutcomeIsStructuredAndScreenUsesLocalizedNonColorMarkers()
         {
             ResultViewModel win = CrazyEightsResultPresenter.Create(new GameResultPresentation(
                 winners: new[] { 0 }, scores: new[] { 5d, -5d },
@@ -154,22 +154,18 @@ namespace TrumpLab.Product.Tests
                 screen.Configure(summary, details, rematch, title);
 
                 screen.Render(win);
-                Color winColor = summary.color;
                 Assert.That(screen.LastOutcome, Is.EqualTo(ProductResultOutcome.Win));
-                Assert.That(summary.text, Does.StartWith("★ WIN"));
+                Assert.That(summary.text, Does.StartWith("[WIN]"));
                 Assert.That(summary.text, Does.Contain("You win!"));
 
                 screen.Render(loss);
-                Color lossColor = summary.color;
                 Assert.That(screen.LastOutcome, Is.EqualTo(ProductResultOutcome.Loss));
-                Assert.That(summary.text, Does.StartWith("◆ LOSS"));
+                Assert.That(summary.text, Does.StartWith("[LOSS]"));
                 Assert.That(summary.text, Does.Contain("CPU wins"));
-                Assert.That(lossColor, Is.Not.EqualTo(winColor));
 
                 screen.Render(draw);
                 Assert.That(screen.LastOutcome, Is.EqualTo(ProductResultOutcome.Draw));
-                Assert.That(summary.text, Does.StartWith("= DRAW"));
-                Assert.That(summary.color, Is.Not.EqualTo(lossColor));
+                Assert.That(summary.text, Does.StartWith("[DRAW]"));
             }
             finally
             {

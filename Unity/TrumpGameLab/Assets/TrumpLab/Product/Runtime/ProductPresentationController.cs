@@ -53,23 +53,23 @@ namespace TrumpLab.Product
         private static readonly ProductFeedbackPresentation[] Entries =
         {
             new ProductFeedbackPresentation(ProductFeedbackKind.Navigation,
-                "feedback.navigation", "◇", "Focus moved", ProductPresentationPalette.Navigation),
+                "feedback.navigation", ">", "Focus moved", ProductPresentationPalette.Navigation),
             new ProductFeedbackPresentation(ProductFeedbackKind.Submit,
-                "feedback.submit", "✓", "Confirmed", ProductPresentationPalette.Positive),
+                "feedback.submit", "OK", "Confirmed", ProductPresentationPalette.Positive),
             new ProductFeedbackPresentation(ProductFeedbackKind.Reject,
-                "feedback.reject", "✕", "Not available", ProductPresentationPalette.Negative),
+                "feedback.reject", "X", "Not available", ProductPresentationPalette.Negative),
             new ProductFeedbackPresentation(ProductFeedbackKind.CardPlay,
-                "feedback.card_play", "▣", "Card played", ProductPresentationPalette.Card),
+                "feedback.card_play", "[]", "Card played", ProductPresentationPalette.Card),
             new ProductFeedbackPresentation(ProductFeedbackKind.Draw,
                 "feedback.draw", "+", "Card drawn", ProductPresentationPalette.Draw),
             new ProductFeedbackPresentation(ProductFeedbackKind.WildSuit,
-                "feedback.wild_suit", "★", "Suit confirmed", ProductPresentationPalette.Wild),
+                "feedback.wild_suit", "*", "Suit confirmed", ProductPresentationPalette.Wild),
             new ProductFeedbackPresentation(ProductFeedbackKind.CpuTurn,
-                "feedback.cpu_turn", "…", "CPU turn", ProductPresentationPalette.Cpu),
+                "feedback.cpu_turn", "...", "CPU turn", ProductPresentationPalette.Cpu),
             new ProductFeedbackPresentation(ProductFeedbackKind.Win,
-                "feedback.win", "★", "You win", ProductPresentationPalette.Win),
+                "feedback.win", "W", "You win", ProductPresentationPalette.Win),
             new ProductFeedbackPresentation(ProductFeedbackKind.Lose,
-                "feedback.lose", "◆", "CPU wins", ProductPresentationPalette.Lose),
+                "feedback.lose", "L", "CPU wins", ProductPresentationPalette.Lose),
             new ProductFeedbackPresentation(ProductFeedbackKind.Error,
                 "feedback.error", "!", "Error", ProductPresentationPalette.Error)
         };
@@ -170,6 +170,7 @@ namespace TrumpLab.Product
         [SerializeField] private MonoBehaviour? audioFeedbackBehaviour;
 
         private IProductAudioFeedback? configuredAudio;
+        private IProductText text = ProductTextCatalog.English;
         private Coroutine? cueCoroutine;
         private Coroutine? transitionCoroutine;
         private int cueGeneration;
@@ -177,6 +178,7 @@ namespace TrumpLab.Product
         private bool transitionActive;
         private ProductPresentationPolicy policy = ProductPresentationPolicy.From(
             ProductPresentationSpeed.Normal, reducedMotion: false);
+        private ProductUiPalette uiPalette = ProductUiPalette.Normal;
 
         public CanvasGroup Banner => banner ?? throw Missing(nameof(banner));
         public Image BannerImage => bannerImage ?? throw Missing(nameof(bannerImage));
@@ -208,11 +210,24 @@ namespace TrumpLab.Product
 
         public void Apply(ProductSettings settings) => ApplySettings(settings);
 
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            if (LastKind.HasValue && bannerText != null)
+                bannerText.text = DisplayText(ProductPresentationCatalog.Get(LastKind.Value));
+        }
+
         public void ApplySettings(ProductSettings settings)
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));
             policy = ProductPresentationPolicy.From(settings);
+            uiPalette = settings.HighContrast
+                ? ProductUiPalette.HighContrast
+                : ProductUiPalette.Normal;
             AudioFeedback.ApplySettings(settings);
+            if (LastKind.HasValue && bannerImage != null)
+                bannerImage.color = ColorFor(
+                    ProductPresentationCatalog.Get(LastKind.Value).Palette);
             if (!policy.MotionEnabled && banner != null)
                 banner.transform.localScale = Vector3.one;
             if (transitionActive && policy.TransitionSeconds <= 0f)
@@ -227,7 +242,7 @@ namespace TrumpLab.Product
 
             LastKind = kind;
             LastKey = presentation.Key;
-            BannerText.text = presentation.DisplayText;
+            BannerText.text = DisplayText(presentation);
             BannerImage.color = ColorFor(presentation.Palette);
             Banner.alpha = 1f;
             Banner.interactable = false;
@@ -243,6 +258,9 @@ namespace TrumpLab.Product
             int generation = ++cueGeneration;
             cueCoroutine = StartCoroutine(RunCue(generation));
         }
+
+        private string DisplayText(ProductFeedbackPresentation presentation) =>
+            presentation.Symbol + "  " + text.Get(presentation.Key);
 
         public void BeginScreenTransition()
         {
@@ -451,30 +469,23 @@ namespace TrumpLab.Product
                     "Product presentation controller is not configured.");
         }
 
-        private static Color ColorFor(ProductPresentationPalette palette)
+        private Color ColorFor(ProductPresentationPalette palette)
         {
             switch (palette)
             {
                 case ProductPresentationPalette.Navigation:
-                    return new Color(0.10f, 0.40f, 0.58f, 0.97f);
-                case ProductPresentationPalette.Positive:
-                    return new Color(0.08f, 0.45f, 0.25f, 0.97f);
-                case ProductPresentationPalette.Negative:
-                    return new Color(0.62f, 0.23f, 0.08f, 0.97f);
                 case ProductPresentationPalette.Card:
-                    return new Color(0.08f, 0.42f, 0.38f, 0.97f);
                 case ProductPresentationPalette.Draw:
-                    return new Color(0.12f, 0.32f, 0.58f, 0.97f);
                 case ProductPresentationPalette.Wild:
-                    return new Color(0.47f, 0.20f, 0.58f, 0.97f);
                 case ProductPresentationPalette.Cpu:
-                    return new Color(0.48f, 0.34f, 0.08f, 0.97f);
+                    return uiPalette.ActiveControlBackground;
+                case ProductPresentationPalette.Positive:
                 case ProductPresentationPalette.Win:
-                    return new Color(0.18f, 0.48f, 0.20f, 0.97f);
+                    return uiPalette.PositiveBackground;
+                case ProductPresentationPalette.Negative:
                 case ProductPresentationPalette.Lose:
-                    return new Color(0.48f, 0.16f, 0.18f, 0.97f);
                 case ProductPresentationPalette.Error:
-                    return new Color(0.58f, 0.08f, 0.10f, 0.97f);
+                    return uiPalette.ErrorBackground;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(palette), palette,
                         "Unknown presentation palette.");

@@ -11,6 +11,9 @@ namespace TrumpLab.Product
         [SerializeField] private Text? statusLabel;
         [SerializeField] private Text? tableLabel;
         [SerializeField] private Button? backButton;
+        private IProductText text = ProductTextCatalog.English;
+        private GamePresentation? lastPresentation;
+        private int lastAppliedActions;
 
         public override ScreenId Id => ScreenId.Replay;
         public Text StatusLabel => statusLabel ?? throw Missing(nameof(statusLabel));
@@ -22,18 +25,29 @@ namespace TrumpLab.Product
             statusLabel = status;
             tableLabel = table;
             backButton = back;
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshButtonText();
+            if (lastPresentation != null) Render(lastPresentation, lastAppliedActions);
         }
 
         public void Render(GamePresentation presentation, int appliedActions)
         {
             if (presentation == null) throw new ArgumentNullException(nameof(presentation));
-            MatchViewModel model = CrazyEightsMatchPresenter.Create(presentation, inputEnabled: false);
-            StatusLabel.text = "Replayed " + appliedActions + " actions  ·  " + model.Status;
+            lastPresentation = presentation;
+            lastAppliedActions = appliedActions;
+            MatchViewModel model = CrazyEightsMatchPresenter.Create(
+                presentation, inputEnabled: false, text: text);
+            StatusLabel.text = text.Get("replay.status", appliedActions, model.Status);
             string result = presentation.Result == null
-                ? "Saved before the match ended."
-                : CrazyEightsResultPresenter.Create(presentation.Result).Summary;
-            TableLabel.text = model.OpponentHand + "\n\n" + model.Stock + "     " +
-                model.Discard + "\n\n" + model.HumanHand + "\n\n" + result;
+                ? text.Get("replay.not_finished")
+                : CrazyEightsResultPresenter.Create(presentation.Result, text: text).Summary;
+            TableLabel.text = text.Get("replay.table", model.OpponentHand, model.Stock,
+                model.Discard, model.HumanHand, result);
         }
 
         private void Awake()
@@ -49,6 +63,11 @@ namespace TrumpLab.Product
         }
 
         private void HandleBack() => BackRequested?.Invoke();
+        private void RefreshButtonText()
+        {
+            Text? label = backButton?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get("replay.back");
+        }
         private static InvalidOperationException Missing(string name) =>
             new InvalidOperationException("Replay control is not configured: " + name);
     }

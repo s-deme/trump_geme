@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,6 +13,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace TrumpLab.Product.Tests
 {
@@ -388,6 +390,267 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void LocalizationCatalogHasExactKeysAndLocalePlaceholderParity()
+        {
+            Assert.DoesNotThrow(ProductTextCatalog.Validate);
+            Assert.That(ProductTextCatalog.TryValidate(out string validationError), Is.True,
+                validationError);
+
+            string[] keys = ProductTextCatalog.Keys.ToArray();
+            Assert.That(keys,
+                Is.EqualTo(keys.OrderBy(key => key, StringComparer.Ordinal).ToArray()));
+            Assert.That(keys, Is.Unique);
+            Assert.That(keys, Has.Length.EqualTo(254));
+            using SHA256 sha256 = SHA256.Create();
+            string signature = BitConverter.ToString(sha256.ComputeHash(
+                    Encoding.UTF8.GetBytes(string.Join("\n", keys))))
+                .Replace("-", string.Empty).ToLowerInvariant();
+            Assert.That(signature,
+                Is.EqualTo("2491e1e89747a3c49e972f0a924c65f03fbdcbb4dbba05027830c1e2dbc1c61a"),
+                "Intentional catalog changes must update the exact key-set contract.");
+
+            Assert.That(ProductTextCatalog.All.Select(entry => entry.Key),
+                Is.EquivalentTo(keys));
+            foreach (ProductTextEntry entry in ProductTextCatalog.All)
+            {
+                Assert.That(ProductTextCatalog.Entry(entry.Key), Is.SameAs(entry));
+                Assert.That(entry.PlaceholderIndexes, Is.Ordered);
+                object[] arguments = Enumerable.Range(0, entry.ArgumentCount)
+                    .Select(index => (object)("ARG" + index)).ToArray();
+                foreach (string locale in new[]
+                    { ProductTextCatalog.EnglishLocale, ProductTextCatalog.JapaneseLocale })
+                {
+                    string localized = ProductTextCatalog.ForLocale(locale)
+                        .Get(entry.Key, arguments);
+                    Assert.That(localized, Is.Not.Null.And.Not.Empty,
+                        locale + ":" + entry.Key);
+                    Assert.That(localized, Is.Not.EqualTo(entry.Key),
+                        locale + " exposed a raw key: " + entry.Key);
+                }
+            }
+        }
+
+        [Test]
+        public void GeneratedUiHasCompleteLocalizationAndAccessibilityContracts()
+        {
+            WithBootstrapScene(roots =>
+            {
+                Canvas canvas = roots.Select(root => root.GetComponent<Canvas>())
+                    .Single(component => component != null);
+                RectTransform canvasRect = (RectTransform)canvas.transform;
+                ProductSafeFrame safeFrame = canvas.GetComponentInChildren<ProductSafeFrame>(true);
+                Assert.That(safeFrame, Is.Not.Null);
+                Assert.That(safeFrame.transform.parent, Is.SameAs(canvas.transform));
+                Assert.That(safeFrame.ParentRect, Is.SameAs(canvasRect));
+
+                GameObject productRoot = roots.Single(root => root.name == "ProductRoot");
+                ProductAppController app = productRoot.GetComponent<ProductAppController>();
+                ProductLocalizationController localization =
+                    productRoot.GetComponent<ProductLocalizationController>();
+                ProductAccessibilityController accessibility =
+                    productRoot.GetComponent<ProductAccessibilityController>();
+                Assert.That(app, Is.Not.Null);
+                Assert.That(localization, Is.Not.Null);
+                Assert.That(accessibility, Is.Not.Null);
+                Assert.That(app.LocalizationController, Is.SameAs(localization));
+                Assert.That(app.AccessibilityController, Is.SameAs(accessibility));
+                Assert.That(localization.UiRoot, Is.SameAs(canvas.transform));
+                Assert.That(accessibility.UiRoot, Is.SameAs(canvasRect));
+                Assert.That(accessibility.SafeFrame, Is.SameAs(safeFrame));
+                Assert.That(accessibility.Text, Is.SameAs(localization));
+
+                ProductTextElement[] textElements =
+                    canvas.GetComponentsInChildren<ProductTextElement>(true);
+                Text[] texts = canvas.GetComponentsInChildren<Text>(true);
+                Assert.That(textElements, Has.Length.EqualTo(texts.Length));
+                foreach (Text text in texts)
+                {
+                    ProductTextElement? element = text.GetComponent<ProductTextElement>();
+                    Assert.That(element, Is.Not.Null, PathOf(text.transform));
+                    Assert.That(element!.Target, Is.SameAs(text), PathOf(text.transform));
+                    Assert.That(element.BaseFontSize, Is.GreaterThan(0), PathOf(text.transform));
+                    Assert.That(text.fontSize, Is.EqualTo(element.BaseFontSize),
+                        PathOf(text.transform) + " must start from its immutable 100% size");
+                    Assert.That(text.resizeTextForBestFit, Is.False, PathOf(text.transform));
+                    Assert.DoesNotThrow(() => ProductTextCatalog.RequireStableKey(
+                        element.StableKey, nameof(element.StableKey)), PathOf(text.transform));
+                    if (element.ContentMode == ProductTextContentMode.Static)
+                    {
+                        Assert.That(ProductTextCatalog.Contains(element.StableKey), Is.True,
+                            PathOf(text.transform));
+                        Assert.That(text.text,
+                            Is.EqualTo(ProductTextCatalog.English.Get(element.StableKey)),
+                            PathOf(text.transform));
+                    }
+                }
+
+                Graphic[] graphics = canvas.GetComponentsInChildren<Graphic>(true);
+                Assert.That(graphics, Is.Not.Empty);
+                foreach (Graphic graphic in graphics)
+                {
+                    ProductGraphicElement? element =
+                        graphic.GetComponent<ProductGraphicElement>();
+                    Assert.That(element, Is.Not.Null, PathOf(graphic.transform));
+                    Assert.That(element!.TargetGraphic, Is.SameAs(graphic),
+                        PathOf(graphic.transform));
+                    Assert.That(Enum.IsDefined(typeof(ProductGraphicRole), element.BaseRole),
+                        Is.True, PathOf(graphic.transform));
+                }
+
+                Selectable[] selectables = canvas.GetComponentsInChildren<Selectable>(true);
+                Assert.That(selectables, Is.Not.Empty);
+                foreach (Selectable selectable in selectables)
+                {
+                    ProductAccessibleControl? accessible =
+                        selectable.GetComponent<ProductAccessibleControl>();
+                    Assert.That(accessible, Is.Not.Null, PathOf(selectable.transform));
+                    Assert.That(accessible!.Control, Is.SameAs(selectable),
+                        PathOf(selectable.transform));
+                    Assert.That(ProductTextCatalog.Contains(accessible.LabelKey), Is.True,
+                        PathOf(selectable.transform) + " label " + accessible.LabelKey);
+                    Assert.That(ProductTextCatalog.Entry(accessible.LabelKey).ArgumentCount,
+                        Is.Zero, PathOf(selectable.transform) +
+                        " accessible labels cannot require formatting arguments");
+                    Assert.That(accessible.HasMinimumReferenceHitTarget, Is.True,
+                        PathOf(selectable.transform) + " is " + accessible.ReferenceHitSize);
+                    Assert.That(accessible.FocusOutline, Is.Not.Null,
+                        PathOf(selectable.transform));
+                }
+
+                foreach (ProductScreen screen in
+                    canvas.GetComponentsInChildren<ProductScreen>(true))
+                    Assert.That(screen.transform.IsChildOf(safeFrame.transform), Is.True,
+                        PathOf(screen.transform));
+                ProductErrorPanel error = canvas.GetComponentInChildren<ProductErrorPanel>(true);
+                ProductPresentationController presentation =
+                    canvas.GetComponent<ProductPresentationController>();
+                Assert.That(error.transform.IsChildOf(safeFrame.transform), Is.True);
+                Assert.That(presentation.Banner.transform.IsChildOf(safeFrame.transform), Is.True);
+                Assert.That(presentation.Transition.transform.IsChildOf(safeFrame.transform),
+                    Is.True);
+            });
+        }
+
+        [Test]
+        public void ProductDoesNotBundleFontAssets()
+        {
+            const string productAssetRoot = "Assets/TrumpLab/Product";
+            Assert.That(AssetDatabase.FindAssets("t:Font", new[] { productAssetRoot }), Is.Empty);
+            string productDirectory = Path.Combine(Application.dataPath, "TrumpLab", "Product");
+            string[] fontFiles = Directory.GetFiles(productDirectory, "*",
+                    SearchOption.AllDirectories)
+                .Where(path => new[] { ".ttf", ".ttc", ".otf", ".woff", ".woff2" }
+                    .Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+                .ToArray();
+            Assert.That(fontFiles, Is.Empty);
+        }
+
+        [Test]
+        public void GeneratedUiFitsAllLocaleScaleAndResolutionCombinations()
+        {
+            Vector2Int[] resolutions =
+            {
+                new Vector2Int(1280, 720), new Vector2Int(1280, 800),
+                new Vector2Int(1920, 1080), new Vector2Int(1920, 1200),
+                new Vector2Int(2560, 1080), new Vector2Int(3440, 1440),
+                new Vector2Int(3840, 2160)
+            };
+            string[] locales =
+                { ProductTextCatalog.EnglishLocale, ProductTextCatalog.JapaneseLocale };
+
+            WithBootstrapScene(roots =>
+            {
+                Canvas canvas = roots.Select(root => root.GetComponent<Canvas>())
+                    .Single(component => component != null);
+                CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+                Assert.That(scaler.uiScaleMode,
+                    Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+                Assert.That(scaler.screenMatchMode,
+                    Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
+                RectTransform canvasRect = (RectTransform)canvas.transform;
+                ProductSafeFrame safeFrame = canvas.GetComponentInChildren<ProductSafeFrame>(true);
+                GameObject productRoot = roots.Single(root => root.name == "ProductRoot");
+                ProductLocalizationController localization =
+                    productRoot.GetComponent<ProductLocalizationController>();
+                ProductAccessibilityController accessibility =
+                    productRoot.GetComponent<ProductAccessibilityController>();
+                localization.SetFontHost(new DeterministicProductFontHost(
+                    localization.FallbackFont));
+                canvas.renderMode = RenderMode.WorldSpace;
+
+                foreach (string locale in locales)
+                foreach (int scale in ProductSettings.SupportedTextScalePercents)
+                foreach (Vector2Int resolution in resolutions)
+                {
+                    string matrix = locale + " / " + scale + "% / " +
+                        resolution.x + "x" + resolution.y;
+                    canvasRect.sizeDelta = LogicalCanvasSize(scaler, resolution);
+                    safeFrame.ApplyFrame();
+                    ProductSettings settings = ProductSettings.CreateDefaults(locale)
+                        .WithTextScalePercent(scale);
+                    localization.Apply(settings);
+                    RenderRepresentativeLocalizedStates(canvas, localization, settings);
+                    accessibility.Apply(settings);
+                    RebuildLayouts(canvas.transform);
+
+                    Assert.That(safeFrame.Frame.rect.width, Is.GreaterThan(0f), matrix);
+                    Assert.That(safeFrame.Frame.rect.height, Is.GreaterThan(0f), matrix);
+                    Assert.That(safeFrame.Frame.rect.width / safeFrame.Frame.rect.height,
+                        Is.EqualTo(ProductSafeFrame.TargetAspectRatio).Within(0.001f), matrix);
+
+                    var textLayoutIssues = new List<string>();
+                    foreach (ProductTextElement element in
+                        canvas.GetComponentsInChildren<ProductTextElement>(true))
+                    {
+                        Text text = element.Target;
+                        RectTransform rect = text.rectTransform;
+                        if (!IsInsideClippedScrollContent(rect))
+                            AssertRectInsideSafeFrame(rect, safeFrame.Frame, matrix);
+                        Assert.That(rect.rect.width, Is.GreaterThan(0.01f),
+                            matrix + " / " + PathOf(rect));
+                        Assert.That(rect.rect.height, Is.GreaterThan(0.01f),
+                            matrix + " / " + PathOf(rect));
+                        if (string.IsNullOrEmpty(text.text)) continue;
+                        Assert.That(text.preferredWidth, Is.GreaterThan(0f),
+                            matrix + " / " + PathOf(rect));
+                        Assert.That(text.preferredHeight, Is.GreaterThan(0f),
+                            matrix + " / " + PathOf(rect));
+                        if (text.preferredHeight > rect.rect.height + 1f)
+                            textLayoutIssues.Add(matrix + " / vertical text overflow at " +
+                                PathOf(rect) + " (preferred " + text.preferredHeight +
+                                ", available " + rect.rect.height + ")");
+                        if (text.horizontalOverflow == HorizontalWrapMode.Overflow)
+                        {
+                            if (text.preferredWidth > rect.rect.width + 1f)
+                                textLayoutIssues.Add(matrix +
+                                    " / horizontal text overflow at " + PathOf(rect) +
+                                    " (preferred " + text.preferredWidth +
+                                    ", available " + rect.rect.width + ")");
+                        }
+                    }
+                    Assert.That(textLayoutIssues, Is.Empty,
+                        "Localized text does not fit:\n" +
+                        string.Join("\n", textLayoutIssues));
+
+                    foreach (Selectable selectable in
+                        canvas.GetComponentsInChildren<Selectable>(true))
+                    {
+                        RectTransform rect = (RectTransform)selectable.transform;
+                        if (!IsInsideClippedScrollContent(rect))
+                            AssertRectInsideSafeFrame(rect, safeFrame.Frame, matrix);
+                        Assert.That(rect.rect.width, Is.GreaterThan(0.01f),
+                            matrix + " / " + PathOf(rect));
+                        Assert.That(rect.rect.height, Is.GreaterThan(0.01f),
+                            matrix + " / " + PathOf(rect));
+                    }
+
+                    AssertIndependentLeafElementsDoNotOverlap(canvas, matrix);
+                    AssertMatchDynamicControlsRespectActionViewport(canvas, matrix);
+                }
+            });
+        }
+
+        [Test]
         public void ProductPrefabsAndBootstrapSceneHaveNoMissingScripts()
         {
             string[] prefabs =
@@ -462,8 +725,13 @@ namespace TrumpLab.Product.Tests
                 ProductPresentationController? presentation =
                     canvas!.GetComponent<ProductPresentationController>();
                 Assert.That(presentation, Is.Not.Null);
-                Assert.That(presentation!.Banner.transform.parent, Is.SameAs(canvas.transform));
-                Assert.That(presentation.Transition.transform.parent, Is.SameAs(canvas.transform));
+                ProductSafeFrame generatedSafeFrame =
+                    canvas.GetComponentInChildren<ProductSafeFrame>(true);
+                Assert.That(generatedSafeFrame, Is.Not.Null);
+                Assert.That(presentation!.Banner.transform.parent,
+                    Is.SameAs(generatedSafeFrame.transform));
+                Assert.That(presentation.Transition.transform.parent,
+                    Is.SameAs(generatedSafeFrame.transform));
                 Assert.That(presentation.Banner.blocksRaycasts, Is.False);
                 Assert.That(presentation.Transition.blocksRaycasts, Is.False);
                 Assert.That(presentation.Banner.GetComponentsInChildren<UnityEngine.UI.Graphic>(true)
@@ -574,6 +842,419 @@ namespace TrumpLab.Product.Tests
                 Assert.That(waveformSignatures.Add(signature), Is.True,
                     path + " must have a distinct generated waveform.");
             }
+        }
+
+        private static void WithBootstrapScene(Action<GameObject[]> assertion)
+        {
+            const string scenePath = "Assets/TrumpLab/Product/Scenes/Bootstrap.unity";
+            SceneSetup[] previousSetup = EditorSceneManager.GetSceneManagerSetup();
+            try
+            {
+                Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+                assertion(scene.GetRootGameObjects());
+            }
+            finally
+            {
+                if (previousSetup.Any(setup => setup.isLoaded))
+                    EditorSceneManager.RestoreSceneManagerSetup(previousSetup);
+                else
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        private static void RenderRepresentativeLocalizedStates(Canvas canvas,
+            IProductText text, ProductSettings settings)
+        {
+            TitleScreen title = canvas.GetComponentInChildren<TitleScreen>(true);
+            title.SetText(text);
+            title.SetTutorialCompleted(completed: true);
+
+            GameSettingsScreen gameSettings =
+                canvas.GetComponentInChildren<GameSettingsScreen>(true);
+            gameSettings.SetText(text);
+            gameSettings.SetValues(new GameStartRequest(
+                -9223372036854775807L, wildRank: 13, difficulty: CpuDifficulties.Hard));
+
+            ProductSettingsScreen productSettings =
+                canvas.GetComponentInChildren<ProductSettingsScreen>(true);
+            productSettings.SetText(text);
+            productSettings.SetValues(settings, text.Get("settings.feedback_applied"));
+
+            SessionLibraryScreen library =
+                canvas.GetComponentInChildren<SessionLibraryScreen>(true);
+            library.SetText(text);
+            library.SetSlots(new[]
+            {
+                new SessionSlotInfo("0123456789abcdef0123456789abcdef",
+                    new DateTime(2026, 12, 31, 23, 59, 0, DateTimeKind.Utc))
+            });
+
+            var session = new GameSessionController(seed: 29, wildRank: 8,
+                difficulty: CpuDifficulties.Hard);
+            session.Begin();
+            ReplayScreen replay = canvas.GetComponentInChildren<ReplayScreen>(true);
+            replay.SetText(text);
+            replay.Render(session.Snapshot, appliedActions: 999);
+
+            var result = new GameResultPresentation(
+                winners: new[] { 0 }, scores: new[] { 9999d, -9999d },
+                reason: "empty hand", turns: 9999);
+            ResultScreen resultScreen = canvas.GetComponentInChildren<ResultScreen>(true);
+            resultScreen.SetText(text);
+            resultScreen.Render(CrazyEightsResultPresenter.Create(result, text: text));
+
+            HowToPlayScreen rules = canvas.GetComponentInChildren<HowToPlayScreen>(true);
+            rules.SetText(text);
+            HowToPlayViewModel guide = CrazyEightsHowToPlayPresenter.Create(
+                session.Snapshot, result, text);
+            int longestPage = guide.Pages.Select((page, index) => new
+                { Length = page.Body.Length, Index = index })
+                .OrderByDescending(candidate => candidate.Length)
+                .First().Index;
+            rules.Render(new HowToPlayViewModel(
+                guide.Pages, longestPage, guide.Context));
+
+            var tutorial = new TutorialSessionController();
+            tutorial.Begin();
+            MatchScreen match = canvas.GetComponentInChildren<MatchScreen>(true);
+            match.SetText(text);
+            match.RenderTutorial(CrazyEightsMatchPresenter.Create(
+                    tutorial.Snapshot, inputEnabled: false, text: text),
+                TutorialOverlayPresenter.Create(tutorial, text));
+            bool matchWasActive = match.gameObject.activeSelf;
+            match.gameObject.SetActive(true);
+            RebuildLayouts(match.transform);
+            match.gameObject.SetActive(matchWasActive);
+
+            ProductErrorPanel error = canvas.GetComponentInChildren<ProductErrorPanel>(true);
+            error.SetText(text);
+            error.MessageLabel.text = text.Get("error.gamepad_disconnected");
+            error.gameObject.SetActive(true);
+            canvas.GetComponent<ProductPresentationController>().SetText(text);
+        }
+
+        private static Vector2 LogicalCanvasSize(CanvasScaler scaler, Vector2Int resolution)
+        {
+            Vector2 reference = scaler.referenceResolution;
+            float widthScale = resolution.x / reference.x;
+            float heightScale = resolution.y / reference.y;
+            float logarithmicWidth = Mathf.Log(widthScale, 2f);
+            float logarithmicHeight = Mathf.Log(heightScale, 2f);
+            float scaleFactor = Mathf.Pow(2f, Mathf.Lerp(logarithmicWidth,
+                logarithmicHeight, scaler.matchWidthOrHeight));
+            return new Vector2(resolution.x / scaleFactor, resolution.y / scaleFactor);
+        }
+
+        private static void RebuildLayouts(Transform root)
+        {
+            Canvas.ForceUpdateCanvases();
+            foreach (LayoutGroup group in root.GetComponentsInChildren<LayoutGroup>(true))
+            {
+                if (group.transform is RectTransform rect)
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+            }
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static void AssertRectInsideSafeFrame(RectTransform rect,
+            RectTransform safeFrame, string matrix)
+        {
+            Assert.That(rect == safeFrame || rect.IsChildOf(safeFrame), Is.True,
+                matrix + " / outside safe-frame hierarchy: " + PathOf(rect));
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Rect safe = safeFrame.rect;
+            const float tolerance = 1f;
+            foreach (Vector3 corner in corners)
+            {
+                Vector3 local = safeFrame.InverseTransformPoint(corner);
+                Assert.That(local.x, Is.GreaterThanOrEqualTo(safe.xMin - tolerance),
+                    matrix + " / left overflow: " + PathOf(rect));
+                Assert.That(local.x, Is.LessThanOrEqualTo(safe.xMax + tolerance),
+                    matrix + " / right overflow: " + PathOf(rect));
+                Assert.That(local.y, Is.GreaterThanOrEqualTo(safe.yMin - tolerance),
+                    matrix + " / bottom overflow: " + PathOf(rect));
+                Assert.That(local.y, Is.LessThanOrEqualTo(safe.yMax + tolerance),
+                    matrix + " / top overflow: " + PathOf(rect));
+            }
+        }
+
+        private static bool IsInsideClippedScrollContent(RectTransform rect)
+        {
+            ScrollRect? scroll = rect.GetComponentInParent<ScrollRect>(includeInactive: true);
+            if (scroll == null || scroll.content == null || scroll.viewport == null ||
+                scroll.viewport.GetComponent<Mask>() == null) return false;
+            return rect == scroll.content || rect.IsChildOf(scroll.content);
+        }
+
+        private static void AssertIndependentLeafElementsDoNotOverlap(
+            Canvas canvas, string matrix)
+        {
+            var overlaps = new List<string>();
+            foreach (ProductScreen screen in
+                canvas.GetComponentsInChildren<ProductScreen>(includeInactive: true))
+            {
+                bool screenWasActive = screen.gameObject.activeSelf;
+                screen.gameObject.SetActive(true);
+                try
+                {
+                    if (screen is ProductSettingsScreen)
+                    {
+                        CollectProductSettingsPageStateOverlaps(screen, matrix, overlaps);
+                    }
+                    else if (screen is MatchScreen)
+                    {
+                        CollectMatchSurfaceStateOverlaps(screen, matrix, overlaps);
+                    }
+                    else
+                    {
+                        RebuildLayouts(screen.transform);
+                        CollectActiveLeafElementOverlaps(
+                            screen.transform, (RectTransform)screen.transform,
+                            matrix + " / " + screen.Id, overlaps);
+                    }
+                }
+                finally
+                {
+                    screen.gameObject.SetActive(screenWasActive);
+                }
+            }
+
+            ProductErrorPanel error = canvas.GetComponentInChildren<ProductErrorPanel>(true);
+            bool errorWasActive = error.gameObject.activeSelf;
+            error.gameObject.SetActive(true);
+            try
+            {
+                RebuildLayouts(error.transform);
+                CollectActiveLeafElementOverlaps(error.transform,
+                    (RectTransform)error.transform, matrix + " / ErrorPanel", overlaps);
+            }
+            finally
+            {
+                error.gameObject.SetActive(errorWasActive);
+            }
+
+            Assert.That(overlaps, Is.Empty,
+                "Independent UI elements overlap:\n" + string.Join("\n", overlaps));
+        }
+
+        private static void CollectProductSettingsPageStateOverlaps(
+            ProductScreen screen, string matrix, ICollection<string> overlaps)
+        {
+            string[] panelNames = { "GeneralPanel", "BindingsPanel", "AccessibilityPanel" };
+            Transform[] panels = panelNames.Select(name =>
+                    screen.GetComponentsInChildren<Transform>(includeInactive: true)
+                        .Single(candidate => candidate.name == name))
+                .ToArray();
+            bool[] previousStates = panels.Select(panel => panel.gameObject.activeSelf).ToArray();
+            try
+            {
+                foreach (Transform activePanel in panels)
+                {
+                    foreach (Transform panel in panels)
+                        panel.gameObject.SetActive(panel == activePanel);
+                    RebuildLayouts(screen.transform);
+                    CollectActiveLeafElementOverlaps(
+                        screen.transform, (RectTransform)screen.transform,
+                        matrix + " / ProductSettings/" + activePanel.name, overlaps);
+                }
+            }
+            finally
+            {
+                for (int index = 0; index < panels.Length; index++)
+                    panels[index].gameObject.SetActive(previousStates[index]);
+            }
+        }
+
+        private static void CollectMatchSurfaceStateOverlaps(
+            ProductScreen screen, string matrix, ICollection<string> overlaps)
+        {
+            string[] overlayNames = { "ContextHelpPanel", "TutorialPanel" };
+            Transform[] overlays = overlayNames.Select(name =>
+                    screen.GetComponentsInChildren<Transform>(includeInactive: true)
+                        .Single(candidate => candidate.name == name))
+                .ToArray();
+            bool[] previousStates = overlays.Select(panel => panel.gameObject.activeSelf).ToArray();
+            try
+            {
+                foreach (Transform overlay in overlays) overlay.gameObject.SetActive(false);
+                RebuildLayouts(screen.transform);
+                CollectActiveLeafElementOverlaps(screen.transform,
+                    (RectTransform)screen.transform, matrix + " / Match/base", overlaps);
+
+                // Modal surfaces intentionally cover the board. Validate their own leaf
+                // layout independently without treating the obscured board as a collision.
+                foreach (Transform overlay in overlays)
+                {
+                    overlay.gameObject.SetActive(true);
+                    RebuildLayouts(overlay);
+                    CollectActiveLeafElementOverlaps(overlay,
+                        (RectTransform)overlay, matrix + " / Match/" + overlay.name,
+                        overlaps);
+                    overlay.gameObject.SetActive(false);
+                }
+            }
+            finally
+            {
+                for (int index = 0; index < overlays.Length; index++)
+                    overlays[index].gameObject.SetActive(previousStates[index]);
+            }
+        }
+
+        private static void CollectActiveLeafElementOverlaps(Transform scope,
+            RectTransform coordinateSpace, string matrix, ICollection<string> overlaps)
+        {
+            Component[] elements = scope.GetComponentsInChildren<Text>(includeInactive: false)
+                .Where(text => !string.IsNullOrWhiteSpace(text.text))
+                .Cast<Component>()
+                .Concat(scope.GetComponentsInChildren<Selectable>(includeInactive: false)
+                    .Where(control => control.interactable)
+                    .Cast<Component>())
+                .ToArray();
+            for (int firstIndex = 0; firstIndex < elements.Length; firstIndex++)
+            for (int secondIndex = firstIndex + 1;
+                secondIndex < elements.Length; secondIndex++)
+            {
+                Transform first = elements[firstIndex].transform;
+                Transform second = elements[secondIndex].transform;
+                if (first == second || first.IsChildOf(second) || second.IsChildOf(first))
+                    continue;
+                Selectable? firstOwner = first.GetComponentInParent<Selectable>(
+                    includeInactive: true);
+                Selectable? secondOwner = second.GetComponentInParent<Selectable>(
+                    includeInactive: true);
+                if (firstOwner != null && firstOwner == secondOwner)
+                    continue;
+
+                Rect firstBounds = RectRelativeTo((RectTransform)first, coordinateSpace);
+                Rect secondBounds = RectRelativeTo((RectTransform)second, coordinateSpace);
+                float horizontalOverlap = Mathf.Min(firstBounds.xMax, secondBounds.xMax) -
+                    Mathf.Max(firstBounds.xMin, secondBounds.xMin);
+                float verticalOverlap = Mathf.Min(firstBounds.yMax, secondBounds.yMax) -
+                    Mathf.Max(firstBounds.yMin, secondBounds.yMin);
+                if (horizontalOverlap > 1f && verticalOverlap > 1f)
+                    overlaps.Add(matrix + " / independent leaf elements overlap: " +
+                        PathOf(first) + " and " + PathOf(second));
+            }
+        }
+
+        private static void AssertMatchDynamicControlsRespectActionViewport(
+            Canvas canvas, string matrix)
+        {
+            MatchScreen match = canvas.GetComponentInChildren<MatchScreen>(includeInactive: true);
+            ScrollRect scroll = match.ActionRoot.GetComponentInParent<ScrollRect>(
+                includeInactive: true);
+            Assert.That(scroll, Is.Not.Null, matrix + " / Match ActionRoot ScrollRect");
+            Assert.That(scroll.viewport, Is.Not.Null, matrix + " / Match ActionViewport");
+            Assert.That(scroll.content, Is.SameAs(match.ActionRoot), matrix);
+            Assert.That(scroll.horizontal, Is.False, matrix);
+            Assert.That(scroll.vertical, Is.True, matrix);
+            Assert.That(scroll.viewport.GetComponent<Mask>(), Is.Not.Null,
+                matrix + " / ActionViewport must clip vertically scrolled controls.");
+
+            Button[] dynamicControls = match.ActionRoot.GetComponentsInChildren<Button>(
+                    includeInactive: true)
+                .Where(button => button != match.ActionButtonTemplate &&
+                    button.gameObject.activeSelf)
+                .ToArray();
+            Assert.That(dynamicControls, Is.Not.Empty,
+                matrix + " / representative Match actions");
+            var resolvedLabels = new List<string>(dynamicControls.Length);
+            foreach (Button control in dynamicControls)
+            {
+                RectTransform rect = (RectTransform)control.transform;
+                Assert.That(rect.IsChildOf(scroll.content), Is.True,
+                    matrix + " / " + PathOf(rect));
+                Rect inContent = RectRelativeTo(rect, scroll.content);
+                AssertRectWithin(inContent, scroll.content.rect, matrix +
+                    " / action outside scroll content: " + PathOf(rect));
+
+                Rect inViewport = RectRelativeTo(rect, scroll.viewport);
+                const float tolerance = 1f;
+                Assert.That(inViewport.xMin,
+                    Is.GreaterThanOrEqualTo(scroll.viewport.rect.xMin - tolerance),
+                    matrix + " / action left of ActionViewport: " + PathOf(rect));
+                Assert.That(inViewport.xMax,
+                    Is.LessThanOrEqualTo(scroll.viewport.rect.xMax + tolerance),
+                    matrix + " / action right of ActionViewport: " + PathOf(rect));
+                Assert.That(inViewport.height,
+                    Is.LessThanOrEqualTo(scroll.viewport.rect.height + tolerance),
+                    matrix + " / one action is taller than ActionViewport: " + PathOf(rect));
+
+                ProductAccessibleControl accessible =
+                    control.GetComponent<ProductAccessibleControl>();
+                Text visibleLabel = control.GetComponentInChildren<Text>(includeInactive: true);
+                Assert.That(accessible, Is.Not.Null, matrix + " / " + PathOf(rect));
+                Assert.That(visibleLabel, Is.Not.Null, matrix + " / " + PathOf(rect));
+                Assert.That(accessible.ResolvedLabel, Is.Not.Empty,
+                    matrix + " / runtime action accessible label: " + PathOf(rect));
+                Assert.That(accessible.ResolvedLabel, Is.EqualTo(visibleLabel.text),
+                    matrix + " / runtime action label must include its marker, action, " +
+                    "and reason: " + PathOf(rect));
+                resolvedLabels.Add(accessible.ResolvedLabel);
+            }
+            Assert.That(resolvedLabels, Has.Count.GreaterThan(1),
+                matrix + " / representative state must cover distinct actions");
+            Assert.That(resolvedLabels.Distinct(StringComparer.Ordinal).Count(),
+                Is.EqualTo(resolvedLabels.Count),
+                matrix + " / every runtime action needs a distinguishable accessible label");
+        }
+
+        private static Rect RectRelativeTo(RectTransform rect, RectTransform relativeTo)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector3 minimum = relativeTo.InverseTransformPoint(corners[0]);
+            Vector3 maximum = minimum;
+            for (int index = 1; index < corners.Length; index++)
+            {
+                Vector3 point = relativeTo.InverseTransformPoint(corners[index]);
+                minimum = Vector3.Min(minimum, point);
+                maximum = Vector3.Max(maximum, point);
+            }
+            return Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
+        }
+
+        private static void AssertRectWithin(Rect actual, Rect expected, string message)
+        {
+            const float tolerance = 1f;
+            Assert.That(actual.xMin, Is.GreaterThanOrEqualTo(expected.xMin - tolerance),
+                message + " / left");
+            Assert.That(actual.xMax, Is.LessThanOrEqualTo(expected.xMax + tolerance),
+                message + " / right");
+            Assert.That(actual.yMin, Is.GreaterThanOrEqualTo(expected.yMin - tolerance),
+                message + " / bottom");
+            Assert.That(actual.yMax, Is.LessThanOrEqualTo(expected.yMax + tolerance),
+                message + " / top");
+        }
+
+        private static string PathOf(Transform transform)
+        {
+            var parts = new Stack<string>();
+            Transform? current = transform;
+            while (current != null)
+            {
+                parts.Push(current.name);
+                current = current.parent;
+            }
+            return string.Join("/", parts);
+        }
+
+        private sealed class DeterministicProductFontHost : IProductFontHost
+        {
+            private readonly Font fallback;
+
+            public DeterministicProductFontHost(Font configuredFallback) =>
+                fallback = configuredFallback;
+
+            public IReadOnlyList<string> GetInstalledFontNames() =>
+                ProductLocalizationController.JapaneseFontCandidates
+                    .Concat(ProductLocalizationController.EnglishFontCandidates)
+                    .ToArray();
+
+            public Font? CreateDynamicFont(string fontName, int fontSize) => fallback;
+
+            public bool HasCharacters(Font font, string characters, int fontSize) => true;
         }
 
         private static string SnapshotSignature(GamePresentation snapshot)

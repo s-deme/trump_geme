@@ -17,17 +17,26 @@ namespace TrumpLab.Product
             new List<BackgroundControlState>();
         private GameObject? previousSelection;
         private bool backgroundControlsLocked;
+        private IProductText text = ProductTextCatalog.English;
 
         public Text MessageLabel => messageLabel ?? throw new InvalidOperationException(
             "Error message label is not configured.");
         public event System.Action? Dismissed;
         public event System.Action? Shown;
+        public event System.Action? Hidden;
 
         public void Configure(Text message, Button dismiss)
         {
             messageLabel = message;
             dismissButton = dismiss;
             DisableDismissNavigation();
+            RefreshButtonText();
+        }
+
+        public void SetText(IProductText configuredText)
+        {
+            text = configuredText ?? throw new ArgumentNullException(nameof(configuredText));
+            RefreshButtonText();
         }
 
         private void Awake()
@@ -56,6 +65,13 @@ namespace TrumpLab.Product
             if (opening) LockBackgroundControls();
             FocusDismissButton();
             Shown?.Invoke();
+        }
+
+        public void ShowKey(string key, params object[] args)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                throw new ArgumentException("Error text key cannot be empty.", nameof(key));
+            Show(text.Get(key, args));
         }
 
         public void Hide()
@@ -101,8 +117,10 @@ namespace TrumpLab.Product
 
         private void CloseModal()
         {
+            bool wasOpen = backgroundControlsLocked;
             RestoreBackgroundControls();
             RestorePreviousSelection();
+            if (wasOpen) Hidden?.Invoke();
         }
 
         private void RestoreBackgroundControls()
@@ -143,6 +161,12 @@ namespace TrumpLab.Product
             Navigation navigation = dismissButton.navigation;
             navigation.mode = Navigation.Mode.None;
             dismissButton.navigation = navigation;
+        }
+
+        private void RefreshButtonText()
+        {
+            Text? label = dismissButton?.GetComponentInChildren<Text>(true);
+            if (label != null) label.text = text.Get("error.return_to_title");
         }
 
         private readonly struct BackgroundControlState
