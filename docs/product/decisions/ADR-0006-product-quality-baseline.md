@@ -118,6 +118,10 @@ Windows Playerに対するOS native screen reader連携は正式対応に含め�
 最小profileを利用できない場合はCPU・memoryを同等以下へ制限したprofileを使い、その差をreportへ記録する。
 最初の1回をwarm-upとして除外し、時刻だけに依存する不安定なassertは通常のunit testへ混ぜない。
 
+Unityがnon-Development Playerでmanaged allocation counterを公開しないため、`PERF-07`のallocationだけは
+[ADR-0010](ADR-0010-product-quality-probe-contract.md)に従い、同じWindows targetのDevelopment Playerで
+測る。frame、起動、保存、memory、soakの値は引き続きrelease Playerだけを合否に使う。
+
 | ID | 測定 | 合格予算 |
 |---|---|---|
 | PERF-01 | process開始からTitleが入力可能になるまで | 3回すべて`5.0秒以下` |
@@ -126,7 +130,7 @@ Windows Playerに対するOS native screen reader連携は正式対応に含め�
 | PERF-04 | CPU方策の純計算時間。3難易度、固定100 state、演出delayを除外 | 各難易度p95 `50 ms以下`、最大`100 ms以下` |
 | PERF-05 | atomic save、resume、replay checkpoint、100 slot一覧 | 各操作p95 `250 ms以下`、最大`500 ms以下` |
 | PERF-05B | [ADR-0003](ADR-0003-save-replay-contract.md)上限の1 MiBまたは10,000 Action archive | save・encode `1秒以下`、load・全replay `2秒以下`。処理中は明示的なinput lockまたは進捗を表示し、OSから無応答と判定されない |
-| PERF-06 | 5分warm-up後のprivate working setと60分soak中のpeak | baseline `512 MiB以下`、peak `768 MiB以下`、warm baselineからの増加`64 MiB以下` |
+| PERF-06 | 5分warm-up後のprivate bytes（PSAPI `PrivateUsage`）と60分soak中のpeak | baseline `512 MiB以下`、peak `768 MiB以下`、warm baselineからの増加`64 MiB以下` |
 | PERF-07 | idle中のmanaged allocationとAction適用100回 | idle steady-state `0 B/frame`、1 Action p95 `256 KiB以下`、GC起因frame stall `50 ms未満` |
 | PERF-08 | 固定seedの自動100局と実時間60分の操作soak | 両方で未処理例外、deadlock、入力二重適用、保存破損、増え続けるGameObject・coroutineが0件 |
 

@@ -1007,6 +1007,46 @@ namespace TrumpLab.Product.Tests
         }
 
         [UnityTest]
+        [Timeout(10000)]
+        public IEnumerator InterruptedAutosaveRestoresOnlyTheLastAtomicCheckpoint()
+        {
+            var failingStore = new CheckpointFailingSessionStore(successfulSaves: 1);
+            controller.SetSessionStore(failingStore);
+            UseProductSettings(controller.CurrentProductSettings.WithPresentationSpeed(
+                ProductPresentationSpeed.Fast));
+            Click(ScreenId.Title, "PlayButton");
+            yield return null;
+
+            var settings = (GameSettingsScreen)controller.Router.Get(
+                ScreenId.GameSettings);
+            settings.SetValues(new GameStartRequest(FindHumanOpeningSeed(), wildRank: 8));
+            Click(ScreenId.GameSettings, "StartButton");
+            yield return null;
+
+            GameSessionController session = controller.ActiveSession!;
+            string slotId = controller.ActiveSlotId!;
+            Assert.That(session.State, Is.EqualTo(MatchSessionState.AwaitingHuman));
+            byte[] checkpoint = SessionArchiveCodec.Encode(failingStore.Load(slotId));
+            int checkpointActions = session.Archive.Actions.Count;
+
+            LogAssert.Expect(LogType.Error, "Crazy Eights session stopped safely.");
+            ActiveActionButton().onClick.Invoke();
+            yield return null;
+
+            Assert.That(failingStore.SaveAttempts, Is.EqualTo(2));
+            Assert.That(controller.ActiveSession, Is.Null);
+            Assert.That(controller.ActiveSlotId, Is.Null);
+            Assert.That(controller.ErrorPanel.gameObject.activeSelf, Is.True);
+            Assert.That(controller.ErrorPanel.MessageLabel.text,
+                Is.EqualTo(controller.Text.Get("error.match_stopped")));
+            Assert.That(SessionArchiveCodec.Encode(failingStore.Load(slotId)),
+                Is.EqualTo(checkpoint));
+            Assert.That(failingStore.Load(slotId).Actions.Count,
+                Is.EqualTo(checkpointActions));
+            controller.ErrorPanel.Hide();
+        }
+
+        [UnityTest]
         public IEnumerator ProductControllerRunsDisplayGuardWithoutChangingGameState()
         {
             var guard = new RecordingDisplayGuard();
@@ -1658,6 +1698,31 @@ namespace TrumpLab.Product.Tests
                 archives.Remove(id);
                 saved.Remove(id);
             }
+        }
+
+        private sealed class CheckpointFailingSessionStore : ISessionStore
+        {
+            private readonly MemorySessionStore inner = new MemorySessionStore();
+            private readonly int successfulSaves;
+
+            public CheckpointFailingSessionStore(int successfulSaves) =>
+                this.successfulSaves = successfulSaves;
+
+            public int SaveAttempts { get; private set; }
+
+            public IReadOnlyList<SessionSlotInfo> List() => inner.List();
+
+            public SessionArchive Load(string slotId) => inner.Load(slotId);
+
+            public void Save(string slotId, SessionArchive archive)
+            {
+                SaveAttempts++;
+                if (SaveAttempts > successfulSaves)
+                    throw new System.IO.IOException("Injected autosave interruption.");
+                inner.Save(slotId, archive);
+            }
+
+            public void Delete(string slotId) => inner.Delete(slotId);
         }
 
         private sealed class MemoryProductProgressStore : IProductProgressStore

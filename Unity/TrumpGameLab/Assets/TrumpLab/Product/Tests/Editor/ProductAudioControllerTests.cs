@@ -133,6 +133,34 @@ namespace TrumpLab.Product.Tests
         }
 
         [Test]
+        public void AudioConfigurationChangeRestoresSourcesWithoutLosingSettings()
+        {
+            AudioRig rig = CreateRig();
+            ProductSettings settings = ProductSettings.CreateDefaults("en-US")
+                .WithAudio(80, 35, 65);
+            rig.Controller.ApplySettings(settings);
+            rig.Music.volume = 0f;
+            rig.Sfx.volume = 0f;
+            rig.Music.loop = false;
+            rig.Music.clip = null;
+            rig.Sfx.spatialBlend = 1f;
+
+            rig.Controller.RefreshAfterAudioConfigurationChange(deviceWasChanged: true);
+
+            AssertAll(() =>
+            {
+                Assert.That(rig.Controller.AudioConfigurationRefreshCount, Is.EqualTo(1));
+                Assert.That(rig.Music.volume, Is.EqualTo(0.35f).Within(0.001f));
+                Assert.That(rig.Sfx.volume, Is.EqualTo(0.65f).Within(0.001f));
+                Assert.That(rig.Music.loop, Is.True);
+                Assert.That(rig.Music.clip, Is.SameAs(rig.Controller.MusicLoop));
+                Assert.That(rig.Sfx.spatialBlend, Is.Zero);
+                Assert.That(rig.Controller.MusicVolumePercent, Is.EqualTo(35));
+                Assert.That(rig.Controller.SfxVolumePercent, Is.EqualTo(65));
+            });
+        }
+
+        [Test]
         public void UiEmitterResolvesParentSinkAndIgnoresDisabledControls()
         {
             AudioRig rig = CreateRig();

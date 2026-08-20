@@ -60,6 +60,7 @@ namespace TrumpLab.Product
         private bool initialized;
         private int musicVolumePercent;
         private int sfxVolumePercent;
+        private int audioConfigurationRefreshCount;
 
         public event System.Action<ProductFeedbackKind>? CuePlayed;
 
@@ -72,6 +73,7 @@ namespace TrumpLab.Product
         public int SfxVolumePercent => sfxVolumePercent;
         public float MusicVolume => musicSource == null ? 0f : musicSource.volume;
         public float SfxVolume => sfxSource == null ? 0f : sfxSource.volume;
+        public int AudioConfigurationRefreshCount => audioConfigurationRefreshCount;
 
         public void Configure(AudioSource configuredMusicSource,
             AudioSource configuredSfxSource, AudioClip configuredMusicLoop,
@@ -99,6 +101,12 @@ namespace TrumpLab.Product
                 Initialize();
         }
 
+        private void OnEnable() =>
+            AudioSettings.OnAudioConfigurationChanged += RefreshAfterAudioConfigurationChange;
+
+        private void OnDisable() =>
+            AudioSettings.OnAudioConfigurationChanged -= RefreshAfterAudioConfigurationChange;
+
         public void Initialize()
         {
             if (initialized) return;
@@ -118,15 +126,15 @@ namespace TrumpLab.Product
 
             musicVolumePercent = settings.MusicVolume;
             sfxVolumePercent = settings.SfxVolume;
-            MusicSource.volume = Normalize(settings.MusicVolume);
-            SfxSource.volume = Normalize(settings.SfxVolume);
+            ApplyCurrentVolumesAndPlayback();
+        }
 
-            if (settings.MusicVolume == 0)
-                MusicSource.Stop();
-            else if (CanProduceAudio(MusicSource) && !MusicSource.isPlaying)
-                MusicSource.Play();
-
-            if (settings.SfxVolume == 0) SfxSource.Stop();
+        public void RefreshAfterAudioConfigurationChange(bool deviceWasChanged)
+        {
+            if (!initialized) return;
+            ConfigureSources();
+            ApplyCurrentVolumesAndPlayback();
+            audioConfigurationRefreshCount++;
         }
 
         public void Play(ProductFeedbackKind kind)
@@ -197,6 +205,19 @@ namespace TrumpLab.Product
             sfx.dopplerLevel = 0f;
             sfx.mute = false;
             sfx.clip = null;
+        }
+
+        private void ApplyCurrentVolumesAndPlayback()
+        {
+            MusicSource.volume = Normalize(musicVolumePercent);
+            SfxSource.volume = Normalize(sfxVolumePercent);
+
+            if (musicVolumePercent == 0)
+                MusicSource.Stop();
+            else if (CanProduceAudio(MusicSource) && !MusicSource.isPlaying)
+                MusicSource.Play();
+
+            if (sfxVolumePercent == 0) SfxSource.Stop();
         }
 
         private static bool CanProduceAudio(AudioSource source) =>

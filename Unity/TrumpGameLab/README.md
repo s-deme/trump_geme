@@ -129,3 +129,19 @@ Bootstrapの主要画面遷移、難易度の保存と再戦、CPU待機cancel�
 1局完走、保存一覧、再開、リプレイ、2段階削除、error modalに加え、pointerとSubmitによる
 tutorial完走、優先focus、完了記録、再実行、card / draw / wild / CPU / resultの音響・視覚event、
 Match / tutorialからAccessibility設定をApplyして状態不変で戻るflowを検証する。
+
+## Windows品質probe
+
+M06の性能・長時間安定性は保存済みUnity EditorからWindows x86_64 Playerをbuildして測る。
+`Quick`は経路確認だけ、`Full`は5画面を各60秒測定した後に60分soakを実行する。
+
+```powershell
+pwsh ./scripts/run-product-quality.ps1 -UnityPath <Unity.exe> -Mode Quick
+pwsh ./scripts/run-product-quality.ps1 -UnityPath <Unity.exe> -Mode Full
+```
+
+runnerはD3D11のnon-Development release Playerで起動、frame、応答、CPU方策、保存、最大archive、
+memory、100局と60分soakを測る。release Playerで公開されないmanaged allocationだけは同じtargetの
+Development Playerで測り、他の性能値へ混ぜない。全Playerは2 logical CPU affinityへ制限され、
+raw JSON、Player log、buildはgit対象外の`TestResults/ProductQuality/`へ保存される。測定契約は
+[ADR-0010](../../docs/product/decisions/ADR-0010-product-quality-probe-contract.md)を参照する。
