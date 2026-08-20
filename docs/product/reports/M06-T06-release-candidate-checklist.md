@@ -34,6 +34,18 @@
 | Bash / PowerShell migration | Passed / Passed |
 | Markdown link / Unity meta GUID / missing script | Passed（0 missing / 0 duplicate / 0 missing） |
 
+### 実候補Title smoke
+
+2026-08-21に同一SHA-256のrelease executableを`1280x720`、windowed、D3D11で起動した。
+windowは1296x759（frame込み）で応答し、日本語Title / subtitle / 5 controlにtofu・truncate・
+重なりはなく、初期focusはTutorial buttonの青いoutlineとして表示された。Player logの
+`Error` / `Exception` / missing shader / failedにhitは0件だった。window close requestで通常終了した。
+
+hostにはFosi Audio SK02、NVIDIA HDMI、Realtek、Steam Streamingなどのaudio endpointが
+Present / OKで存在した。一方、Xbox / XInput / Gamepadと判定できるPnP deviceは0件で、
+実gamepad受入はこの環境で実施できない。このsmokeはTitleの実描画だけを証明し、
+下記の全screen、物理入力、主観的audioを代替しない。
+
 ## 番号付き基準の照合
 
 `Manual Pending`はbatchやsynthetic deviceでPassedと代替できない。合否欄が残る間は
@@ -44,7 +56,7 @@ M06-T06とM06を`Done`にしない。
 | ENV-01 | Windows 11 build 26200でFull / Unity全件Passed | **Manual Pending**：同じ候補で起動から終了まで手動完走 |
 | ENV-02 | 正式gate対象外 | Not run：Windows 10環境なし、best-effort・非保証として既知制限に記録 |
 | ENV-03 | 2 logical CPU affinity、private bytes / frame予算Passed | Passed |
-| ENV-04 | D3D11固定、5 screen frame予算Passed | **Manual Pending**：graphics error、missing shader、表示崩れ0の目視確認 |
+| ENV-04 | D3D11固定、5 screen frame予算Passed、実Title smoke / log 0 | **Manual Pending**：残るscreenのgraphics error、missing shader、表示崩れ0を目視確認 |
 | ENV-05 | Product Runtimeのnetwork依存0、offline quality Player Passed | **Manual Pending**：networkを切った実候補で保存・再開・replayまで完走 |
 | ENV-06 | Unity / target / scene / package lock / hashを上表に固定 | Passed |
 | DSP-01 | 7解像度 x 2 locale x 3 text scaleの42組contract Passed | **Manual Pending**：主要screenの実Player巡回 |
@@ -54,7 +66,7 @@ M06-T06とM06を`Done`にしない。
 | INP-01 | pointer PlayMode flow Passed | **Manual Pending**：実mouseだけで通常局・tutorial・replay・設定・終了 |
 | INP-02 | keyboard Input System / focus / modal回帰Passed | **Manual Pending**：実keyboardだけで全screenと1局完走 |
 | INP-03 | synthetic `Gamepad` action / focus / tutorial回帰Passed | **Manual Pending**：実物Xbox / XInputで全screenと1局・tutorial完走 |
-| INP-04 | modal / dropdown / scroll / routeのvisible unique focus Passed | **Manual Pending**：3 device切替と同一入力の二重適用0 |
+| INP-04 | modal / dropdown / scroll / routeのvisible unique focus Passed、実Title初期focus表示 | **Manual Pending**：3 device切替と同一入力の二重適用0 |
 | INP-05 | stable binding、duplicate / empty拒否、cancel / reset / persistence Passed | **Manual Pending**：keyboardとXInputの7 commandを実rebind |
 | INP-06 | synthetic disconnect / reconnect、rebind中disconnect Passed | **Manual Pending**：実XInput抜き差しと1秒以内のkeyboard / mouse復帰 |
 | CFG-01 | `settings.v1`の全field atomic round-trip Passed | **Manual Pending**：Apply→再起動後の実UI保持 |
@@ -63,7 +75,7 @@ M06-T06とM06を`Done`にしない。
 | AV-02 | master / music / SFX 0〜100、Apply / Reset / Load、audio reconfigure Passed | **Manual Pending**：実出力で0 / 50 / 100と1秒以内反映、抜き差し復帰 |
 | AV-03 | Reduced / Normal / FastのAction列・結果・input lock不変Passed | **Manual Pending**：各速度の視覚差、Reducedの非本質motion 0 |
 | LOC-01 | 254 key、ja / en parity、fallback / raw key contract Passed | **Manual Pending**：主要flowの未翻訳 / raw key 0を目視確認 |
-| LOC-02 | Windows font candidate / glyph / English fallback回帰Passed | **Manual Pending**：実Windows fontでtofu 0、日本語の自然な改行 |
+| LOC-02 | Windows font candidate / glyph / English fallback回帰Passed、実Titleのtofu 0 | **Manual Pending**：残る全flowと長文の日本語改行 |
 | LOC-03 | 42組layout contract Passed | **Manual Pending**：ja / en x 100 / 125 / 150%の主要flow目視 |
 | A11Y-01 | palette全roleの4.5:1 / 3:1自動計算Passed | **Manual Pending**：high contrastで文字 / active / focusを識別 |
 | A11Y-02 | suit / legal / expected / focus / outcome / errorのnon-color contract Passed | **Manual Pending**：主要flowで色以外の識別手段を目視 |
@@ -107,6 +119,7 @@ M06-T06とM06を`Done`にしない。
 ## 現在の判定
 
 - 自動gate：Passed
+- 実候補Title smoke：Passed（日本語glyph / visible focus / log 0）
 - S0 / S1 / S2の既知問題：0件
 - Windows 10 smoke：Not run（利用可能環境なし、best-effortのためrelease blockerではない）
 - 実device / 実表示 / 実audio受入：**Pending**
