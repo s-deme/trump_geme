@@ -19,6 +19,21 @@ Package Managerの「Add package from disk」でこのディレクトリの`pack
 }
 ```
 
+Git URLから参照する場合は、リポジトリ内packageのpathと再現可能なtagまたはcommitを指定します。次の `<tag-or-commit>` は実際のrevisionへ置き換えてください。
+
+```json
+{
+  "dependencies": {
+    "com.trump-game-lab.rules": "https://github.com/s-deme/trump_geme.git?path=/Packages/com.trump-game-lab.rules#<tag-or-commit>"
+  },
+  "testables": [
+    "com.trump-game-lab.rules"
+  ]
+}
+```
+
+`main`のような可動branchより、検証済みtagまたはcommit SHAへの固定を推奨します。Git packageの取得には、Unityを実行する環境からGit CLIへアクセスできる必要があります。
+
 `testables`を追加すると、Unity Test RunnerのEdit Modeにパッケージ内契約テストが表示されます。
 
 リポジトリの検証用テンプレートから一時プロジェクトを生成し、WindowsでEdit Modeテストを

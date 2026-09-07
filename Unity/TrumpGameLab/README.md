@@ -5,13 +5,17 @@ Crazy Eights製品縦切り版のUnity project。ルールRuntimeは複製せず
 
 ## 開く
 
-この製品projectは`ProjectSettings/ProjectVersion.txt`に保存されたUnity 6 Editor versionで開く。
+1. Unity Hubでこのディレクトリを **Unity 6.3 LTS（`6000.3.22f1`）** のprojectとして開く。
+2. `Assets/TrumpLab/Product/Scenes/Bootstrap.unity` を開く。
+3. Playを押し、TitleからTutorialまたはPlayを開始する。
+
+通常の起動にscaffold再生成は不要です。この製品projectは`ProjectSettings/ProjectVersion.txt`に保存されたUnity 6 Editor versionで開く。
 `com.trump-game-lab.rules`単体のUnity 2021.3以上という公開契約とは別であり、製品projectは固定した
 Input System packageを含むため古いEditorへdowngradeしない。
 
 ## 画面骨格の再生成
 
-Unity menuの`Trump Lab > Regenerate Product Scaffold`を実行すると、8つのscreen Prefabと
+Unity menuの`Trump Lab > Regenerate Product Scaffold`は、製品骨格を意図的に更新・検証するときだけ実行する。この操作は8つのscreen Prefabと
 `Assets/TrumpLab/Product/Scenes/Bootstrap.unity`を再生成し、build settingsを更新する。
 command lineからは次のように実行できる。
 

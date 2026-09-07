@@ -10,11 +10,28 @@ CLIとUnityが同じコードを使用します。
 - `tools/TrumpLab.Cli/` — 一覧、試遊、CPUシミュレーションCLI
 - `tests/TrumpLab.Tests/` — NUnitによる.NET契約テストとTRXレポート
 - `Packages/com.trump-game-lab.rules/Tests/Editor/` — Unity Test Runner契約テスト
+- `Unity/TrumpGameLab/` — Crazy Eights製品縦切り版のUnity project
 - `docs/` — 要件と設計の正本
 
-Unityでは、このリポジトリをプロジェクトの`Packages/manifest.json`からローカルまたは
-Gitパッケージとして参照します。RuntimeアセンブリはUnity 2021.3以上、
-`.NET Standard 2.1`、C# 9を対象にしています。
+ルールpackageを別のUnity projectで使う場合は、そのprojectの`Packages/manifest.json`から
+ローカルまたはGit packageとして参照します。RuntimeアセンブリはUnity 2021.3以上、
+`.NET Standard 2.1`、C# 9を対象にしています。追加方法は
+[`Packages/com.trump-game-lab.rules/README.md`](Packages/com.trump-game-lab.rules/README.md)を参照してください。
+
+## 最短の起動方法
+
+### Unity製品縦切り版
+
+1. Unity Hubで `Unity/TrumpGameLab` を **Unity 6.3 LTS（`6000.3.22f1`）** のprojectとして開く。
+2. `Assets/TrumpLab/Product/Scenes/Bootstrap.unity` を開く。
+3. Playを押し、Crazy EightsのTutorialまたはPlayを開始する。
+
+この製品projectのEditor versionは、Unity 2021.3以上を対象とするルールpackage単体の互換契約とは別です。詳細な設定、保存、テスト、品質probeは
+[`Unity/TrumpGameLab/README.md`](Unity/TrumpGameLab/README.md)を参照してください。
+
+### CLI
+
+`.NET SDK`を用意し、後述の `dotnet build`、`list`、`play`、`simulate` コマンドをリポジトリルートから実行します。
 
 ## 実装状況
 
@@ -31,8 +48,8 @@ CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU�
 
 ## 製品開発ロードマップ
 
-ルール検証基盤の次段階として、構造化表示契約、Unity UI、セーブ・リプレイ、CPU難易度、
-チュートリアル、製品品質を順次実装する。優先順位と現在地は
+ルール検証基盤の次段階として、M01の構造化表示契約からM05のチュートリアルまでは完了しています。現在は
+`M06 製品品質`の`M06-T06`が`In Progress`で、手動・実機を含むRelease candidate確認が残っています。そのため現時点のUnity縦切り版を配布準備完了とは扱いません。優先順位と現在地は
 [`docs/product/roadmap.md`](docs/product/roadmap.md)を正本とし、同ロードマップからM01～M08の
 個別マイルストーンを参照する。継続作業の依頼方法は
 [`docs/product/README.md`](docs/product/README.md)に記載する。
