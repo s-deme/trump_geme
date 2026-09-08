@@ -1,94 +1,74 @@
 # Trump Game Lab
 
-Unity向けトランプゲームの採用ルールを決めるため、多数のルールを同じ条件で
-CPU試遊・自動検証するC#ライブラリです。ルール本体はUnity Package Manager形式で、
-CLIとUnityが同じコードを使用します。
+トランプゲームをCPUと遊び、さまざまなルールを試せるゲーム集です。
+画面を操作して遊ぶUnity版では **Crazy Eightsの2人対戦（自分とCPU）**、ターミナルで遊ぶCLI版では **92種類のゲーム**を利用できます。
 
-## 構成
+Unity版は開発中で、配布前の最終動作確認が残っています。このページでは、リポジトリから起動する方法を案内します。
 
-- `Packages/com.trump-game-lab.rules/Runtime/` — Unity/C#ルールライブラリ
-- `tools/TrumpLab.Cli/` — 一覧、試遊、CPUシミュレーションCLI
-- `tests/TrumpLab.Tests/` — NUnitによる.NET契約テストとTRXレポート
-- `Packages/com.trump-game-lab.rules/Tests/Editor/` — Unity Test Runner契約テスト
-- `Unity/TrumpGameLab/` — Crazy Eights製品縦切り版のUnity project
-- `docs/` — 要件と設計の正本
+## できること
 
-ルールpackageを別のUnity projectで使う場合は、そのprojectの`Packages/manifest.json`から
-ローカルまたはGit packageとして参照します。RuntimeアセンブリはUnity 2021.3以上、
-`.NET Standard 2.1`、C# 9を対象にしています。追加方法は
-[`Packages/com.trump-game-lab.rules/README.md`](Packages/com.trump-game-lab.rules/README.md)を参照してください。
+- **CPUと対戦**：Unity版のCrazy Eightsでは、Easy・Standard・Hardの3段階から難易度を選べます。ワイルドカードのランクも変更できます。
+- **遊びながらルールを覚える**：チュートリアルで基本操作を体験し、対局前に遊び方を読み返せます。
+- **途中から再開する**：通常の対局は自動保存され、保存した対局の続きを遊べます。
+- **保存した盤面を確認する**：Replayで保存時点の盤面を閲覧できます。コマ送りや動画のような自動再生には対応していません。
+- **遊びやすさを調整する**：画面表示、音量、操作割り当て、演出速度を変更できます。日本語・英語、文字サイズ、高コントラスト、動きを抑える設定にも対応しています。
+- **多くのゲームを試す**：CLI版では、Crazy Eights、ハーツ、スペード、ジンラミー、ブラックジャックなどを遊べます。CPU同士の対戦結果を集計し、CSV・JSONで比較結果を保存することもできます。
 
-## 最短の起動方法
+各ゲームで採用しているルールや人数は、[ゲーム一覧とルール](docs/rules/candidate-rules.md)で確認できます。
 
-### Unity製品縦切り版
+## Unity版を起動する
 
-1. Unity Hubで `Unity/TrumpGameLab` を **Unity 6.3 LTS（`6000.3.22f1`）** のprojectとして開く。
-2. `Assets/TrumpLab/Product/Scenes/Bootstrap.unity` を開く。
-3. Playを押し、Crazy EightsのTutorialまたはPlayを開始する。
+必要なものは **Unity Hub** と **Unity 6.3 LTS（6000.3.22f1）** です。
 
-この製品projectのEditor versionは、Unity 2021.3以上を対象とするルールpackage単体の互換契約とは別です。詳細な設定、保存、テスト、品質probeは
-[`Unity/TrumpGameLab/README.md`](Unity/TrumpGameLab/README.md)を参照してください。
+1. このリポジトリ全体を取得し、Unity Hubで `Unity/TrumpGameLab` フォルダを開きます。
+2. `Assets/TrumpLab/Product/Scenes/Bootstrap.unity` を開きます。
+3. Unity EditorのPlayを押します。
+4. タイトルの `Tutorial` で操作を覚えるか、`Play` から対局を始めます。
 
-### CLI
+マウス、矢印キーとEnter／Space、ゲームパッドで操作できます。Escapeで戻り、F1でヘルプを開けます。
+CPUの難易度などは対局前の `Game Settings`、画面・音・操作・言語などは `Settings` で設定します。
+日本語表示には対応する日本語フォントが必要です。利用できるフォントがない場合は英語表示になります。
 
-`.NET SDK`を用意し、後述の `dotnet build`、`list`、`play`、`simulate` コマンドをリポジトリルートから実行します。
+### 保存した対局を開く
 
-## 実装状況
+タイトルの `Saved sessions` で対局を選びます。
 
-候補台帳92件はすべてゲームIDから生成でき、全件がゲーム固有の状態機械を使用します。
-CLIの`play`で合法手を選んで遊べ、`simulate`では同じ実装をCPU同士で完走できます。
-会話、身体動作、同時操作などは列挙アクションまたは決定論的な入力順へ正規化し、採用した
-バリアントと採用外の地域差を候補別仕様へ明記しています。台帳上は92件すべて`Verified`で、
-`RuleSpecific`と`Prototype`は0件です。
+- `Resume`：保存したところから再開します。
+- `Replay`：保存時点の盤面を閲覧します。
+- `Delete`：もう一度同じボタンを押して、選んだ対局を削除します。
 
-完成判定、候補ごとの状態、採用バリアントの暫定仕様は
-[`docs/rules/candidate-rules.md`](docs/rules/candidate-rules.md)です。正式照合の進捗と監査単位は
-[`docs/rules/verification-audit-plan.md`](docs/rules/verification-audit-plan.md)で管理し、Verified候補の
-正本は同計画から参照する個別照合書です。
+通常の対局は開始時と各操作後に自動保存されます。チュートリアルの対局は保存一覧に入りません。
 
-## 製品開発ロードマップ
+## CLI版を使う
 
-ルール検証基盤の次段階として、M01の構造化表示契約からM05のチュートリアルまでは完了しています。現在は
-`M06 製品品質`の`M06-T06`が`In Progress`で、手動・実機を含むRelease candidate確認が残っています。そのため現時点のUnity縦切り版を配布準備完了とは扱いません。優先順位と現在地は
-[`docs/product/roadmap.md`](docs/product/roadmap.md)を正本とし、同ロードマップからM01～M08の
-個別マイルストーンを参照する。継続作業の依頼方法は
-[`docs/product/README.md`](docs/product/README.md)に記載する。
+**.NET 8 SDK** が必要です。以下のコマンドはリポジトリのルートで実行します。
 
-## CLIとテスト
+まずビルドし、遊べるゲームと対応人数を確認します。
 
 ```bash
 dotnet build TrumpGameLab.sln -m:1
-pwsh ./scripts/run-dotnet-tests.ps1 -Mode Fast
-pwsh ./scripts/run-dotnet-tests.ps1 -Mode Standard
-pwsh ./scripts/run-dotnet-tests.ps1 -Mode Full
-dotnet test tests/TrumpLab.Tests --logger "trx;LogFileName=test.trx" --results-directory TestResults
-./scripts/verify-migration.sh
-pwsh ./scripts/verify-migration.ps1
-
-dotnet run --project tools/TrumpLab.Cli -- list
-dotnet run --project tools/TrumpLab.Cli -- catalogue --pending
-dotnet run --project tools/TrumpLab.Cli -- simulate german_whist --games 1000
-dotnet run --project tools/TrumpLab.Cli -- compare --game german_whist --game gin_rummy --format csv
-dotnet run --project tools/TrumpLab.Cli -- compare --format json --output verified-comparison.json
-dotnet run --project tools/TrumpLab.Cli -- play crazy_eights --players 4 --seed 10
-dotnet run --project tools/TrumpLab.Cli -- simulate crazy_eights -n 100 -o wild_rank=2
+dotnet run --project tools/TrumpLab.Cli --no-build -- list
 ```
 
-実装中は既定の`Fast`で短く確認し、実装単位の完了時に`Full`とmigration verificationを
-1回実行します。Unity側も`run-unity-tests.ps1`の`Fast`、`Standard`、`Full`で同じ範囲を
-選択できます。`Full`のカバレッジとseed数は従来から変更していません。
+Crazy Eightsを4人で始める例です。自分の番になったら、表示された操作の番号を入力します。ほかの席はCPUが担当します。
 
-## 新しいゲーム
+```bash
+dotnet run --project tools/TrumpLab.Cli --no-build -- play crazy_eights --players 4 --seed 10
+```
 
-1. `Runtime/Games/<GameName>Game.cs`へ`GameBase`の派生型を実装する。
-2. `LegalActions`、`Apply`、`IsTerminal`、`Result`、`View`を実装する。
-3. 最低限完走可能な`ChooseCpuAction`を用意する。
-4. `GameInfo`とファクトリーを`BuiltInGames`へ登録する。
-5. 候補台帳へ同じ`ImplementationId`を設定する。
-6. 最少・最大人数と複数seedの契約テストを通す。
+CPU同士で100局を試す場合や、2種類のゲームを比較してCSVに保存する場合は、次のように実行します。
 
-乱数には注入された`DeterministicRandom`だけを使います。同一seedの結果はCLIとUnityで
-一致し、CPUは相手の手札や山札順など観測不能な情報を方策に使用しません。
+```bash
+dotnet run --project tools/TrumpLab.Cli --no-build -- simulate crazy_eights --games 100
+dotnet run --project tools/TrumpLab.Cli --no-build -- compare --game german_whist --game gin_rummy --format csv --output comparison.csv
+```
 
-Unity Test Runnerでパッケージテストを実行する方法は
-`Packages/com.trump-game-lab.rules/README.md`を参照してください。
+`--seed` で乱数の初期値を指定できます。同じゲーム・人数・ルール設定・難易度・seedと同じ操作なら、対局を再現できます。
+CLIのコマンドとオプションは[コマンドリファレンス](docs/design/command_interface_design.md)を参照してください。
+
+## 詳しい情報
+
+- [ゲーム一覧と採用ルール](docs/rules/candidate-rules.md)
+- [Unity版の詳細](Unity/TrumpGameLab/README.md)
+- [ルールライブラリをUnityに組み込む](Packages/com.trump-game-lab.rules/README.md)
+- [開発・検証の手順](docs/development.md)
