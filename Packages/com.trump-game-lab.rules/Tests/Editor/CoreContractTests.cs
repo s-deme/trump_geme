@@ -17,10 +17,36 @@ namespace TrumpLab.Tests
         }
 
         [Test]
+        public void StandardDeckPreservesCopySuitAndSuppliedRankOrder()
+        {
+            Assert.That(Cards.StandardDeck(new[] { 13, 1 }, copies: 2)
+                .Select(card => card.ToString()), Is.EqualTo(new[]
+                {
+                    "KC", "AC", "KD", "AD", "KH", "AH", "KS", "AS",
+                    "KC", "AC", "KD", "AD", "KH", "AH", "KS", "AS"
+                }));
+            Assert.That(Cards.StandardDeck(copies: 0), Is.Empty);
+        }
+
+        [Test]
         public void CardTextRoundTrips()
         {
             foreach (Card card in Cards.StandardDeck())
+            {
                 Assert.That(Card.Parse(card.ToString()), Is.EqualTo(card));
+                Assert.That(Card.Parse(" \t" + card.ToString().ToLowerInvariant() + "\r\n"),
+                    Is.EqualTo(card));
+            }
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" \t\r\n")]
+        [TestCase(" A ")]
+        public void CardTextRejectsMissingOrIncompleteCards(string? text)
+        {
+            FormatException exception = Assert.Throws<FormatException>(() => Card.Parse(text!))!;
+            Assert.That(exception.Message, Is.EqualTo("Invalid card."));
         }
 
         [Test]
@@ -1061,6 +1087,23 @@ namespace TrumpLab.Tests
         {
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => BuiltInGames.Registry.Create("german_whist", 3));
+        }
+
+        [Test]
+        public void DuplicateRegistrationPreservesTheOriginalEntryAndFactory()
+        {
+            var registry = new GameRegistry();
+            GameInfo info = BuiltInGames.Registry.Info("war");
+            IGame game = BuiltInGames.Registry.Create("war");
+            registry.Register(info, (players, rng, options) => game);
+
+            ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+                registry.Register(info, (players, rng, options) =>
+                    throw new InvalidOperationException("Replacement factory called.")))!;
+
+            Assert.That(exception.Message, Is.EqualTo("Duplicate game id: war"));
+            Assert.That(registry.All(), Is.EqualTo(new[] { info }));
+            Assert.That(registry.Create("war"), Is.SameAs(game));
         }
 
         [Test]

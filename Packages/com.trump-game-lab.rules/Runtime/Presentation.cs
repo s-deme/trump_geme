@@ -262,23 +262,21 @@ namespace TrumpLab
             Result = result;
         }
 
-        private static void ValidateZones(IEnumerable<CardZonePresentation> zones, int players)
+        private static void ValidateZones(CardZonePresentation[] zones, int players)
         {
-            CardZonePresentation[] copiedZones = zones.ToArray();
-            PresentationGuard.UniqueIds(copiedZones.Select(zone =>
+            PresentationGuard.UniqueIds(zones.Select(zone =>
                 (zone ?? throw new ArgumentException("Card zones cannot contain null.", nameof(zones))).Id),
                 nameof(zones));
-            if (copiedZones.Any(zone => zone.OwnerPlayer >= players))
+            if (zones.Any(zone => zone.OwnerPlayer >= players))
                 throw new ArgumentException("Card zone owner is outside the player range.", nameof(zones));
         }
 
-        private static void ValidateFields(IEnumerable<GameFieldPresentation> fields, int players)
+        private static void ValidateFields(GameFieldPresentation[] fields, int players)
         {
-            GameFieldPresentation[] copiedFields = fields.ToArray();
-            PresentationGuard.UniqueIds(copiedFields.Select(field =>
+            PresentationGuard.UniqueIds(fields.Select(field =>
                 (field ?? throw new ArgumentException("Fields cannot contain null.", nameof(fields))).Id),
                 nameof(fields));
-            if (copiedFields.Any(field => field.Value.Kind == PresentationValueKind.Player &&
+            if (fields.Any(field => field.Value.Kind == PresentationValueKind.Player &&
                 field.Value.PlayerValue >= players))
                 throw new ArgumentException("Player field is outside the player range.", nameof(fields));
         }

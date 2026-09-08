@@ -51,6 +51,8 @@ namespace TrumpLab.Tests
             Assert.That(replay.Checkpoints.Select(checkpoint =>
                     PresentationSignature(checkpoint.Presentation!)),
                 Is.EqualTo(expected));
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<ReplayCheckpoint>)replay.Checkpoints).Clear());
             Assert.That(replay.Game.Result().Winners, Is.EqualTo(recorder.Game.Result().Winners));
             Assert.That(replay.Game.Result().Scores, Is.EqualTo(recorder.Game.Result().Scores));
             Assert.That(replay.Game.Result().Turns, Is.EqualTo(recorder.Game.Result().Turns));

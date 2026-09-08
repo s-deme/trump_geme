@@ -39,12 +39,14 @@ namespace TrumpLab
         public static IReadOnlyList<CpuDifficultyInfo> ProductOrder { get; } =
             Array.AsReadOnly(new[] { EasyInfo, StandardInfo, HardInfo });
 
-        public static CpuDifficultyInfo Get(int id)
+        public static CpuDifficultyInfo Get(int id) => id switch
         {
-            CpuDifficultyInfo? difficulty = All.FirstOrDefault(value => value.Id == id);
-            return difficulty ?? throw new ArgumentOutOfRangeException(
-                nameof(id), id, "Unknown CPU difficulty ID.");
-        }
+            Standard => StandardInfo,
+            Easy => EasyInfo,
+            Hard => HardInfo,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(id), id, "Unknown CPU difficulty ID.")
+        };
     }
 
     public readonly struct Card : IEquatable<Card>, IComparable<Card>
@@ -80,9 +82,10 @@ namespace TrumpLab
 
         public static Card Parse(string text)
         {
-            if (string.IsNullOrWhiteSpace(text) || text.Trim().Length < 2)
+            text = text?.Trim() ?? string.Empty;
+            if (text.Length < 2)
                 throw new FormatException("Invalid card.");
-            text = text.Trim().ToUpperInvariant();
+            text = text.ToUpperInvariant();
             Suit suit = ParseSuit(text[text.Length - 1].ToString());
             string label = text.Substring(0, text.Length - 1);
             int rank = label == "A" ? 1 : label == "J" ? 11 : label == "Q" ? 12 :
@@ -257,8 +260,9 @@ namespace TrumpLab
         {
             int[] selected = (ranks ?? Enumerable.Range(1, 13)).ToArray();
             var deck = new List<Card>(selected.Length * 4 * copies);
+            var suits = (Suit[])Enum.GetValues(typeof(Suit));
             for (int copy = 0; copy < copies; copy++)
-                foreach (Suit suit in Enum.GetValues(typeof(Suit)))
+                foreach (Suit suit in suits)
                     foreach (int rank in selected) deck.Add(new Card(suit, rank));
             return deck;
         }

@@ -139,10 +139,10 @@ namespace TrumpLab
         public IGame Game { get; }
         public IReadOnlyList<ReplayCheckpoint> Checkpoints { get; }
 
-        internal SessionReplayResult(IGame game, IEnumerable<ReplayCheckpoint> checkpoints)
+        internal SessionReplayResult(IGame game, ReadOnlyCollection<ReplayCheckpoint> checkpoints)
         {
             Game = game;
-            Checkpoints = Array.AsReadOnly(checkpoints.ToArray());
+            Checkpoints = checkpoints;
         }
     }
 
@@ -360,7 +360,7 @@ namespace TrumpLab
     {
         public IGame Game { get; }
         public DeterministicRandom CpuRandom { get; }
-        public IReadOnlyList<ReplayCheckpoint> Checkpoints { get; }
+        public ReadOnlyCollection<ReplayCheckpoint> Checkpoints { get; }
 
         public ReplayState(IGame game, DeterministicRandom cpuRandom,
             IEnumerable<ReplayCheckpoint> checkpoints)

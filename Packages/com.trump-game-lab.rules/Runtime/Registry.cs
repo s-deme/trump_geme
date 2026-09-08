@@ -49,9 +49,8 @@ namespace TrumpLab
         public void Register(GameInfo info,
             Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame> factory)
         {
-            if (entries.ContainsKey(info.GameId))
+            if (!entries.TryAdd(info.GameId, Tuple.Create(info, factory)))
                 throw new ArgumentException("Duplicate game id: " + info.GameId);
-            entries.Add(info.GameId, Tuple.Create(info, factory));
         }
 
         public GameInfo Info(string gameId) => entries[gameId].Item1;

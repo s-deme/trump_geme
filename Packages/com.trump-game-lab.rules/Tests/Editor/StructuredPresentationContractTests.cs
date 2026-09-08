@@ -142,6 +142,30 @@ namespace TrumpLab.Tests
                 Is.GreaterThan(snapshot.TurnCount));
         }
 
+        [Test]
+        public void PresentationCopiesZoneAndFieldInputs()
+        {
+            var zone = new CardZonePresentation(
+                "stock", "stock", null, CardZoneVisibility.CountOnly, 3);
+            var field = new GameFieldPresentation("turn", PresentationValue.FromNumber(2));
+            var zones = new[] { zone };
+            var fields = new[] { field };
+            var presentation = new GamePresentation(
+                "test_game", "play", 0, 0, 2, false,
+                new[] { new PlayerPresentation(0, true, true) },
+                zones, fields, Array.Empty<ActionPresentation>());
+
+            zones[0] = null!;
+            fields[0] = null!;
+
+            Assert.That(presentation.CardZones[0], Is.SameAs(zone));
+            Assert.That(presentation.Fields[0], Is.SameAs(field));
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<CardZonePresentation>)presentation.CardZones).Clear());
+            Assert.Throws<NotSupportedException>(() =>
+                ((IList<GameFieldPresentation>)presentation.Fields).Clear());
+        }
+
         private static void AssertDrawBoundary(int seed)
         {
             IGame game = BuiltInGames.Registry.Create("crazy_eights", 2, seed);

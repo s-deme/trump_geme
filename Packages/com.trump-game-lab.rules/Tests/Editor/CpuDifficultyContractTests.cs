@@ -20,6 +20,8 @@ namespace TrumpLab.Tests
                 }));
             Assert.That(CpuDifficulties.ProductOrder.Select(value => value.Id),
                 Is.EqualTo(new[] { 2, 1, 3 }));
+            foreach (CpuDifficultyInfo difficulty in CpuDifficulties.All)
+                Assert.That(CpuDifficulties.Get(difficulty.Id), Is.SameAs(difficulty));
             Assert.Throws<ArgumentOutOfRangeException>(() => CpuDifficulties.Get(0));
 
             Assert.That(BuiltInGames.Registry.Info("crazy_eights").SupportedCpuDifficulties,
