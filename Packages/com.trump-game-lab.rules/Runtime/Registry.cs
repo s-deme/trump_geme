@@ -41,19 +41,19 @@ namespace TrumpLab
 
     public sealed class GameRegistry
     {
-        private readonly Dictionary<string, Tuple<GameInfo,
-            Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame>>> entries =
-            new Dictionary<string, Tuple<GameInfo,
-                Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame>>>();
+        private readonly Dictionary<string, (GameInfo Info,
+            Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame> Factory)> entries =
+            new Dictionary<string, (GameInfo Info,
+                Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame> Factory)>();
 
         public void Register(GameInfo info,
             Func<int, DeterministicRandom, IReadOnlyDictionary<string, string>, IGame> factory)
         {
-            if (!entries.TryAdd(info.GameId, Tuple.Create(info, factory)))
+            if (!entries.TryAdd(info.GameId, (info, factory)))
                 throw new ArgumentException("Duplicate game id: " + info.GameId);
         }
 
-        public GameInfo Info(string gameId) => entries[gameId].Item1;
+        public GameInfo Info(string gameId) => entries[gameId].Info;
         public bool Contains(string gameId) => entries.ContainsKey(gameId);
         public CpuDifficultyInfo ValidateCpuDifficulty(string gameId, int difficulty)
         {
@@ -65,18 +65,17 @@ namespace TrumpLab
             return descriptor;
         }
         public IReadOnlyList<GameInfo> All() =>
-            entries.Values.Select(value => value.Item1).OrderBy(info => info.GameId).ToArray();
+            entries.Values.Select(value => value.Info).OrderBy(info => info.GameId).ToArray();
 
         public IGame Create(string gameId, int? players = null, long seed = 1,
             IReadOnlyDictionary<string, string>? options = null)
         {
-            Tuple<GameInfo, Func<int, DeterministicRandom,
-                IReadOnlyDictionary<string, string>, IGame>> entry = entries[gameId];
-            int count = players ?? entry.Item1.MinPlayers;
-            if (count < entry.Item1.MinPlayers || count > entry.Item1.MaxPlayers)
+            var entry = entries[gameId];
+            int count = players ?? entry.Info.MinPlayers;
+            if (count < entry.Info.MinPlayers || count > entry.Info.MaxPlayers)
                 throw new ArgumentOutOfRangeException(nameof(players),
-                    $"{entry.Item1.Name} supports {entry.Item1.MinPlayers}..{entry.Item1.MaxPlayers} players.");
-            return entry.Item2(count, new DeterministicRandom(seed),
+                    $"{entry.Info.Name} supports {entry.Info.MinPlayers}..{entry.Info.MaxPlayers} players.");
+            return entry.Factory(count, new DeterministicRandom(seed),
                 options ?? new Dictionary<string, string>());
         }
     }
