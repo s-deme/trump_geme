@@ -66,9 +66,7 @@ dotnet run --project tools/TrumpLab.Cli --no-build -- compare --game german_whis
 `--seed` で乱数の初期値を指定できます。同じゲーム・人数・ルール設定・難易度・seedと同じ操作なら、対局を再現できます。
 CLIのコマンドとオプションは[コマンドリファレンス](docs/design/command_interface_design.md)を参照してください。
 
-## 詳しい情報
+## ルールと補足
 
 - [ゲーム一覧と採用ルール](docs/rules/candidate-rules.md)
 - [Unity版の詳細](Unity/TrumpGameLab/README.md)
-- [ルールライブラリをUnityに組み込む](Packages/com.trump-game-lab.rules/README.md)
-- [開発・検証の手順](docs/development.md)
